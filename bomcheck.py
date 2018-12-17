@@ -7,7 +7,7 @@ Created on Sun Nov 18 20:39:10 2018
 """
 
 
-__version__ = '1.0rc3'
+__version__ = '0.1.4'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -38,29 +38,26 @@ def main():
     swlist = []
     mergedlist = []
     
-    for sw in swfiles:
-        swlist.append((sw[0], sw2sl(sw[1], args.exceptions)))
+    for _sw in swfiles:
+        swlist.append((_sw[0], sw(_sw[1], args.exceptions)))
         
     for pf in pairedfiles:
-        mergedlist.append((pf[0], sytelinemerge(pf[2], sw2sl(pf[1], args.exceptions))))
+        mergedlist.append((pf[0], sl(pf[2], sw(args.exceptions), pf[1])))
     
     export2excel(dirname, args.out, swlist, mergedlist)
         
-        
-    
-    
 
-def main2(fn, exceptions='/home/ken/Dropbox/dbDocuments/python2/dekkerbom/exceptions.txt'):
+def bomcheck(fn, exceptions='./exceptions.txt'):
     dirname, swfiles, pairedfiles = gatherfilenames(fn)
 
     swlist = []
     mergedlist = []
     
-    for sw in swfiles:
-        swlist.append((sw[0], sw2sl(sw[1], exceptions)))
+    for _sw in swfiles:
+        swlist.append((_sw[0], sw(_sw[1], exceptions)))
               
     for pf in pairedfiles:
-        mergedlist.append((pf[0], sytelinemerge(pf[2], sw2sl(pf[1], exceptions))))
+        mergedlist.append((pf[0], sl(sw(pf[1], exceptions), pf[2])))
         
     export2excel(dirname, 'bomcheck', swlist, mergedlist)
     #print(mergedlist)
@@ -71,6 +68,36 @@ def get_version():
 
 
 def export2excel(dirname, filename, swlist, mergedlist):
+    '''Export to an Excel file the results of all the bom checks that have
+    been done.
+    
+    Parmeters
+    =========
+    
+    dirname : string
+        The directory to which the Excel file that this function generates
+        will be sent.
+        
+    filename : string
+        The name of the Excel file.
+        
+    swlist : list
+        List of pandas DataFrame objects.  This list is a result of the output
+        from the function "sw".  These are SolidWorks BOMs for which no
+        matching SyteLine BOM was found.
+        
+    mergedlist : list
+        List of DataFrame objects.  Each of these DataFrame objects is the
+        output of the "sl" function.  That is, each object is a bom check
+        showing the comparison of a SolidWorks BOM and a SyteLine BOM.
+        
+    Returns
+    =======
+
+    out : Excel file (save to disk)
+        The Excel file show the outputs from the swlist and the mergedlist.
+        Each object is shown on its own individual Excel worksheet.    
+    '''
     d, f = os.path.split(filename)
     f, e = os.path.splitext(f)
     if d:
@@ -112,10 +139,6 @@ def export2excel(dirname, filename, swlist, mergedlist):
                 worksheet.set_column(idx+1, idx+1, max_len)  # set column width
         writer.save()
             
-            
-#export2csv(dirname, filename, swlist, mergedlist):  
-       
-    
 
 def gatherfilenames(filename):
     '''Gather names of excel files to be processed and return them in organized
@@ -211,7 +234,7 @@ def test_columns(df, required_columns):
     return not_found
                 
             
-def sw2sl(filename, exceptions):   
+def sw(filename='clipboard', exceptions='./exceptions.txt'):   
     '''Take a SolidWorks BOM and restructure it to be like that of a SyteLine 
     BOM.  That is, the following is done:
         
@@ -250,9 +273,9 @@ def sw2sl(filename, exceptions):
     Examples
     ========
     
-    >>> sw2sl()   # Get the BOM from the clipboard
+    >>> sw()   # Get the BOM from the clipboard
     
-    >>> sw2sl(r"C:\\dirpath\\name.xlsx")
+    >>> sw(r"C:\\dirpath\\name.xlsx")
     
     \u2009    
     '''
@@ -265,7 +288,7 @@ def sw2sl(filename, exceptions):
             df_sw = filename
         elif ext=='.xlsx' or ext=='.xls': 
             df_sw = pd.read_excel(filename, na_values=[' '], skiprows=1)
-        elif ext=='csv':
+        elif ext=='.csv':
             df_sw = pd.read_csv(filename, na_values=[' '], skiprows=1, engine='python')
         else:
             print('non valid file name (', fname, ')')
@@ -275,7 +298,7 @@ def sw2sl(filename, exceptions):
         print('FILNAME NOT FOUND: ', filename)
         sys.exit()
     except:
-        print('unknown error in function sw2sl')
+        print('unknown error in function sw')
         sys.exit()
         
     with open(exceptions,'r') as fh:
@@ -311,7 +334,7 @@ def sw2sl(filename, exceptions):
     return df_sw
 
 
-def sytelinemerge(filename, df_solidworks): 
+def sl(df_solidworks, filename='clipboard'): 
     '''This function reads in a BOM derived from StyeLine and then merges it 
     with the BOM from SolidWorks.  The merged BOMs allow differences to
     easily seen between the two BOMs.
@@ -328,7 +351,7 @@ def sytelinemerge(filename, df_solidworks):
         Name of Excel file(s) to process
     
     df_solidworks : pandas.DataFrame
-        A DataFrame produced by the function `sw2sl`
+        A DataFrame produced by the function `sw`
         
     Returns
     =======    
@@ -337,14 +360,16 @@ def sytelinemerge(filename, df_solidworks):
     Examples
     ========
     
-    >>> sytelinemerge()
+    >>> sl()
     
-    >>> sl(r"C:\\dirpath\\name2.xlsx", sw2sl(filename))
+    >>> sl(r"C:\\dirpath\\name2.xlsx", sw(filename))
     
     \u2009 
-    '''     
+    '''
     df_sw = df_solidworks
     fname, ext = os.path.splitext(filename)
+    
+    print('filename: ', filename)
     
     try:
         if filename=='clipboard' or filename=='cb':
@@ -353,7 +378,7 @@ def sytelinemerge(filename, df_solidworks):
             df_sl = filename
         elif ext=='.xlsx' or ext=='.xls': 
             df_sl = pd.read_excel(filename, na_values=[' '])
-        elif ext=='csv':
+        elif ext=='.csv':
             df_sl = pd.read_csv(filename, na_values=[' '], engine='python')
         else:
             print('non valid file name (', fname, ')')
@@ -362,9 +387,9 @@ def sytelinemerge(filename, df_solidworks):
     except IOError:
         print('FILNAME NOT FOUND: ', filename)
         sys.exit()
-    except:
-        print('unknown error in function sytelinemerge', title)
-        sys.exit()
+    #except:
+    #    print('unknown error in function sl')
+    #    sys.exit()
     
     sl_required_columns = [('Qty', 'Quantity'), 'Material Description', 'U/M', ('Item', 'Material')]
     missing = test_columns(df_sl, sl_required_columns)

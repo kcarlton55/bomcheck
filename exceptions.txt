@@ -1,0 +1,9 @@
+# bomcheck pn exceptions
+#
+# The bomcheck program discards part nos. that start with "3" and end with
+# "025" from a SolidWorks BOM.  Add part numbers to the list below that you
+# want exempt from this rule.
+
+3510-0200-025
+3086-1542-025
+
