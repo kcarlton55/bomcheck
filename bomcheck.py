@@ -7,7 +7,7 @@ Created on Sun Nov 18 20:39:10 2018
 """
 
 
-__version__ = '0.1.4'
+__version__ = '0.1.5'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -280,16 +280,15 @@ def sw(filename='clipboard', exceptions='./exceptions.txt'):
     \u2009    
     '''
     fname, ext = os.path.splitext(filename)
-    print(fname, ext)
     try:
         if filename=='clipboard' or filename=='cb':
-            df_sw = pd.read_clipboard(engine='python', na_values=[' '])
+            df_sw = pd.read_clipboard(engine='python', na_values=[' '], skiprows=1)
         elif str(type(filename))[-11:-2] == 'DataFrame':
             df_sw = filename
         elif ext=='.xlsx' or ext=='.xls': 
             df_sw = pd.read_excel(filename, na_values=[' '], skiprows=1)
         elif ext=='.csv':
-            df_sw = pd.read_csv(filename, na_values=[' '], skiprows=1, engine='python')
+            df_sw = pd.read_csv(filename, na_values=[' '], skiprows=1, engine='python', encoding='utf-8')
         else:
             print('non valid file name (', fname, ')')
             sys.exit()
@@ -297,16 +296,20 @@ def sw(filename='clipboard', exceptions='./exceptions.txt'):
     except IOError:
         print('FILNAME NOT FOUND: ', filename)
         sys.exit()
-    except:
-        print('unknown error in function sw')
-        sys.exit()
+    #except:
+    #    print('unknown error in function sw')
+    #    sys.exit()
         
-    with open(exceptions,'r') as fh:
-         exceps = fh.read().splitlines()
-    exceptions = []  # Exceptions to part nos. removed for SW BOM.
+    exlist = []  # Exceptions to part nos. removed for SW BOM.    
+    try:    
+        with open(exceptions,'r') as fh:
+            exceps = fh.read().splitlines()
+    except FileNotFoundError:
+        print('File not found: exceptions.txt')
+        exceps=[]
     for e in exceps:
         if e and e[0]!='#':
-             exceptions.append(e.strip()) 
+             exlist.append(e.strip()) 
         
     required_columns = [('QTY', 'QTY.'), 'DESCRIPTION', ('PART NUMBER', 'PARTNUMBER')]  # optional: LENGTH
     missing = test_columns(df_sw, required_columns)
@@ -329,7 +332,7 @@ def sw(filename='clipboard', exceptions='./exceptions.txt'):
     df_sw = df_sw.reindex(['Item', 'Qty', 'Material Description', 'U/M'], axis=1)  # rename and/or remove columns
     d = {'Qty': 'sum', 'Material Description': 'first', 'U/M': 'first'}   # funtions to apply to next line
     df_sw = df_sw.groupby('Item', as_index=False).aggregate(d).reindex(columns=df_sw.columns)
-    filtr3 = df_sw['Item'].str.startswith('3') & df_sw['Item'].str.endswith('025') & ~df_sw['Item'].isin(exceptions)
+    filtr3 = df_sw['Item'].str.startswith('3') & df_sw['Item'].str.endswith('025') & ~df_sw['Item'].isin(exlist)
     df_sw.drop(df_sw[filtr3].index, inplace=True)  # delete nipples & fittings who's pn ends with "025"
     return df_sw
 
@@ -369,8 +372,6 @@ def sl(df_solidworks, filename='clipboard'):
     df_sw = df_solidworks
     fname, ext = os.path.splitext(filename)
     
-    print('filename: ', filename)
-    
     try:
         if filename=='clipboard' or filename=='cb':
             df_sl = pd.read_clipboard(engine='python', na_values=[' '])
@@ -379,7 +380,7 @@ def sl(df_solidworks, filename='clipboard'):
         elif ext=='.xlsx' or ext=='.xls': 
             df_sl = pd.read_excel(filename, na_values=[' '])
         elif ext=='.csv':
-            df_sl = pd.read_csv(filename, na_values=[' '], engine='python')
+            df_sl = pd.read_csv(filename, na_values=[' '], engine='python', encoding='utf-8')
         else:
             print('non valid file name (', fname, ')')
             sys.exit()
