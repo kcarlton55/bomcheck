@@ -7,7 +7,7 @@ Created on Sun Nov 18 20:39:10 2018
 """
 
 
-__version__ = '0.1.5'
+__version__ = '0.1.6'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -18,14 +18,17 @@ pd.set_option('display.max_colwidth', 100)
 pd.set_option('display.width', None)
 
 def main():
+    dir_bc = os.path.dirname(os.path.realpath(__file__))  # direcory where bomcheck.py is at
+    exceptions_default = os.path.join(dir_bc, 'exceptions.txt')
+    
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      description='Program to compare SolidWorks BOMs to SyteLine BOMs')
     #parser = argparse.ArgumentParser(description='Compare SolidWorks BOMs to a SyteLine BOMs')
     parser.add_argument('filename', help='Excel files containing BOMs to compare. ' +
                         'Filenames must end with _sw.xlsx or _sl.xlsx.  ' +
                         'Examples: "078551*", "6890-*", "*"')
-    parser.add_argument('-e', '--exceptions', 
-                        default='/home/ken/Dropbox/dbDocuments/python2/dekkerbom/exceptions.txt',
+    parser.add_argument('-e', '--exceptions',  # default: where bomcheck.py is located 
+                        default=exceptions_default,
                         help='text file containing excecptions to pns (off-the-shelf items) omited from SW BOMs',
                         metavar='')
     parser.add_argument('-v', '--version', action='version',
@@ -34,7 +37,7 @@ def main():
                         help="Name of excel file to create and then output results to.")
     args = parser.parse_args()
     dirname, swfiles, pairedfiles = gatherfilenames(args.filename)
-       
+           
     swlist = []
     mergedlist = []
     
@@ -42,7 +45,7 @@ def main():
         swlist.append((_sw[0], sw(_sw[1], args.exceptions)))
         
     for pf in pairedfiles:
-        mergedlist.append((pf[0], sl(pf[2], sw(args.exceptions), pf[1])))
+        mergedlist.append((pf[0], sl(sw(pf[1], args.exceptions), pf[2])))
     
     export2excel(dirname, args.out, swlist, mergedlist)
         
@@ -279,7 +282,7 @@ def sw(filename='clipboard', exceptions='./exceptions.txt'):
     
     \u2009    
     '''
-    fname, ext = os.path.splitext(filename)
+    _, ext = os.path.splitext(filename)
     try:
         if filename=='clipboard' or filename=='cb':
             df_sw = pd.read_clipboard(engine='python', na_values=[' '], skiprows=1)
@@ -288,9 +291,9 @@ def sw(filename='clipboard', exceptions='./exceptions.txt'):
         elif ext=='.xlsx' or ext=='.xls': 
             df_sw = pd.read_excel(filename, na_values=[' '], skiprows=1)
         elif ext=='.csv':
-            df_sw = pd.read_csv(filename, na_values=[' '], skiprows=1, engine='python', encoding='utf-8')
+            df_sw = pd.read_csv(filename, na_values=[' '], skiprows=1, engine='python', encoding='windows-1252')
         else:
-            print('non valid file name (', fname, ')')
+            print('non valid file name (', filename, ') (err 102)')
             sys.exit()
             
     except IOError:
@@ -370,7 +373,7 @@ def sl(df_solidworks, filename='clipboard'):
     \u2009 
     '''
     df_sw = df_solidworks
-    fname, ext = os.path.splitext(filename)
+    _, ext = os.path.splitext(filename)
     
     try:
         if filename=='clipboard' or filename=='cb':
@@ -380,9 +383,9 @@ def sl(df_solidworks, filename='clipboard'):
         elif ext=='.xlsx' or ext=='.xls': 
             df_sl = pd.read_excel(filename, na_values=[' '])
         elif ext=='.csv':
-            df_sl = pd.read_csv(filename, na_values=[' '], engine='python', encoding='utf-8')
+            df_sl = pd.read_csv(filename, na_values=[' '], engine='python', encoding='windows-1252')
         else:
-            print('non valid file name (', fname, ')')
+            print('non valid file name (', filename, ') (err 101)')
             sys.exit()
         
     except IOError:
