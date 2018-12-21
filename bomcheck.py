@@ -35,14 +35,16 @@ def main():
                     version=__version__, help="Show program's version number and exit.")
     parser.add_argument('-o', '--out', default='bomcheck', metavar='', 
                         help="Name of excel file to create and then output results to.")
+    parser.add_argument('--operation', default=10, help='Operation no. that shows in output from the `sw` function')
     args = parser.parse_args()
     dirname, swfiles, pairedfiles = gatherfilenames(args.filename)
+    op = args.operation
            
     swlist = []
     mergedlist = []
     
     for _sw in swfiles:
-        swlist.append((_sw[0], sw(_sw[1], args.exceptions)))
+        swlist.append((_sw[0], sw(_sw[1], args.exceptions, op)))
         
     for pf in pairedfiles:
         mergedlist.append((pf[0], sl(sw(pf[1], args.exceptions), pf[2])))
@@ -50,14 +52,15 @@ def main():
     export2excel(dirname, args.out, swlist, mergedlist)
         
 
-def bomcheck(fn, exceptions='./exceptions.txt'):
+def bomcheck(fn, exceptions='./exceptions.txt', operation=10):
     dirname, swfiles, pairedfiles = gatherfilenames(fn)
+    op = operation
 
     swlist = []
     mergedlist = []
     
     for _sw in swfiles:
-        swlist.append((_sw[0], sw(_sw[1], exceptions)))
+        swlist.append((_sw[0], sw(_sw[1], exceptions, op)))
               
     for pf in pairedfiles:
         mergedlist.append((pf[0], sl(sw(pf[1], exceptions), pf[2])))
@@ -237,7 +240,7 @@ def test_columns(df, required_columns):
     return not_found
                 
             
-def sw(filename='clipboard', exceptions='./exceptions.txt'):   
+def sw(filename='clipboard', exceptions='./exceptions.txt', operation=10):   
     '''Take a SolidWorks BOM and restructure it to be like that of a SyteLine 
     BOM.  That is, the following is done:
         
@@ -332,11 +335,16 @@ def sw(filename='clipboard', exceptions='./exceptions.txt'):
         df_sw['U/M'] = filtr2.apply(lambda x: 'FT' if x else 'EA')
     except:
         df_sw['U/M'] = 'EA'
-    df_sw = df_sw.reindex(['Item', 'Qty', 'Material Description', 'U/M'], axis=1)  # rename and/or remove columns
+
+    df_sw = df_sw.reindex(['Op', 'WC','Item', 'Qty', 'Material Description', 'U/M'], axis=1)  # rename and/or remove columns
     d = {'Qty': 'sum', 'Material Description': 'first', 'U/M': 'first'}   # funtions to apply to next line
     df_sw = df_sw.groupby('Item', as_index=False).aggregate(d).reindex(columns=df_sw.columns)
     filtr3 = df_sw['Item'].str.startswith('3') & df_sw['Item'].str.endswith('025') & ~df_sw['Item'].isin(exlist)
     df_sw.drop(df_sw[filtr3].index, inplace=True)  # delete nipples & fittings who's pn ends with "025"
+    df_sw['WC'] = 'PICK'
+    df_sw['Op'] = str(operation)  
+    df_sw.set_index('Op', inplace=True)
+    
     return df_sw
 
 
