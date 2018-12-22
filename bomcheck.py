@@ -18,6 +18,21 @@ pd.set_option('display.max_colwidth', 100)
 pd.set_option('display.width', None)
 
 def main():
+    '''bomcheck.py can be run from a command line.
+    
+    Examples
+    ========
+    
+    >>> python bomcheck.py "078551*"   
+    
+    >>> python bomcheck.py "C:\\\\pathtomyfile\\\\6890-*"  # must use double (\\\\) backslash
+    
+    >>> python bomcheck.py "*"
+    
+    >>> python bomcheck.py --help
+    
+    \u2009  
+    '''
     dir_bc = os.path.dirname(os.path.realpath(__file__))  # direcory where bomcheck.py is at
     exceptions_default = os.path.join(dir_bc, 'exceptions.txt')
     
@@ -52,21 +67,60 @@ def main():
     export2excel(dirname, args.out, swlist, mergedlist)
         
 
-def bomcheck(fn, exceptions='./exceptions.txt', operation=10):
+def bomcheck(fn, exceptions='<dir of bomcheck.py file>/exceptions.txt', operation=10):
+    '''Do BOM checks on a group of Excel files containing BOMs.  Filenames must
+    end with _sw.xlsx or _sl.xlsx.  Leading part of file names must match.  For
+    example, leading parts of names 0300-2018-797_sw.xlsx and 0300-2018-797_sw.xlsx
+    match and a BOM check will be done on them.
+    
+    Parmeters
+    =========
+    
+    fn : string
+        filename(s) of Excel files to do a BOM check on.
+        
+    exceptions : string
+        Name of text file containing excecptions to pns (off-the-shelf items)
+        that are omited from SW BOMs (carried out by the `sw` function)
+        
+    Returns
+    =======
+
+    out : Excel file (saved to disk)
+        The Excel file show the outputs from the swlist and the mergedlist.
+        Each object is shown on its own individual Excel worksheet. 
+        
+    Examples
+    ========
+    
+    >>> bomcheck("078551*")   
+    
+    >>> bomcheck("C:\\\\pathtomyfile\\\\6890-*")   # must use double (\\\\) backslash
+    
+    >>> bomcheck("*")
+    
+    \u2009        
+    '''
     dirname, swfiles, pairedfiles = gatherfilenames(fn)
     op = operation
-
+    dir_bc = os.path.dirname(os.path.realpath(__file__))  # direcory where bomcheck.py is at
+    excepts_default_file = os.path.join(dir_bc, 'exceptions.txt')
+    
+    if not exceptions=='<dir of bomcheck.py file>/exceptions.txt' and os.path.isfile(exceptions):
+        exceptsfile = exceptions
+    else:
+        exceptsfile = excepts_default_file
+   
     swlist = []
     mergedlist = []
     
     for _sw in swfiles:
-        swlist.append((_sw[0], sw(_sw[1], exceptions, op)))
+        swlist.append((_sw[0], sw(_sw[1], exceptsfile, op)))
               
     for pf in pairedfiles:
-        mergedlist.append((pf[0], sl(sw(pf[1], exceptions), pf[2])))
+        mergedlist.append((pf[0], sl(sw(pf[1], exceptsfile), pf[2])))
         
     export2excel(dirname, 'bomcheck', swlist, mergedlist)
-    #print(mergedlist)
         
 
 def get_version():
@@ -100,9 +154,11 @@ def export2excel(dirname, filename, swlist, mergedlist):
     Returns
     =======
 
-    out : Excel file (save to disk)
+    out : Excel file (saved to disk)
         The Excel file show the outputs from the swlist and the mergedlist.
-        Each object is shown on its own individual Excel worksheet.    
+        Each object is shown on its own individual Excel worksheet. 
+        
+     \u2009 
     '''
     d, f = os.path.split(filename)
     f, e = os.path.splitext(f)
@@ -168,6 +224,8 @@ def gatherfilenames(filename):
         .
         The first tuple item is a list of SolidWorks boms for which no matching
         Syteline bom was found.  
+        
+     \u2009 
     '''
     dirname = os.path.dirname(filename)
     if dirname and not os.path.exists(dirname):
@@ -222,7 +280,9 @@ def test_columns(df, required_columns):
         if the string is a null string, i.e. '', then the test has been passed
         and all column titles are present.  However if a non null string is
         returned, e.g., 'U/M', then at least one column title is missing and
-        the test fails.        
+        the test fails.
+        
+    \u2009 
     '''
     not_found = ''  # not_found is a column title that is not found
     c = df.columns
