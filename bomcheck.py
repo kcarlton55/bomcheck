@@ -7,7 +7,7 @@ Created on Sun Nov 18 20:39:10 2018
 """
 
 
-__version__ = '0.1.6'
+__version__ = '0.1.7'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
