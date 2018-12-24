@@ -121,6 +121,13 @@ def bomcheck(fn, exceptions='<dir of bomcheck.py file>/exceptions.txt', operatio
         mergedlist.append((pf[0], sl(sw(pf[1], exceptsfile), pf[2])))
         
     export2excel(dirname, 'bomcheck', swlist, mergedlist)
+    
+    results = {}
+    for s in swlist:
+        results[s[0]] = s[1]
+    for m in mergedlist:
+        results[m[0]] = m[1]
+    return results
         
 
 def get_version():
