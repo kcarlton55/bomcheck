@@ -63,8 +63,13 @@ def main():
         
     for pf in pairedfiles:
         mergedlist.append((pf[0], sl(sw(pf[1], args.exceptions), pf[2])))
+        
+    export2excel(dirname, args.out, swlist + mergedlist)
     
-    export2excel(dirname, args.out, swlist, mergedlist)
+    #results = {}
+    #for s in (swlist + mergedlist):
+    #    results[s[0]] = s[1]
+    #return print(results.keys())
         
 
 def bomcheck(fn, exceptions='<dir of bomcheck.py file>/exceptions.txt', operation=10):
@@ -120,13 +125,11 @@ def bomcheck(fn, exceptions='<dir of bomcheck.py file>/exceptions.txt', operatio
     for pf in pairedfiles:
         mergedlist.append((pf[0], sl(sw(pf[1], exceptsfile), pf[2])))
         
-    export2excel(dirname, 'bomcheck', swlist, mergedlist)
+    export2excel(dirname, 'bomcheck', swlist + mergedlist)
     
     results = {}
-    for s in swlist:
+    for s in (swlist + mergedlist):
         results[s[0]] = s[1]
-    for m in mergedlist:
-        results[m[0]] = m[1]
     return results
         
 
@@ -134,7 +137,7 @@ def get_version():
     return __version__
 
 
-def export2excel(dirname, filename, swlist, mergedlist):
+def export2excel(dirname, filename, results2export):
     '''Export to an Excel file the results of all the bom checks that have
     been done.
     
@@ -148,15 +151,11 @@ def export2excel(dirname, filename, swlist, mergedlist):
     filename : string
         The name of the Excel file.
         
-    swlist : list
-        List of pandas DataFrame objects.  This list is a result of the output
-        from the function "sw".  These are SolidWorks BOMs for which no
-        matching SyteLine BOM was found.
-        
-    mergedlist : list
-        List of DataFrame objects.  Each of these DataFrame objects is the
-        output of the "sl" function.  That is, each object is a bom check
-        showing the comparison of a SolidWorks BOM and a SyteLine BOM.
+    results2export : list
+        List of pandas DataFrame objects.   Results are either: 1. Only 
+        SolidWorks BOMs, that have been converted to SyteLine format, if no 
+        corresponding SyteLine BOM was found to compare it to.  2.  A list 
+        showing a comparison between a SolidWorks BOM and a SyteLine BOM.
         
     Returns
     =======
@@ -180,25 +179,12 @@ def export2excel(dirname, filename, swlist, mergedlist):
     fn = os.path.join(dirname, f+e)
     
     with pd.ExcelWriter(fn) as writer:
-        for s in swlist:
-            sheetname = s[0]
-            df = s[1]
+        for r in results2export:
+            sheetname = r[0]
+            df = r[1]
             df.to_excel(writer, sheet_name=sheetname)
             worksheet = writer.sheets[sheetname]  # pull worksheet object
             # adjust widths of columns in Excel worksheet to fit data's width:
-            for idx, col in enumerate(df):  # loop through all columns
-                series = df[col]
-                max_len = max((
-                    series.astype(str).map(len).max(),  # len of largest item
-                    len(str(series.name))  # len of column name/header
-                    )) + 1  # adding a little extra space
-                worksheet.set_column(idx+1, idx+1, max_len)  # set column width
-
-        for m in mergedlist:
-            sheetname = m[0]
-            df = m[1]
-            df.to_excel(writer, sheet_name=sheetname)
-            worksheet = writer.sheets[sheetname]  # pull worksheet object
             for idx, col in enumerate(df):  # loop through all columns
                 series = df[col]
                 max_len = max((
@@ -260,6 +246,7 @@ def gatherfilenames(filename):
             dname, fname = os.path.split(s)
             fname, ext = os.path.splitext(fname)
             swfilenames.append((fname, s))
+    #print('aaa', swfilenames, pairedfilenames)
     return dirname, swfilenames, pairedfilenames
                 
         
