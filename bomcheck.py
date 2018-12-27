@@ -7,7 +7,7 @@ Created on Sun Nov 18 20:39:10 2018
 """
 
 
-__version__ = '0.1.7'
+__version__ = '0.1.8'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -232,21 +232,22 @@ def gatherfilenames(filename):
             swfilenames_tmp.append(f)
     swfilenames = []
     pairedfilenames = []
+    # go through the sw files.  Find find the matching sl file for a given sw file
     for s in swfilenames_tmp:
-        flag = True
-        j = s.rfind('_')
+        flag = True    # assume only a sw file exists...  no matching sl file.
+        j = s.rfind('_')  # this to truncate the sw filename; i.e. to git rid of _sw.xlsx
         for f in gatherednames:
             i = f.rfind('_')
-            if f[i:i+4].lower()=='_sl.' and s[:j].lower()==f[:i].lower():
+            if f[i:i+4].lower()=='_sl.' and s[:j].lower()==f[:i].lower():  # found match
                 dname, fname = os.path.split(s)
-                fname = fname[:i]
-                pairedfilenames.append((fname, s, f))
-                flag = False
-        if flag==True:
+                k = fname.rfind('_')
+                fntrunc = fname[:k]
+                pairedfilenames.append((fntrunc, s, f))  # (identifier, sw filename, sl filename)
+                flag = False  # sw file is not alone!
+        if flag==True:  # sw file is alone... no matching sl file found.
             dname, fname = os.path.split(s)
             fname, ext = os.path.splitext(fname)
-            swfilenames.append((fname, s))
-    #print('aaa', swfilenames, pairedfilenames)
+            swfilenames.append((fname, s))  #  (identifier with _sw.xlsx ext, sw filename)
     return dirname, swfilenames, pairedfilenames
                 
         
