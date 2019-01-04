@@ -7,7 +7,7 @@ Created on Sun Nov 18 20:39:10 2018
 """
 
 
-__version__ = '0.1.8'
+__version__ = '0.1.9'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -16,6 +16,7 @@ pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
 pd.set_option('display.max_colwidth', 100)
 pd.set_option('display.width', None)
+
 
 def main():
     '''bomcheck.py can be run from a command line.
@@ -34,11 +35,9 @@ def main():
     \u2009  
     '''
     dir_bc = os.path.dirname(os.path.realpath(__file__))  # direcory where bomcheck.py is at
-    exceptions_default = os.path.join(dir_bc, 'exceptions.txt')
-    
+    exceptions_default = os.path.join(dir_bc, 'exceptions.txt')    
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      description='Program to compare SolidWorks BOMs to SyteLine BOMs')
-    #parser = argparse.ArgumentParser(description='Compare SolidWorks BOMs to a SyteLine BOMs')
     parser.add_argument('filename', help='Excel files containing BOMs to compare. ' +
                         'Filenames must end with _sw.xlsx or _sl.xlsx.  ' +
                         'Examples: "078551*", "6890-*", "*"')
@@ -48,31 +47,11 @@ def main():
                         metavar='')
     parser.add_argument('-v', '--version', action='version',
                     version=__version__, help="Show program's version number and exit.")
-    parser.add_argument('-o', '--out', default='bomcheck', metavar='', 
-                        help="Name of excel file to create and then output results to.")
-    parser.add_argument('--operation', default=10, help='Operation no. that shows in output from the `sw` function')
     args = parser.parse_args()
-    dirname, swfiles, pairedfiles = gatherfilenames(args.filename)
-    op = args.operation
-           
-    swlist = []
-    mergedlist = []
-    
-    for _sw in swfiles:
-        swlist.append((_sw[0], sw(_sw[1], args.exceptions, op)))
-        
-    for pf in pairedfiles:
-        mergedlist.append((pf[0], sl(sw(pf[1], args.exceptions), pf[2])))
-        
-    export2excel(dirname, args.out, swlist + mergedlist)
-    
-    #results = {}
-    #for s in (swlist + mergedlist):
-    #    results[s[0]] = s[1]
-    #return print(results.keys())
-        
+    bomcheck(args.filename, args.exceptions)
+            
 
-def bomcheck(fn, exceptions='<dir of bomcheck.py file>/exceptions.txt', operation=10):
+def bomcheck(fn, exceptions='<dir of bomcheck.py file>/exceptions.txt'):
     '''Do BOM checks on a group of Excel files containing BOMs.  Filenames must
     end with _sw.xlsx or _sl.xlsx.  Leading part of file names must match.  For
     example, leading parts of names 0300-2018-797_sw.xlsx and 0300-2018-797_sw.xlsx
@@ -107,7 +86,7 @@ def bomcheck(fn, exceptions='<dir of bomcheck.py file>/exceptions.txt', operatio
     \u2009        
     '''
     dirname, swfiles, pairedfiles = gatherfilenames(fn)
-    op = operation
+    op = 10  # for a column titled "operation" seen in a SyteLine BOM table
     dir_bc = os.path.dirname(os.path.realpath(__file__))  # direcory where bomcheck.py is at
     excepts_default_file = os.path.join(dir_bc, 'exceptions.txt')
     
@@ -124,8 +103,11 @@ def bomcheck(fn, exceptions='<dir of bomcheck.py file>/exceptions.txt', operatio
               
     for pf in pairedfiles:
         mergedlist.append((pf[0], sl(sw(pf[1], exceptsfile), pf[2])))
-        
-    export2excel(dirname, 'bomcheck', swlist + mergedlist)
+    
+    try:    
+        export2excel(dirname, 'bomcheck', swlist + mergedlist)
+    except:
+        print('Error at function "export2excel".  Failed to create file: bomcheck.xlsx')
     
     results = {}
     for s in (swlist + mergedlist):
