@@ -7,7 +7,7 @@ Created on Sun Nov 18 20:39:10 2018
 """
 
 
-__version__ = '0.1.9'
+__version__ = '0.1.10'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -15,7 +15,7 @@ warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
 pd.set_option('display.max_colwidth', 100)
-pd.set_option('display.width', None)
+pd.set_option('display.width', 200)
 
 
 def main():
@@ -256,7 +256,7 @@ def test_columns(df, required_columns):
     out : string
         if the string is a null string, i.e. '', then the test has been passed
         and all column titles are present.  However if a non null string is
-        returned, e.g., 'U/M', then at least one column title is missing and
+        returned, e.g., 'U', then at least one column title is missing and
         the test fails.
         
     \u2009 
@@ -363,18 +363,18 @@ def sw(filename='clipboard', exceptions='./exceptions.txt', operation=10):
     df_sw.fillna(0, inplace=True)  # fill NaN values with 0
     df_sw['DECRIPTION'] = df_sw['DESCRIPTION'].apply(lambda x: x.replace('\n', ''))  # get rid of "new line" character
     df_sw.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item',   # rename column titles
-                          'DESCRIPTION': 'Material Description', 'QTY': 'Qty', 'QTY.': 'Qty'}, inplace=True)
+                          'DESCRIPTION': 'Material Description', 'QTY': 'Q', 'QTY.': 'Q'}, inplace=True)
     filtr1 = df_sw['Item'].str.startswith('3086')  # filter pipe nipples (i.e. pn starting with 3086)
     try:       # if no LENGTH in the table, an error occurs. "try" causes following lines to be passed over 
         df_sw['LENGTH'] = round((df_sw['Qty'] * df_sw['LENGTH'] * ~filtr1) /12.0, 4)  # covert lenghts to feet. ~ = NOT 
         filtr2 = df_sw['LENGTH'] >= 0.00001  # a filter: only items where length greater than 0.0
-        df_sw['Qty'] = df_sw['Qty']*(~filtr2) + df_sw['LENGTH']  # move lengths (in feet) to the Qty column
-        df_sw['U/M'] = filtr2.apply(lambda x: 'FT' if x else 'EA')
+        df_sw['Q'] = df_sw['Q']*(~filtr2) + df_sw['LENGTH']  # move lengths (in feet) to the Qty column
+        df_sw['U'] = filtr2.apply(lambda x: 'FT' if x else 'EA')
     except:
-        df_sw['U/M'] = 'EA'
+        df_sw['U'] = 'EA'
 
-    df_sw = df_sw.reindex(['Op', 'WC','Item', 'Qty', 'Material Description', 'U/M'], axis=1)  # rename and/or remove columns
-    d = {'Qty': 'sum', 'Material Description': 'first', 'U/M': 'first'}   # funtions to apply to next line
+    df_sw = df_sw.reindex(['Op', 'WC','Item', 'Q', 'Material Description', 'U'], axis=1)  # rename and/or remove columns
+    d = {'Q': 'sum', 'Material Description': 'first', 'U': 'first'}   # funtions to apply to next line
     df_sw = df_sw.groupby('Item', as_index=False).aggregate(d).reindex(columns=df_sw.columns)
     filtr3 = df_sw['Item'].str.startswith('3') & df_sw['Item'].str.endswith('025') & ~df_sw['Item'].isin(exlist)
     df_sw.drop(df_sw[filtr3].index, inplace=True)  # delete nipples & fittings who's pn ends with "025"
@@ -456,26 +456,24 @@ def sl(df_solidworks, filename='clipboard'):
     # It causes the bomcheck program confusion and the program crashes.
     if 'Item' in df_sl.columns and 'Material' in df_sl.columns:
         df_sl.drop(['Item'], axis=1, inplace=True)       
-    df_sl.rename(columns={'Material':'Item', 'Quantity':'Qty'}, inplace=True)
+    df_sl.rename(columns={'Material':'Item', 'Quantity':'Q', 'Qty':'Q', 'U/M':'U'}, inplace=True)
     df_merged = pd.merge(df_sw, df_sl, on='Item', how='outer', suffixes=('_sw', '_sl'), indicator=True)
     df_merged.sort_values(by=['Item'], inplace=True)
     filtrI = df_merged['_merge'].str.contains('both')  # this filter determines if pn in both SW and SL
-    filtrQ = abs(df_merged['Qty_sw'] - df_merged['Qty_sl']) < .01  # a filter is a list of True/False values
+    filtrQ = abs(df_merged['Q_sw'] - df_merged['Q_sl']) < .01  # a filter is a list of True/False values
     filtrM = df_merged['Material Description_sw'].str.split()==df_merged['Material Description_sl'].str.split()
-    filtrU = df_merged['U/M_sw']==df_merged['U/M_sl']
+    filtrU = df_merged['U_sw']==df_merged['U_sl']
     chkmark = '\u2713' # The UTF-8 character code for a check mark character
     err = '\u2716'     # X character
-    ws = '\u2009'      # ws = white space character, ref: https://en.wikipedia.org/wiki/Whitespace_character
-    IQMU = 'I' + ws + 'Q' + ws + 'M' + ws + 'U'  # i.e., U Q M U... ctc = "Column Title for Checks"
-    df_merged[IQMU] = (filtrI.apply(lambda x: chkmark if x else err)     # X = Item not in SW or SL
+    df_merged['IQMU'] = (filtrI.apply(lambda x: chkmark if x else err)   # X = Item not in SW or SL
                        + filtrQ.apply(lambda x: chkmark if x else err)   # X = Qty differs btwn SW and SL
                        + filtrM.apply(lambda x: chkmark if x else err)   # X = Mtl differs btwn SW & SL
-                       + filtrU.apply(lambda x: chkmark if x else err))  # X = U/M differs btwn SW & SL
-    df_merged[IQMU] = ~df_merged['Item'].duplicated(keep=False) * df_merged[IQMU] # duplicate in SL? IQMU-> blank
-    df_merged = df_merged[['Item', IQMU, 'Qty_sw', 'Qty_sl', 'Material Description_sw',
-                           'Material Description_sl', 'U/M_sw', 'U/M_sl']]
+                       + filtrU.apply(lambda x: chkmark if x else err))  # X = U differs btwn SW & SL
+    df_merged['IQMU'] = ~df_merged['Item'].duplicated(keep=False) * df_merged['IQMU'] # duplicate in SL? IQMU-> blank
+    df_merged = df_merged[['Item', 'IQMU', 'Q_sw', 'Q_sl', 'Material Description_sw',
+                           'Material Description_sl', 'U_sw', 'U_sl']]
     df_merged.fillna('', inplace=True)
-    df_merged.set_index(IQMU, inplace=True)
+    df_merged.set_index('Item', inplace=True)
     #df_merged.to_clipboard()
     return df_merged
 
