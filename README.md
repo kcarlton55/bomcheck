@@ -1,3 +1,3 @@
 # project1
 
-un trabajo en progreso
+un trabajo en desarrollo

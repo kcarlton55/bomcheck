@@ -366,13 +366,12 @@ def sw(filename='clipboard', exceptions='./exceptions.txt', operation=10):
                           'DESCRIPTION': 'Material Description', 'QTY': 'Q', 'QTY.': 'Q'}, inplace=True)
     filtr1 = df_sw['Item'].str.startswith('3086')  # filter pipe nipples (i.e. pn starting with 3086)
     try:       # if no LENGTH in the table, an error occurs. "try" causes following lines to be passed over 
-        df_sw['LENGTH'] = round((df_sw['Qty'] * df_sw['LENGTH'] * ~filtr1) /12.0, 4)  # covert lenghts to feet. ~ = NOT 
+        df_sw['LENGTH'] = round((df_sw['Q'] * df_sw['LENGTH'] * ~filtr1) /12.0, 4)  # covert lenghts to feet. ~ = NOT 
         filtr2 = df_sw['LENGTH'] >= 0.00001  # a filter: only items where length greater than 0.0
         df_sw['Q'] = df_sw['Q']*(~filtr2) + df_sw['LENGTH']  # move lengths (in feet) to the Qty column
         df_sw['U'] = filtr2.apply(lambda x: 'FT' if x else 'EA')
     except:
         df_sw['U'] = 'EA'
-
     df_sw = df_sw.reindex(['Op', 'WC','Item', 'Q', 'Material Description', 'U'], axis=1)  # rename and/or remove columns
     d = {'Q': 'sum', 'Material Description': 'first', 'U': 'first'}   # funtions to apply to next line
     df_sw = df_sw.groupby('Item', as_index=False).aggregate(d).reindex(columns=df_sw.columns)
