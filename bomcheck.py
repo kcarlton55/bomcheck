@@ -104,10 +104,10 @@ def bomcheck(fn, exceptions='<dir of bomcheck.py file>/exceptions.txt'):
     for pf in pairedfiles:
         mergedlist.append((pf[0], sl(sw(pf[1], exceptsfile), pf[2])))
     
-    try:    
-        export2excel(dirname, 'bomcheck', swlist + mergedlist)
-    except:
-        print('Error at function "export2excel".  Failed to create file: bomcheck.xlsx')
+    #try:    
+    export2excel(dirname, 'bomcheck', swlist + mergedlist)
+    #except:
+    #    print('Error at function "export2excel".  Failed to create file: bomcheck.xlsx')
     
     results = {}
     for s in (swlist + mergedlist):
