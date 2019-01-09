@@ -34,7 +34,8 @@ def main():
     
     \u2009  
     '''
-    dir_bc = os.path.dirname(os.path.realpath(__file__))  # direcory where bomcheck.py is at
+    dir_bc = os.path.abspath(os.path.dirname(sys.argv[0]))
+    #dir_bc = os.path.dirname(os.path.realpath(__file__))  # direcory where bomcheck.py is at
     exceptions_default = os.path.join(dir_bc, 'exceptions.txt')    
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      description='Program to compare SolidWorks BOMs to SyteLine BOMs')
@@ -43,7 +44,7 @@ def main():
                         'Examples: "078551*", "6890-*", "*"')
     parser.add_argument('-e', '--exceptions',  # default: where bomcheck.py is located 
                         default=exceptions_default,
-                        help='text file containing excecptions to pns (off-the-shelf items) omited from SW BOMs',
+                        help='text file containing excecptions to 3*-025 pns omited from SW BOMs',
                         metavar='')
     parser.add_argument('-v', '--version', action='version',
                     version=__version__, help="Show program's version number and exit.")
