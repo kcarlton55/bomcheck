@@ -34,15 +34,15 @@ def main():
     
     \u2009  
     '''
-    dir_bc = os.path.abspath(os.path.dirname(sys.argv[0]))
+    dir_bc = os.path.abspath(os.path.dirname(sys.argv[0])) # home dir of bomcheck.py
     #dir_bc = os.path.dirname(os.path.realpath(__file__))  # direcory where bomcheck.py is at
     exceptions_default = os.path.join(dir_bc, 'exceptions.txt')    
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      description='Program to compare SolidWorks BOMs to SyteLine BOMs')
-    parser.add_argument('filename', help='Excel files containing BOMs to compare. ' +
-                        'Filenames must end with _sw.xlsx or _sl.xlsx.  ' +
+    parser.add_argument('filename', help='Name of Excel file.  Name must end with _sw.xlsx or _sl.xlsx.' +
+                        'Enclose in quotes.  To input multiple file names use wild cards.' +
                         'Examples: "078551*", "6890-*", "*"')
-    parser.add_argument('-e', '--exceptions',  # default: where bomcheck.py is located 
+    parser.add_argument('-e', '--exceptions',   
                         default=exceptions_default,
                         help='text file containing excecptions to 3*-025 pns omited from SW BOMs',
                         metavar='')
