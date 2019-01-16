@@ -7,7 +7,7 @@ Created on Sun Nov 18 20:39:10 2018
 """
 
 
-__version__ = '0.1.10'
+__version__ = '0.1.11'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -39,20 +39,22 @@ def main():
     exceptions_default = os.path.join(dir_bc, 'exceptions.txt')    
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      description='Program to compare SolidWorks BOMs to SyteLine BOMs')
-    parser.add_argument('filename', help='Name of Excel file.  Name must end with _sw.xlsx or _sl.xlsx.' +
-                        'Enclose in quotes.  To input multiple file names use wild cards.' +
-                        'Examples: "078551*", "6890-*", "*"')
+    parser.add_argument('filename', help='Name of Excel file.  Name must end with _sw.xlsx or _sl.xlsx. ' +
+                        'Enclose in quotes.  To input multiple files use wild cards.  ' +
+                        'Examples: "6890-*", "*"')
+    parser.add_argument('-v', '--verbose', action='store_true', default=False, 
+                        help='Also send results on the computer monitor')
     parser.add_argument('-e', '--exceptions',   
                         default=exceptions_default,
                         help='text file containing excecptions to 3*-025 pns omited from SW BOMs',
                         metavar='')
-    parser.add_argument('-v', '--version', action='version',
-                    version=__version__, help="Show program's version number and exit.")
+    parser.add_argument('--version', action='version', version=__version__,
+                        help="Show program's version number and exit.")
     args = parser.parse_args()
-    bomcheck(args.filename, args.exceptions)
+    bomcheck(args.filename, args.verbose, args.exceptions)
             
 
-def bomcheck(fn, exceptions='<dir of bomcheck.py file>/exceptions.txt'):
+def bomcheck(fn, v=False, exceptions='<dir of bomcheck.py file>/exceptions.txt'):
     '''Do BOM checks on a group of Excel files containing BOMs.  Filenames must
     end with _sw.xlsx or _sl.xlsx.  Leading part of file names must match.  For
     example, leading parts of names 0300-2018-797_sw.xlsx and 0300-2018-797_sw.xlsx
@@ -113,6 +115,14 @@ def bomcheck(fn, exceptions='<dir of bomcheck.py file>/exceptions.txt'):
     results = {}
     for s in (swlist + mergedlist):
         results[s[0]] = s[1]
+        
+    if v:
+        print()
+        for pn, bom in results.items():  # cycle through each pn and bom in d
+            print(pn + ":\n")      # print the pn.  \n prints a new line
+            print(bom)             # print the bom
+            print('\n\n')          # print two lines     
+        
     return results
         
 
