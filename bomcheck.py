@@ -46,15 +46,17 @@ def main():
                         help='Also send results on the computer monitor')
     parser.add_argument('-e', '--exceptions',   
                         default=exceptions_default,
-                        help='text file containing excecptions to 3*-025 pns omited from SW BOMs',
+                        help='Text file containing exceptions to 3XXX-XXXX-025 pns being removed from SW BOMs',
                         metavar='')
+    parser.add_argument('-a', '--all', action='store_true', default=False,                        
+                        help='Leave 3XXX-XXXX-025 part numbers in the SW BOMs')
     parser.add_argument('--version', action='version', version=__version__,
                         help="Show program's version number and exit.")
     args = parser.parse_args()
-    bomcheck(args.filename, args.verbose, args.exceptions)
+    bomcheck(args.filename, args.verbose, args.exceptions, args.all)
             
 
-def bomcheck(fn, v=False, exceptions='<dir of bomcheck.py file>/exceptions.txt'):
+def bomcheck(fn, v=False, exceptions='<dir of bomcheck.py file>/exceptions.txt', a=False):
     '''Do BOM checks on a group of Excel files containing BOMs.  Filenames must
     end with _sw.xlsx or _sl.xlsx.  Leading part of file names must match.  For
     example, leading parts of names 0300-2018-797_sw.xlsx and 0300-2018-797_sw.xlsx
@@ -102,10 +104,10 @@ def bomcheck(fn, v=False, exceptions='<dir of bomcheck.py file>/exceptions.txt')
     mergedlist = []
     
     for _sw in swfiles:
-        swlist.append((_sw[0], sw(_sw[1], exceptsfile, op)))
+        swlist.append((_sw[0], sw(_sw[1], exceptsfile, op, a)))
               
     for pf in pairedfiles:
-        mergedlist.append((pf[0], sl(sw(pf[1], exceptsfile), pf[2])))
+        mergedlist.append((pf[0], sl(sw(pf[1], exceptsfile, op, a), pf[2])))
     
     #try:    
     export2excel(dirname, 'bomcheck', swlist + mergedlist)
@@ -186,6 +188,8 @@ def export2excel(dirname, filename, results2export):
                     )) + 1  # adding a little extra space
                 worksheet.set_column(idx+1, idx+1, max_len)  # set column width
         writer.save()
+    abspath = os.path.abspath(fn)
+    print("\ncreated file: " + abspath + '\n')
             
 
 def gatherfilenames(filename):
@@ -288,7 +292,7 @@ def test_columns(df, required_columns):
     return not_found
                 
             
-def sw(filename='clipboard', exceptions='./exceptions.txt', operation=10):   
+def sw(filename='clipboard', exceptions='./exceptions.txt', operation=10, a=False):   
     '''Take a SolidWorks BOM and restructure it to be like that of a SyteLine 
     BOM.  That is, the following is done:
         
@@ -386,8 +390,9 @@ def sw(filename='clipboard', exceptions='./exceptions.txt', operation=10):
     df_sw = df_sw.reindex(['Op', 'WC','Item', 'Q', 'Material Description', 'U'], axis=1)  # rename and/or remove columns
     d = {'Q': 'sum', 'Material Description': 'first', 'U': 'first'}   # funtions to apply to next line
     df_sw = df_sw.groupby('Item', as_index=False).aggregate(d).reindex(columns=df_sw.columns)
-    filtr3 = df_sw['Item'].str.startswith('3') & df_sw['Item'].str.endswith('025') & ~df_sw['Item'].isin(exlist)
-    df_sw.drop(df_sw[filtr3].index, inplace=True)  # delete nipples & fittings who's pn ends with "025"
+    if a==False:
+        filtr3 = df_sw['Item'].str.startswith('3') & df_sw['Item'].str.endswith('025') & ~df_sw['Item'].isin(exlist)
+        df_sw.drop(df_sw[filtr3].index, inplace=True)  # delete nipples & fittings who's pn ends with "025"
     df_sw['WC'] = 'PICK'
     df_sw['Op'] = str(operation)  
     df_sw.set_index('Op', inplace=True)
