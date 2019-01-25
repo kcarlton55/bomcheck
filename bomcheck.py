@@ -346,7 +346,8 @@ def sw(filename='clipboard', exceptions='./exceptions.txt', operation=10, a=Fals
         elif ext=='.xlsx' or ext=='.xls': 
             df_sw = pd.read_excel(filename, na_values=[' '], skiprows=1)
         elif ext=='.csv':
-            df_sw = pd.read_csv(filename, na_values=[' '], skiprows=1, engine='python', encoding='windows-1252')
+            df_sw = pd.read_csv(filename, na_values=[' '], skiprows=1, 
+                                engine='python', encoding='utf-16', sep='\t')
         else:
             print('non valid file name (', filename, ') (err 102)')
             sys.exit()
@@ -443,7 +444,8 @@ def sl(df_solidworks, filename='clipboard'):
         elif ext=='.xlsx' or ext=='.xls': 
             df_sl = pd.read_excel(filename, na_values=[' '])
         elif ext=='.csv':
-            df_sl = pd.read_csv(filename, na_values=[' '], engine='python', encoding='windows-1252')
+            df_sl = pd.read_csv(filename, na_values=[' '], engine='python',
+                                encoding='utf-16', sep='\t')
         else:
             print('non valid file name (', filename, ') (err 101)')
             sys.exit()
