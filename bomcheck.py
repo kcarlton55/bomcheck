@@ -343,11 +343,16 @@ def sw(filename='clipboard', exceptions='./exceptions.txt', operation=10, a=Fals
             df_sw = pd.read_clipboard(engine='python', na_values=[' '], skiprows=1)
         elif str(type(filename))[-11:-2] == 'DataFrame':
             df_sw = filename
-        elif ext=='.xlsx' or ext=='.xls': 
-            df_sw = pd.read_excel(filename, na_values=[' '], skiprows=1)
+        elif ext=='.xlsx' or ext=='.xls':
+            df_sw = pd.read_excel(filename, na_values=[' '], skiprows=1, engine='python')
         elif ext=='.csv':
-            df_sw = pd.read_csv(filename, na_values=[' '], skiprows=1, 
-                                engine='python', encoding='utf-16', sep='\t')
+            try: 
+                df_sw = pd.read_csv(filename, na_values=[' '], skiprows=1, 
+                                engine='python', sep='\t')
+            except:
+                print('An error occurred reading in a SolidWorks csv file')
+                print('Try saving that file using a "tab" separator instead of comma.')
+                print()
         else:
             print('non valid file name (', filename, ') (err 102)')
             sys.exit()
