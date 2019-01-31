@@ -344,15 +344,13 @@ def sw(filename='clipboard', exceptions='./exceptions.txt', operation=10, a=Fals
         elif str(type(filename))[-11:-2] == 'DataFrame':
             df_sw = filename
         elif ext=='.xlsx' or ext=='.xls':
-            df_sw = pd.read_excel(filename, na_values=[' '], skiprows=1, engine='python')
-        elif ext=='.csv':
-            try: 
-                df_sw = pd.read_csv(filename, na_values=[' '], skiprows=1, 
-                                engine='python', sep='\t')
+            try:
+                df_sw = pd.read_excel(filename, na_values=[' '], skiprows=1, engine='python')
             except:
-                print('An error occurred reading in a SolidWorks csv file')
-                print('Try saving that file using a "tab" separator instead of comma.')
-                print()
+                df_sw = pd.read_excel(filename, na_values=[' '], skiprows=1)
+        elif ext=='.csv':
+            df_sw = pd.read_csv(filename, na_values=[' '], skiprows=1, 
+                                encoding='iso8859_1', engine='python')
         else:
             print('non valid file name (', filename, ') (err 102)')
             sys.exit()
@@ -382,7 +380,7 @@ def sw(filename='clipboard', exceptions='./exceptions.txt', operation=10, a=Fals
         sys.exit()   
 
     df_sw.fillna(0, inplace=True)  # fill NaN values with 0
-    df_sw['DECRIPTION'] = df_sw['DESCRIPTION'].apply(lambda x: x.replace('\n', ''))  # get rid of "new line" character
+    df_sw['DESCRIPTION'] = df_sw['DESCRIPTION'].apply(lambda x: x.replace('\n', ''))  # get rid of "new line" character
     df_sw.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item',   # rename column titles
                           'DESCRIPTION': 'Material Description', 'QTY': 'Q', 'QTY.': 'Q'}, inplace=True)
     filtr1 = df_sw['Item'].str.startswith('3086')  # filter pipe nipples (i.e. pn starting with 3086)
