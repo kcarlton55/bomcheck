@@ -7,7 +7,7 @@ Created on Sun Nov 18 20:39:10 2018
 """
 
 
-__version__ = '0.1.12'
+__version__ = '0.1.13'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -36,7 +36,8 @@ def main():
     '''
     dir_bc = os.path.abspath(os.path.dirname(sys.argv[0])) # home dir of bomcheck.py
     #dir_bc = os.path.dirname(os.path.realpath(__file__))  # direcory where bomcheck.py is at
-    exceptions_default = os.path.join(dir_bc, 'exceptions.txt')    
+    exceptions_default = os.path.join(dir_bc, 'exceptions.txt')
+    exceptions_default = "I:\bomceck\exceptions.txt"
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      description='Program to compare SolidWorks BOMs to SyteLine BOMs')
     parser.add_argument('filename', help='Name of Excel file.  Name must end with _sw.xlsx or _sl.xlsx. ' +
@@ -367,7 +368,7 @@ def sw(filename='clipboard', exceptions='./exceptions.txt', operation=10, a=Fals
         with open(exceptions,'r') as fh:
             exceps = fh.read().splitlines()
     except FileNotFoundError:
-        print('File not found: exceptions.txt')
+        print('.', end='')
         exceps=[]
     for e in exceps:
         if e and e[0]!='#':
