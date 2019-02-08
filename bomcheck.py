@@ -34,9 +34,8 @@ def main():
 
     \u2009
     '''
-    dir_bc = os.path.abspath(os.path.dirname(sys.argv[0])) # home dir of bomcheck.py
-    exceptions_default = os.path.join(dir_bc, 'exceptions.txt')
-    exceptions_default = "I:\bomceck\exceptions.txt"
+ 
+    exceptions_default = determine_execeptions_default()
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      description='Program to compare SolidWorks BOMs to SyteLine BOMs')
     parser.add_argument('filename', help='Name of Excel file.  Name must end with _sw.xlsx or _sl.xlsx. ' +
@@ -91,14 +90,13 @@ def bomcheck(fn, v=False, exceptions='<dir of bomcheck.py file>/exceptions.txt',
     \u2009
     '''
     dirname, swfiles, pairedfiles = gatherfilenames(fn)
-    op = 10  # for a column titled "operation" seen in a SyteLine BOM table
-    dir_bc = os.path.dirname(os.path.realpath(__file__))  # direcory where bomcheck.py is at
-    excepts_default_file = os.path.join(dir_bc, 'exceptions.txt')
-
+    op = 10  # a column titled "operation" in a SL BOM is 99% of time eq. to 10
+    
+    excepts_default = determine_execeptions_default()
     if not exceptions=='<dir of bomcheck.py file>/exceptions.txt' and os.path.isfile(exceptions):
         exceptsfile = exceptions
     else:
-        exceptsfile = excepts_default_file
+        exceptsfile = excepts_default
 
     swlist = []
     mergedlist = []
@@ -130,6 +128,30 @@ def bomcheck(fn, v=False, exceptions='<dir of bomcheck.py file>/exceptions.txt',
 
 def get_version():
     return __version__
+
+
+def determine_execeptions_default():
+    ''' The location of the exceptions.txt file will vary according to whether
+    the bomcheck program is run on my home computer (Linux OS) or whether run
+    on my work computer (Window OS).  This function determines a suitable 
+    default location of the file.  
+    '''
+    dir_bc = os.path.abspath(os.path.dirname(sys.argv[0])) # home dir of bomcheck.py
+    candidate1 = "I:\bomceck\exceptions.txt"
+    candidate2 = '/home/ken/projects/project1/exceptions.txt'
+    candidate3 = 'exceptions.txt'  # is file in dir in which program is run?
+    candidate4 = os.path.join(dir_bc, 'exceptions.txt')
+    if os.path.exists(candidate1):
+        return candidate1
+    elif os.path.exists(candidate2):
+        return candidate2
+    elif os.path.exists(candidate3):
+        return candidate3
+    elif os.path.exists(candidate4):
+        return candidate4
+    else:
+        print('The file exceptions.txt not found.  Please create it.')
+        return ''
 
 
 def export2excel(dirname, filename, results2export):
