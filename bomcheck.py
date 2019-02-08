@@ -314,7 +314,7 @@ def test_columns(df, required_columns):
     return not_found
 
 
-def sw(filename='clipboard', exceptions='./exceptions.txt', operation=10, a=False):
+def sw(filename='clipboard', exceptions=None, operation=10, a=False):
     '''Take a SolidWorks BOM and restructure it to be like that of a SyteLine
     BOM.  That is, the following is done:
 
@@ -384,6 +384,8 @@ def sw(filename='clipboard', exceptions='./exceptions.txt', operation=10, a=Fals
     #    print('unknown error in function sw')
     #    sys.exit()
 
+    if exceptions==None:
+        exceptions = determine_execeptions_default()
     exlist = []  # Exceptions to part nos. removed for SW BOM.
     try:
         with open(exceptions,'r') as fh:
