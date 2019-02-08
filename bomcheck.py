@@ -7,7 +7,7 @@ Created on Sun Nov 18 20:39:10 2018
 """
 
 
-__version__ = '0.1.13'
+__version__ = '0.1.14'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -20,22 +20,21 @@ pd.set_option('display.width', 200)
 
 def main():
     '''bomcheck.py can be run from a command line.
-    
+
     Examples
     ========
-    
-    >>> python bomcheck.py "078551*"   
-    
+
+    >>> python bomcheck.py "078551*"
+
     >>> python bomcheck.py "C:\\\\pathtomyfile\\\\6890-*"  # must use double (\\\\) backslash
-    
+
     >>> python bomcheck.py "*"
-    
+
     >>> python bomcheck.py --help
-    
-    \u2009  
+
+    \u2009
     '''
     dir_bc = os.path.abspath(os.path.dirname(sys.argv[0])) # home dir of bomcheck.py
-    #dir_bc = os.path.dirname(os.path.realpath(__file__))  # direcory where bomcheck.py is at
     exceptions_default = os.path.join(dir_bc, 'exceptions.txt')
     exceptions_default = "I:\bomceck\exceptions.txt"
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -43,91 +42,91 @@ def main():
     parser.add_argument('filename', help='Name of Excel file.  Name must end with _sw.xlsx or _sl.xlsx. ' +
                         'Enclose in quotes.  To input multiple files use wild cards.  ' +
                         'Examples: "6890-*", "*"')
-    parser.add_argument('-v', '--verbose', action='store_true', default=False, 
+    parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='Also send results on the computer monitor')
-    parser.add_argument('-e', '--exceptions',   
+    parser.add_argument('-e', '--exceptions',
                         default=exceptions_default,
                         help='Text file containing exceptions to 3XXX-XXXX-025 pns being removed from SW BOMs',
                         metavar='')
-    parser.add_argument('-a', '--all', action='store_true', default=False,                        
+    parser.add_argument('-a', '--all', action='store_true', default=False,
                         help='Leave 3XXX-XXXX-025 part numbers in the SW BOMs')
     parser.add_argument('--version', action='version', version=__version__,
                         help="Show program's version number and exit.")
     args = parser.parse_args()
     bomcheck(args.filename, args.verbose, args.exceptions, args.all)
-            
+
 
 def bomcheck(fn, v=False, exceptions='<dir of bomcheck.py file>/exceptions.txt', a=False):
     '''Do BOM checks on a group of Excel files containing BOMs.  Filenames must
     end with _sw.xlsx or _sl.xlsx.  Leading part of file names must match.  For
     example, leading parts of names 0300-2018-797_sw.xlsx and 0300-2018-797_sw.xlsx
     match and a BOM check will be done on them.
-    
+
     Parmeters
     =========
-    
+
     fn : string
         filename(s) of Excel files to do a BOM check on.
-        
+
     exceptions : string
         Name of text file containing excecptions to pns (off-the-shelf items)
         that are omited from SW BOMs (carried out by the `sw` function)
-        
+
     Returns
     =======
 
     out : Excel file (saved to disk)
         The Excel file show the outputs from the swlist and the mergedlist.
-        Each object is shown on its own individual Excel worksheet. 
-        
+        Each object is shown on its own individual Excel worksheet.
+
     Examples
     ========
-    
-    >>> bomcheck("078551*")   
-    
+
+    >>> bomcheck("078551*")
+
     >>> bomcheck("C:\\\\pathtomyfile\\\\6890-*")   # must use double (\\\\) backslash
-    
+
     >>> bomcheck("*")
-    
-    \u2009        
+
+    \u2009
     '''
     dirname, swfiles, pairedfiles = gatherfilenames(fn)
     op = 10  # for a column titled "operation" seen in a SyteLine BOM table
     dir_bc = os.path.dirname(os.path.realpath(__file__))  # direcory where bomcheck.py is at
     excepts_default_file = os.path.join(dir_bc, 'exceptions.txt')
-    
+
     if not exceptions=='<dir of bomcheck.py file>/exceptions.txt' and os.path.isfile(exceptions):
         exceptsfile = exceptions
     else:
         exceptsfile = excepts_default_file
-   
+
     swlist = []
     mergedlist = []
-    
+
     for _sw in swfiles:
         swlist.append((_sw[0], sw(_sw[1], exceptsfile, op, a)))
-              
+
     for pf in pairedfiles:
         mergedlist.append((pf[0], sl(sw(pf[1], exceptsfile, op, a), pf[2])))
-    
-    #try:    
+
+    #try:
     export2excel(dirname, 'bomcheck', swlist + mergedlist)
     #except:
     #    print('Error at function "export2excel".  Failed to create file: bomcheck.xlsx')
-    
+
     results = {}
     for s in (swlist + mergedlist):
         results[s[0]] = s[1]
-        
+
     if v:
         print()
         for pn, bom in results.items():  # cycle through each pn and bom in d
             print(pn + ":\n")      # print the pn.  \n prints a new line
             print(bom)             # print the bom
-            print('\n\n')          # print two lines     
-        
+            print('\n\n')          # print two lines
+
     return results
-        
+
 
 def get_version():
     return __version__
@@ -136,31 +135,31 @@ def get_version():
 def export2excel(dirname, filename, results2export):
     '''Export to an Excel file the results of all the bom checks that have
     been done.
-    
+
     Parmeters
     =========
-    
+
     dirname : string
         The directory to which the Excel file that this function generates
         will be sent.
-        
+
     filename : string
         The name of the Excel file.
-        
+
     results2export : list
-        List of pandas DataFrame objects.   Results are either: 1. Only 
-        SolidWorks BOMs, that have been converted to SyteLine format, if no 
-        corresponding SyteLine BOM was found to compare it to.  2.  A list 
+        List of pandas DataFrame objects.   Results are either: 1. Only
+        SolidWorks BOMs, that have been converted to SyteLine format, if no
+        corresponding SyteLine BOM was found to compare it to.  2.  A list
         showing a comparison between a SolidWorks BOM and a SyteLine BOM.
-        
+
     Returns
     =======
 
     out : Excel file (saved to disk)
         The Excel file show the outputs from the swlist and the mergedlist.
-        Each object is shown on its own individual Excel worksheet. 
-        
-     \u2009 
+        Each object is shown on its own individual Excel worksheet.
+
+     \u2009
     '''
     d, f = os.path.split(filename)
     f, e = os.path.splitext(f)
@@ -173,7 +172,7 @@ def export2excel(dirname, filename, results2export):
     else:
         e = '.xlsx'
     fn = os.path.join(dirname, f+e)
-    
+
     with pd.ExcelWriter(fn) as writer:
         for r in results2export:
             sheetname = r[0]
@@ -191,32 +190,32 @@ def export2excel(dirname, filename, results2export):
         writer.save()
     abspath = os.path.abspath(fn)
     print("\ncreated file: " + abspath + '\n')
-            
+
 
 def gatherfilenames(filename):
     '''Gather names of excel files to be processed and return them in organized
     lists.  Names must end with `_sw.xlsx`, `_sl.xlsx`, `_sw.csv`, or `_sl.csv`
-    
+
     Parmeters
     =========
-    
+
     filename : string
         e.g., r"C:/filepath/*".  The `*` means that all excel files ending with
         `_sw.xlsx` or `_sl.xlsx` will be gathered.
-   
+
     Returns
     =======
 
     out : tuple with two items
         The second tuple item is a list of tuples, each with two file names:
-        the first is the name of excel file containing a SolidWorks bom, and 
-        the second is the matching SyteLine file name, e.g., 
+        the first is the name of excel file containing a SolidWorks bom, and
+        the second is the matching SyteLine file name, e.g.,
         (073166_sw.xlsx, 073166_sl.xlsx)
         .
         The first tuple item is a list of SolidWorks boms for which no matching
-        Syteline bom was found.  
-        
-     \u2009 
+        Syteline bom was found.
+
+     \u2009
     '''
     dirname = os.path.dirname(filename)
     if dirname and not os.path.exists(dirname):
@@ -247,23 +246,23 @@ def gatherfilenames(filename):
             fname, ext = os.path.splitext(fname)
             swfilenames.append((fname, s))  #  (identifier with _sw.xlsx ext, sw filename)
     return dirname, swfilenames, pairedfilenames
-                
-        
+
+
 def test_columns(df, required_columns):
     '''The sw and sl functions call upon this function to ascertain whether
-    or not the user has input proper BOM data.  
-    
+    or not the user has input proper BOM data.
+
     Parmeters
     =========
 
     df : pandas DataFrame
         A Dataframe from which column titles are extracted to see if they match
         columns that should be in a SolidWorks or SyteLine BOM.
-        
+
     required_columns : list
         A list of column titles, each a string object, that should be present
         in a BOM that tells the program that all is OK.  If the list item is a
-        tuple, for example ('PARTNUMBER', 'PART NUMBER'), then either of 
+        tuple, for example ('PARTNUMBER', 'PART NUMBER'), then either of
         tuple items are acceptable.
 
     Returns
@@ -274,8 +273,8 @@ def test_columns(df, required_columns):
         and all column titles are present.  However if a non null string is
         returned, e.g., 'U', then at least one column title is missing and
         the test fails.
-        
-    \u2009 
+
+    \u2009
     '''
     not_found = ''  # not_found is a column title that is not found
     c = df.columns
@@ -285,18 +284,18 @@ def test_columns(df, required_columns):
                 if r0 in c:
                     not_found = ''
                     break
-                not_found = r    
+                not_found = r
         else:
             if r not in c:
                 not_found = r
                 break
     return not_found
-                
-            
-def sw(filename='clipboard', exceptions='./exceptions.txt', operation=10, a=False):   
-    '''Take a SolidWorks BOM and restructure it to be like that of a SyteLine 
+
+
+def sw(filename='clipboard', exceptions='./exceptions.txt', operation=10, a=False):
+    '''Take a SolidWorks BOM and restructure it to be like that of a SyteLine
     BOM.  That is, the following is done:
-        
+
     - If a part no. is shown multiple times in a BOM, change the BOM so that
       the part no. is only shown once.  The quatity for that part is the sum
       of the quantites for the multiple items.
@@ -310,33 +309,33 @@ def sw(filename='clipboard', exceptions='./exceptions.txt', operation=10, a=Fals
       shown on a SyteLine BOM.  Place exceptions to this rule in the file
       `exceptions.txt`
     - Column titles are changed to match those of SyteLine.
-    
+
     Parmeters
     =========
-    
+
     filename : string
         Name of Excel file(s) to process.
-        
+
     excpetions : string
         Name of the text file containing a list part number exceptions.
-        (part numbers staring with `3` and ending with `025`, i.e. 
-        off-the-shelf pipe fittings, are removed from SolidWorks boms.  
+        (part numbers staring with `3` and ending with `025`, i.e.
+        off-the-shelf pipe fittings, are removed from SolidWorks boms.
         Exceptions to this rule are listed in the text file.)
-        
+
     Returns
     =======
 
     out : pandas DataFrame
         A SolidWorks BOM with a structure like that of SyteLine.
-        
+
     Examples
     ========
-    
+
     >>> sw()   # Get the BOM from the clipboard
-    
+
     >>> sw(r"C:\\dirpath\\name.xlsx")
-    
-    \u2009    
+
+    \u2009
     '''
     _, ext = os.path.splitext(filename)
     try:
@@ -350,21 +349,21 @@ def sw(filename='clipboard', exceptions='./exceptions.txt', operation=10, a=Fals
             except:
                 df_sw = pd.read_excel(filename, na_values=[' '], skiprows=1)
         elif ext=='.csv':
-            df_sw = pd.read_csv(filename, na_values=[' '], skiprows=1, 
+            df_sw = pd.read_csv(filename, na_values=[' '], skiprows=1,
                                 encoding='iso8859_1', engine='python')
         else:
             print('non valid file name (', filename, ') (err 102)')
             sys.exit()
-            
+
     except IOError:
         print('FILNAME NOT FOUND: ', filename)
         sys.exit()
     #except:
     #    print('unknown error in function sw')
     #    sys.exit()
-        
-    exlist = []  # Exceptions to part nos. removed for SW BOM.    
-    try:    
+
+    exlist = []  # Exceptions to part nos. removed for SW BOM.
+    try:
         with open(exceptions,'r') as fh:
             exceps = fh.read().splitlines()
     except FileNotFoundError:
@@ -372,21 +371,21 @@ def sw(filename='clipboard', exceptions='./exceptions.txt', operation=10, a=Fals
         exceps=[]
     for e in exceps:
         if e and e[0]!='#':
-             exlist.append(e.strip()) 
-        
+             exlist.append(e.strip())
+
     required_columns = [('QTY', 'QTY.'), 'DESCRIPTION', ('PART NUMBER', 'PARTNUMBER')]  # optional: LENGTH
     missing = test_columns(df_sw, required_columns)
     if missing:
         print('At least one column in your SW data (' + os.path.split(filename)[1] + ')  not found: ', missing)
-        sys.exit()   
+        sys.exit()
 
     df_sw.fillna(0, inplace=True)  # fill NaN values with 0
     df_sw['DESCRIPTION'] = df_sw['DESCRIPTION'].apply(lambda x: x.replace('\n', ''))  # get rid of "new line" character
     df_sw.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item',   # rename column titles
                           'DESCRIPTION': 'Material Description', 'QTY': 'Q', 'QTY.': 'Q'}, inplace=True)
     filtr1 = df_sw['Item'].str.startswith('3086')  # filter pipe nipples (i.e. pn starting with 3086)
-    try:       # if no LENGTH in the table, an error occurs. "try" causes following lines to be passed over 
-        df_sw['LENGTH'] = round((df_sw['Q'] * df_sw['LENGTH'] * ~filtr1) /12.0, 4)  # covert lenghts to feet. ~ = NOT 
+    try:       # if no LENGTH in the table, an error occurs. "try" causes following lines to be passed over
+        df_sw['LENGTH'] = round((df_sw['Q'] * df_sw['LENGTH'] * ~filtr1) /12.0, 4)  # covert lenghts to feet. ~ = NOT
         filtr2 = df_sw['LENGTH'] >= 0.00001  # a filter: only items where length greater than 0.0
         df_sw['Q'] = df_sw['Q']*(~filtr2) + df_sw['LENGTH']  # move lengths (in feet) to the Qty column
         df_sw['U'] = filtr2.apply(lambda x: 'FT' if x else 'EA')
@@ -399,53 +398,53 @@ def sw(filename='clipboard', exceptions='./exceptions.txt', operation=10, a=Fals
         filtr3 = df_sw['Item'].str.startswith('3') & df_sw['Item'].str.endswith('025') & ~df_sw['Item'].isin(exlist)
         df_sw.drop(df_sw[filtr3].index, inplace=True)  # delete nipples & fittings who's pn ends with "025"
     df_sw['WC'] = 'PICK'
-    df_sw['Op'] = str(operation)  
+    df_sw['Op'] = str(operation)
     df_sw.set_index('Op', inplace=True)
-    
+
     return df_sw
 
 
-def sl(df_solidworks, filename='clipboard'): 
-    '''This function reads in a BOM derived from StyeLine and then merges it 
+def sl(df_solidworks, filename='clipboard'):
+    '''This function reads in a BOM derived from StyeLine and then merges it
     with the BOM from SolidWorks.  The merged BOMs allow differences to
     easily seen between the two BOMs.
-    
+
     The first column in the output is labeled `IQMU`.  Check marks and Xs will
     be under this column header.  `I` means that the item (part number) matches
-    in SolidWorks and SyteLine, Q for quatities matching, M for Material 
+    in SolidWorks and SyteLine, Q for quatities matching, M for Material
     Description matching, and U for unit of measure matching.
-            
+
     Parmeters
     =========
-  
+
     filename : string
         Name of Excel file(s) to process
-    
+
     df_solidworks : pandas.DataFrame
         A DataFrame produced by the function `sw`
-        
+
     Returns
-    =======    
-        
-        
+    =======
+
+
     Examples
     ========
-    
+
     >>> sl()
-    
+
     >>> sl(r"C:\\dirpath\\name2.xlsx", sw(filename))
-    
-    \u2009 
+
+    \u2009
     '''
     df_sw = df_solidworks
     _, ext = os.path.splitext(filename)
-    
+
     try:
         if filename=='clipboard' or filename=='cb':
             df_sl = pd.read_clipboard(engine='python', na_values=[' '])
         elif str(type(filename))[-11:-2] == 'DataFrame':
             df_sl = filename
-        elif ext=='.xlsx' or ext=='.xls': 
+        elif ext=='.xlsx' or ext=='.xls':
             df_sl = pd.read_excel(filename, na_values=[' '])
         elif ext=='.csv':
             df_sl = pd.read_csv(filename, na_values=[' '], engine='python',
@@ -453,30 +452,30 @@ def sl(df_solidworks, filename='clipboard'):
         else:
             print('non valid file name (', filename, ') (err 101)')
             sys.exit()
-        
+
     except IOError:
         print('FILNAME NOT FOUND: ', filename)
         sys.exit()
     #except:
     #    print('unknown error in function sl')
     #    sys.exit()
-    
+
     sl_required_columns = [('Qty', 'Quantity'), 'Material Description', 'U/M', ('Item', 'Material')]
     missing = test_columns(df_sl, sl_required_columns)
     if missing:
         print('At least one column in your SL data (' + os.path.split(filename)[1] + ') not found: ', missing)
-        sys.exit()    
-    
+        sys.exit()
+
     if not str(type(df_sw))[-11:-2] == 'DataFrame':
         print('Program halted.  A fault with SolidWorks DataFrame occurred.')
         sys.exit()
-    
+
     # A BOM can be derived from different locations within SL.  From one location
     # the `Item` is the part number.  From another `Material` is the part number.
     # When `Material` is the part number, a useless 'Item' column is also present.
     # It causes the bomcheck program confusion and the program crashes.
     if 'Item' in df_sl.columns and 'Material' in df_sl.columns:
-        df_sl.drop(['Item'], axis=1, inplace=True)       
+        df_sl.drop(['Item'], axis=1, inplace=True)
     df_sl.rename(columns={'Material':'Item', 'Quantity':'Q', 'Qty':'Q', 'U/M':'U'}, inplace=True)
     df_merged = pd.merge(df_sw, df_sl, on='Item', how='outer', suffixes=('_sw', '_sl'), indicator=True)
     df_merged.sort_values(by=['Item'], inplace=True)
@@ -503,4 +502,3 @@ if __name__=='__main__':
     main()
 
 
-    
