@@ -38,14 +38,20 @@ def main():
     exceptions_default = determine_execeptions_default()
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      description='Program to compare SolidWorks BOMs to SyteLine BOMs')
-    parser.add_argument('filename', help='Name of Excel file.  Name must end with _sw.xlsx or _sl.xlsx. ' +
-                        'Enclose in quotes.  To input multiple files use wild cards.  ' +
-                        'Examples: "6890-*", "*"')
+    parser.add_argument('filename', help='Name of Excel or csv file.  Name ' +
+                        'must end with _sw.xlsx, _sl.xlsx. _sw.csv, or ' +
+                        '_sl.csv.  Enclose name in quotes.  Star, *, ' +
+                        'caputures multiple files.  Examples: "6890-*", "*".  ' +
+                        'Optional: Can instead obtain BOM(s) from clipboard. '  
+                        ' Enter "1" as the filename to process only a SW BOM. ' +
+                        ' Use "2" to process both a SW and SL BOM.')
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
-                        help='Also send results on the computer monitor')
+                        help='Show results on the computer monitor')
     parser.add_argument('-e', '--exceptions',
                         default=exceptions_default,
-                        help='Text file containing exceptions to 3XXX-XXXX-025 pns being removed from SW BOMs',
+                        help='Text file containing exceptions to 3XXX-XXXX-025 ' +
+                        'pns being removed from SW BOMs.  Example: bomcheck "*" -e ' +
+                        '"C:\mypath\exceptions.txt"',
                         metavar='')
     parser.add_argument('-a', '--all', action='store_true', default=False,
                         help='Leave 3XXX-XXXX-025 part numbers in the SW BOMs')
@@ -90,7 +96,7 @@ def bomcheck(fn, v=False, exceptions='<dir of bomcheck.py file>/exceptions.txt',
     \u2009
     '''
     dirname, swfiles, pairedfiles = gatherfilenames(fn)
-    op = 10  # a column titled "operation" in a SL BOM is 99% of time eq. to 10
+    op = 10  # a column named "operation" is in SL's BOMs.  99% of time is eq. to 10
     
     excepts_default = determine_execeptions_default()
     if not exceptions=='<dir of bomcheck.py file>/exceptions.txt' and os.path.isfile(exceptions):
@@ -107,10 +113,14 @@ def bomcheck(fn, v=False, exceptions='<dir of bomcheck.py file>/exceptions.txt',
     for pf in pairedfiles:
         mergedlist.append((pf[0], sl(sw(pf[1], exceptsfile, op, a), pf[2])))
 
-    #try:
+    if fn in ['1', '2']:
+        sw_df = sw('clipboard', exceptsfile, op, a)
+        swlist.append(('clipboard', sw_df))
+    if fn == '2': 
+        swlist = []
+        mergedlist.append(('clipboard', sl(sw_df, filename='clipboard')))
+
     export2excel(dirname, 'bomcheck', swlist + mergedlist)
-    #except:
-    #    print('Error at function "export2excel".  Failed to create file: bomcheck.xlsx')
 
     results = {}
     for s in (swlist + mergedlist):
@@ -128,6 +138,10 @@ def bomcheck(fn, v=False, exceptions='<dir of bomcheck.py file>/exceptions.txt',
 
 def get_version():
     return __version__
+
+
+def pause():
+    programPause = input("Press the <ENTER> key to continue...")
 
 
 def determine_execeptions_default():
@@ -361,7 +375,9 @@ def sw(filename='clipboard', exceptions=None, operation=10, a=False):
     '''
     _, ext = os.path.splitext(filename)
     try:
-        if filename=='clipboard' or filename=='cb':
+        if filename.lower() in ['c', 'x', 'cb', 'clipboard']:
+            print('\nCopy SolidWorks BOM to clipboard.  Include title.')
+            pause()
             df_sw = pd.read_clipboard(engine='python', na_values=[' '], skiprows=1)
         elif str(type(filename))[-11:-2] == 'DataFrame':
             df_sw = filename
@@ -464,7 +480,9 @@ def sl(df_solidworks, filename='clipboard'):
     _, ext = os.path.splitext(filename)
 
     try:
-        if filename=='clipboard' or filename=='cb':
+        if filename.lower() in ['c', 'x', 'cb', 'clipboard']:
+            print('\nCopy SyteLine BOM to clipboard.')
+            pause()
             df_sl = pd.read_clipboard(engine='python', na_values=[' '])
         elif str(type(filename))[-11:-2] == 'DataFrame':
             df_sl = filename
