@@ -98,6 +98,12 @@ def bomcheck(fn, v=False, exceptions='<dir of bomcheck.py file>/exceptions.txt',
     dirname, swfiles, pairedfiles = gatherfilenames(fn)
     op = 10  # a column named "operation" is in SL's BOMs.  99% of time is eq. to 10
     
+    if ((not swfiles and not pairedfiles) and fn not in ['1', '2']):
+        print('\nNo _sw of _sl files found.  Check that you are working in the correct')
+        print('directory.  Check that Excel files are named correctly.')
+        print()
+        sys.exit()
+    
     excepts_default = determine_execeptions_default()
     if not exceptions=='<dir of bomcheck.py file>/exceptions.txt' and os.path.isfile(exceptions):
         exceptsfile = exceptions
