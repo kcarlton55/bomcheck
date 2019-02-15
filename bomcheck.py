@@ -120,10 +120,10 @@ def bomcheck(fn, v=False, exceptions='<dir of bomcheck.py file>/exceptions.txt',
     mergedlist = []
 
     for _sw in swfiles:
-        swlist.append((_sw[0], sw(_sw[1], exceptsfile, op, a)))
+        swlist.append((_sw[0], sw(_sw[1], op, a)))
 
     for pf in pairedfiles:
-        mergedlist.append((pf[0], sl(sw(pf[1], exceptsfile, op, a), pf[2])))
+        mergedlist.append((pf[0], sl(sw(pf[1], op, a), pf[2])))
 
     if fn in ['1', '2']:
         sw_df = sw('clipboard', exceptsfile, op, a)
@@ -278,15 +278,25 @@ def gatherfilenames(filename):
     Returns
     =======
 
-    out : tuple with two items
-        The second tuple item is a list of tuples, each with two file names:
-        the first is the name of excel file containing a SolidWorks bom, and
-        the second is the matching SyteLine file name, e.g.,
-        (073166_sw.xlsx, 073166_sl.xlsx)
-        .
-        The first tuple item is a list of SolidWorks boms for which no matching
-        Syteline bom was found.
-
+    out : tuple of length 3
+    
+        Tuple has the form:
+            
+        (dirname,
+          [(identifierA, swpathnameA), ...],
+          [(identifier1, swpathname1, slpathname1),...])
+                    
+        Where:
+            dirname = is the directory where filename is located
+            swpathname = sw pathname, e.g., /dirpath/081233_sw.xlsx
+            identifier = The top level name of the BOM, like 083125, derived
+                         from a swpathname by removing the directory path  and
+                         removing the extension _sw.xlsx extension.
+                         
+        The 2nd item a list of tuples of length 2 containing only sw files for
+        which no matching sl bom was found.  The third item is a list of tuples
+        of length 3 containing sw boms for which a corresponding sl bom was found. 
+        
      \u2009
     '''
     dirname = os.path.dirname(filename)
@@ -295,10 +305,10 @@ def gatherfilenames(filename):
         sys.exit()
     gatherednames = sorted(glob.glob(filename))
     swfilenames_tmp = []
-    for f in gatherednames:
+    for f in gatherednames:  # Grab a list of all the SW files that glob grabbed.
         i = f.rfind('_')
         if f[i:i+4].lower()=='_sw.':
-            swfilenames_tmp.append(f)
+            swfilenames_tmp.append(f)  # [/pathname/file1_sw.xlxs, ...,/pathname/fileN_sw.xlx]
     swfilenames = []
     pairedfilenames = []
     # go through the sw files.  Find find the matching sl file for a given sw file
@@ -307,10 +317,10 @@ def gatherfilenames(filename):
         j = s.rfind('_')  # this to truncate the sw filename; i.e. to git rid of _sw.xlsx
         for f in gatherednames:
             i = f.rfind('_')
-            if f[i:i+4].lower()=='_sl.' and s[:j].lower()==f[:i].lower():  # found match
+            if f[i:i+4].lower()=='_sl.' and s[:j].lower()==f[:i].lower():  # found sw/sl match
                 dname, fname = os.path.split(s)
                 k = fname.rfind('_')
-                fntrunc = fname[:k]
+                fntrunc = fname[:k]  # Name of the sw file, excluding path, and excluding _sw.xlsx
                 pairedfilenames.append((fntrunc, s, f))  # (identifier, sw filename, sl filename)
                 flag = False  # sw file is not alone!
         if flag==True:  # sw file is alone... no matching sl file found.
@@ -364,7 +374,7 @@ def test_columns(df, required_columns):
     return not_found
 
 
-def sw(filename='clipboard', exceptions=None, operation=10, a=False):
+def sw(filename='clipboard', operation=10, a=False):
     '''Take a SolidWorks BOM and restructure it to be like that of a SyteLine
     BOM.  That is, the following is done:
 
@@ -434,18 +444,18 @@ def sw(filename='clipboard', exceptions=None, operation=10, a=False):
         sys.exit()
 
     #TODO: Will delete this section of code.
-    if exceptions==None:
-        exceptions = determine_execeptions_default()
-    exlist = []  # Exceptions to part nos. removed for SW BOM.
-    try:
-        with open(exceptions,'r') as fh:
-            exceps = fh.read().splitlines()
-    except FileNotFoundError:
-        print('.', end='')
-        exceps=[]
-    for e in exceps:
-        if e and e[0]!='#':
-             exlist.append(e.strip())
+    #if exceptions==None:
+    #    exceptions = determine_execeptions_default()
+    #exlist = []  # Exceptions to part nos. removed for SW BOM.
+    #try:
+    #    with open(exceptions,'r') as fh:
+    #        exceps = fh.read().splitlines()
+    #except FileNotFoundError:
+    #    print('.', end='')
+    #    exceps=[]
+    #for e in exceps:
+    #    if e and e[0]!='#':
+    #         exlist.append(e.strip())
 
     required_columns = [('QTY', 'QTY.'), 'DESCRIPTION', ('PART NUMBER', 'PARTNUMBER')]  # optional: LENGTH
     missing = test_columns(df_sw, required_columns)
