@@ -36,6 +36,7 @@ def main():
     '''
  
     exceptions_default = determine_execeptions_default()
+    drop_default = determine_drop_default()  #TODO: Delete this?
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      description='Program to compare SolidWorks BOMs to SyteLine BOMs')
     parser.add_argument('filename', help='Name of Excel or csv file.  Name ' +
@@ -53,6 +54,11 @@ def main():
                         'pns being removed from SW BOMs.  Example: bomcheck "*" -e ' +
                         '"C:\mypath\exceptions.txt"',
                         metavar='')
+    #TODO: Consider:   parser.add_arguement('-d', '--drop', ...
+    parser.add_argument('-d', '--drop', default=drop_default, 
+                        help='Part numbers to drop from the SolidWorks BOM so that ' +
+                        'they will not be used in the bom check.  This file will ' +
+                        'also include exceptions to those dropped part numbers.')
     parser.add_argument('-a', '--all', action='store_true', default=False,
                         help='Leave 3XXX-XXXX-025 part numbers in the SW BOMs')
     parser.add_argument('--version', action='version', version=__version__,
@@ -173,6 +179,30 @@ def determine_execeptions_default():
         print('The file exceptions.txt not found.  Please create it.')
         return ''
 
+#TODO: Consider dropping determine_drop_default()
+def determine_drop_default():
+    ''' The location of the drop.py file will vary according to whether
+    the bomcheck program is run on my home computer (Linux OS) or whether run
+    on my work computer (Window OS).  This function determines a suitable 
+    default location of the file.  
+    '''
+    dir_bc = os.path.abspath(os.path.dirname(sys.argv[0])) # home dir of bomcheck.py
+    candidate1 = "I:\bomceck\drop.py"
+    candidate2 = '/home/ken/projects/project1/drop.py'
+    candidate3 = 'exceptions.txt'  # is file in dir in which program is run?
+    candidate4 = os.path.join(dir_bc, 'drop.py')
+    if os.path.exists(candidate1):
+        return candidate1
+    elif os.path.exists(candidate2):
+        return candidate2
+    elif os.path.exists(candidate3):
+        return candidate3
+    elif os.path.exists(candidate4):
+        return candidate4
+    else:
+        print('The file drop.py not found.  Please create it.')
+        return ''
+    
 
 def export2excel(dirname, filename, results2export):
     '''Export to an Excel file the results of all the bom checks that have
@@ -402,10 +432,8 @@ def sw(filename='clipboard', exceptions=None, operation=10, a=False):
     except IOError:
         print('FILNAME NOT FOUND: ', filename)
         sys.exit()
-    #except:
-    #    print('unknown error in function sw')
-    #    sys.exit()
 
+    #TODO: Will delete this section of code.
     if exceptions==None:
         exceptions = determine_execeptions_default()
     exlist = []  # Exceptions to part nos. removed for SW BOM.
@@ -440,9 +468,29 @@ def sw(filename='clipboard', exceptions=None, operation=10, a=False):
     df_sw = df_sw.reindex(['Op', 'WC','Item', 'Q', 'Material Description', 'U'], axis=1)  # rename and/or remove columns
     d = {'Q': 'sum', 'Material Description': 'first', 'U': 'first'}   # funtions to apply to next line
     df_sw = df_sw.groupby('Item', as_index=False).aggregate(d).reindex(columns=df_sw.columns)
-    if a==False:
-        filtr3 = df_sw['Item'].str.startswith('3') & df_sw['Item'].str.endswith('025') & ~df_sw['Item'].isin(exlist)
-        df_sw.drop(df_sw[filtr3].index, inplace=True)  # delete nipples & fittings who's pn ends with "025"
+    
+    #TODO: Code to delete
+    #if a==False:
+    #    filtr3 = df_sw['Item'].str.startswith('3') & df_sw['Item'].str.endswith('025') & ~df_sw['Item'].isin(exlist)
+    #    df_sw.drop(df_sw[filtr3].index, inplace=True)  # delete nipples & fittings who's pn ends with "025"
+    
+    #TODO: Code to implement "drop"
+    if a==False:    
+        drop = ["3*-025", "3800-*"]
+        exceptions= ["3510-0200-025", "3086-1542-025"]
+        drop2 = []
+        for d in drop:
+            d = '^' + d + '$'
+            drop2.append(d.replace('*', '[A-Za-z0-9-]*'))    
+            exceptions2 = []
+        for e in exceptions:
+            e = '^' + e + '$'
+            exceptions2.append(e.replace('*', '[A-Za-z0-9-]*')) 
+        filtr3 = df_sw['Item'].str.contains('|'.join(drop2)) & ~df_sw['Item'].str.contains('|'.join(exceptions2))
+        df_sw.drop(df_sw[filtr3].index, inplace=True)  # drop frow SW BOM pns in "drop" list.
+    #######################    
+
+    
     df_sw['WC'] = 'PICK'
     df_sw['Op'] = str(operation)
     df_sw.set_index('Op', inplace=True)
