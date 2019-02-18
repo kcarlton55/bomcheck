@@ -7,15 +7,24 @@ Created on Sun Nov 18 20:39:10 2018
 """
 
 
-__version__ = '0.1.14'
+__version__ = '0.1.15'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
+from pathlib import Path
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
 pd.set_option('display.max_colwidth', 100)
 pd.set_option('display.width', 200)
+# Add to path for drop.py"
+Ibomcheck = os.path.normpath("I:/bomceck/")  # path for drop.py on work computer
+project1 = os.path.normpath("/home/ken/projects/project1/")  # path on home computer
+if not Ibomcheck in sys.path:
+    sys.path.append(Ibomcheck)
+if not project1 in sys.path:
+    sys.path.append(project1)
+import drop  # contains two lists: drop & exceptions.  These lists uses in sw()
 
 
 def main():
@@ -34,40 +43,34 @@ def main():
 
     \u2009
     '''
- 
-    exceptions_default = determine_execeptions_default()
-    drop_default = determine_drop_default()  #TODO: Delete this?
+    dropcontents = 'drop: ' + str(drop.drop) + ', exceptions: ' + str(drop.exceptions)
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                                     description='Program to compare SolidWorks BOMs to SyteLine BOMs')
+                        description='Program to compare SolidWorks BOMs to SyteLine BOMs')
     parser.add_argument('filename', help='Name of Excel or csv file.  Name ' +
                         'must end with _sw.xlsx, _sl.xlsx. _sw.csv, or ' +
                         '_sl.csv.  Enclose name in quotes.  Star, *, ' +
                         'caputures multiple files.  Examples: "6890-*", "*".  ' +
                         'Optional: Can instead obtain BOM(s) from clipboard. '  
-                        ' Enter "1" as the filename to process only a SW BOM. ' +
+                        ' Enter "1" to process only a SW BOM.  ' +
                         ' Use "2" to process both a SW and SL BOM.')
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='Show results on the computer monitor')
-    parser.add_argument('-e', '--exceptions',
-                        default=exceptions_default,
-                        help='Text file containing exceptions to 3XXX-XXXX-025 ' +
-                        'pns being removed from SW BOMs.  Example: bomcheck "*" -e ' +
-                        '"C:\mypath\exceptions.txt"',
-                        metavar='')
-    #TODO: Consider:   parser.add_arguement('-d', '--drop', ...
-    parser.add_argument('-d', '--drop', default=drop_default, 
-                        help='Part numbers to drop from the SolidWorks BOM so that ' +
-                        'they will not be used in the bom check.  This file will ' +
-                        'also include exceptions to those dropped part numbers.')
+    parser.add_argument('-d', '--drop', action='version', version=dropcontents,
+                        help='Show values of the "drop" list and the "exceptions" ' +
+                        'list and then exit.  In the drop list are pns that ' +
+                        'are dropped from the SW BOM and thus not included ' +
+                        'in the bom check.  The exeptions list are pns that are ' +
+                        'exceptions to those pns in the drop list.  These lists ' +
+                        'are in the file named drop.py')
     parser.add_argument('-a', '--all', action='store_true', default=False,
                         help='Leave 3XXX-XXXX-025 part numbers in the SW BOMs')
     parser.add_argument('--version', action='version', version=__version__,
                         help="Show program's version number and exit.")
     args = parser.parse_args()
-    bomcheck(args.filename, args.verbose, args.exceptions, args.all)
+    bomcheck(args.filename, args.verbose, args.all)
 
-
-def bomcheck(fn, v=False, exceptions='<dir of bomcheck.py file>/exceptions.txt', a=False):
+    
+def bomcheck(fn, v=False, a=False):
     '''Do BOM checks on a group of Excel files containing BOMs.  Filenames must
     end with _sw.xlsx or _sl.xlsx.  Leading part of file names must match.  For
     example, leading parts of names 0300-2018-797_sw.xlsx and 0300-2018-797_sw.xlsx
@@ -102,7 +105,6 @@ def bomcheck(fn, v=False, exceptions='<dir of bomcheck.py file>/exceptions.txt',
     \u2009
     '''
     dirname, swfiles, pairedfiles = gatherfilenames(fn)
-    op = 10  # a column named "operation" is in SL's BOMs.  99% of time is eq. to 10
     
     if ((not swfiles and not pairedfiles) and fn not in ['1', '2']):
         print('\nNo _sw of _sl files found.  Check that you are working in the correct')
@@ -110,23 +112,15 @@ def bomcheck(fn, v=False, exceptions='<dir of bomcheck.py file>/exceptions.txt',
         print()
         sys.exit()
     
-    excepts_default = determine_execeptions_default()
-    if not exceptions=='<dir of bomcheck.py file>/exceptions.txt' and os.path.isfile(exceptions):
-        exceptsfile = exceptions
-    else:
-        exceptsfile = excepts_default
-
     swlist = []
     mergedlist = []
-
     for _sw in swfiles:
-        swlist.append((_sw[0], sw(_sw[1], op, a)))
-
+        swlist.append((_sw[0], sw(_sw[1], a)))
     for pf in pairedfiles:
-        mergedlist.append((pf[0], sl(sw(pf[1], op, a), pf[2])))
+        mergedlist.append((pf[0], sl(sw(pf[1], a), pf[2])))
 
     if fn in ['1', '2']:
-        sw_df = sw('clipboard', exceptsfile, op, a)
+        sw_df = sw('clipboard', a)
         swlist.append(('clipboard', sw_df))
     if fn == '2': 
         swlist = []
@@ -155,54 +149,6 @@ def get_version():
 def pause():
     programPause = input("Press the <ENTER> key to continue...")
 
-
-def determine_execeptions_default():
-    ''' The location of the exceptions.txt file will vary according to whether
-    the bomcheck program is run on my home computer (Linux OS) or whether run
-    on my work computer (Window OS).  This function determines a suitable 
-    default location of the file.  
-    '''
-    dir_bc = os.path.abspath(os.path.dirname(sys.argv[0])) # home dir of bomcheck.py
-    candidate1 = "I:\bomceck\exceptions.txt"
-    candidate2 = '/home/ken/projects/project1/exceptions.txt'
-    candidate3 = 'exceptions.txt'  # is file in dir in which program is run?
-    candidate4 = os.path.join(dir_bc, 'exceptions.txt')
-    if os.path.exists(candidate1):
-        return candidate1
-    elif os.path.exists(candidate2):
-        return candidate2
-    elif os.path.exists(candidate3):
-        return candidate3
-    elif os.path.exists(candidate4):
-        return candidate4
-    else:
-        print('The file exceptions.txt not found.  Please create it.')
-        return ''
-
-#TODO: Consider dropping determine_drop_default()
-def determine_drop_default():
-    ''' The location of the drop.py file will vary according to whether
-    the bomcheck program is run on my home computer (Linux OS) or whether run
-    on my work computer (Window OS).  This function determines a suitable 
-    default location of the file.  
-    '''
-    dir_bc = os.path.abspath(os.path.dirname(sys.argv[0])) # home dir of bomcheck.py
-    candidate1 = "I:\bomceck\drop.py"
-    candidate2 = '/home/ken/projects/project1/drop.py'
-    candidate3 = 'exceptions.txt'  # is file in dir in which program is run?
-    candidate4 = os.path.join(dir_bc, 'drop.py')
-    if os.path.exists(candidate1):
-        return candidate1
-    elif os.path.exists(candidate2):
-        return candidate2
-    elif os.path.exists(candidate3):
-        return candidate3
-    elif os.path.exists(candidate4):
-        return candidate4
-    else:
-        print('The file drop.py not found.  Please create it.')
-        return ''
-    
 
 def export2excel(dirname, filename, results2export):
     '''Export to an Excel file the results of all the bom checks that have
@@ -374,7 +320,7 @@ def test_columns(df, required_columns):
     return not_found
 
 
-def sw(filename='clipboard', operation=10, a=False):
+def sw(filename='clipboard', a=False):
     '''Take a SolidWorks BOM and restructure it to be like that of a SyteLine
     BOM.  That is, the following is done:
 
@@ -443,20 +389,6 @@ def sw(filename='clipboard', operation=10, a=False):
         print('FILNAME NOT FOUND: ', filename)
         sys.exit()
 
-    #TODO: Will delete this section of code.
-    #if exceptions==None:
-    #    exceptions = determine_execeptions_default()
-    #exlist = []  # Exceptions to part nos. removed for SW BOM.
-    #try:
-    #    with open(exceptions,'r') as fh:
-    #        exceps = fh.read().splitlines()
-    #except FileNotFoundError:
-    #    print('.', end='')
-    #    exceps=[]
-    #for e in exceps:
-    #    if e and e[0]!='#':
-    #         exlist.append(e.strip())
-
     required_columns = [('QTY', 'QTY.'), 'DESCRIPTION', ('PART NUMBER', 'PARTNUMBER')]  # optional: LENGTH
     missing = test_columns(df_sw, required_columns)
     if missing:
@@ -479,30 +411,20 @@ def sw(filename='clipboard', operation=10, a=False):
     d = {'Q': 'sum', 'Material Description': 'first', 'U': 'first'}   # funtions to apply to next line
     df_sw = df_sw.groupby('Item', as_index=False).aggregate(d).reindex(columns=df_sw.columns)
     
-    #TODO: Code to delete
-    #if a==False:
-    #    filtr3 = df_sw['Item'].str.startswith('3') & df_sw['Item'].str.endswith('025') & ~df_sw['Item'].isin(exlist)
-    #    df_sw.drop(df_sw[filtr3].index, inplace=True)  # delete nipples & fittings who's pn ends with "025"
-    
-    #TODO: Code to implement "drop"
     if a==False:    
-        drop = ["3*-025", "3800-*"]
-        exceptions= ["3510-0200-025", "3086-1542-025"]
         drop2 = []
-        for d in drop:
+        for d in drop.drop:
             d = '^' + d + '$'
             drop2.append(d.replace('*', '[A-Za-z0-9-]*'))    
             exceptions2 = []
-        for e in exceptions:
+        for e in drop.exceptions:
             e = '^' + e + '$'
             exceptions2.append(e.replace('*', '[A-Za-z0-9-]*')) 
         filtr3 = df_sw['Item'].str.contains('|'.join(drop2)) & ~df_sw['Item'].str.contains('|'.join(exceptions2))
         df_sw.drop(df_sw[filtr3].index, inplace=True)  # drop frow SW BOM pns in "drop" list.
-    #######################    
-
-    
+   
     df_sw['WC'] = 'PICK'
-    df_sw['Op'] = str(operation)
+    df_sw['Op'] = str(10)
     df_sw.set_index('Op', inplace=True)
 
     return df_sw
