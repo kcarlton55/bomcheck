@@ -11,7 +11,6 @@ __version__ = '0.1.15'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
-from pathlib import Path
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
