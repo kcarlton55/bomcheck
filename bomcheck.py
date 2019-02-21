@@ -16,12 +16,14 @@ pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
 pd.set_option('display.max_colwidth', 100)
 pd.set_option('display.width', 200)
-# Add to path for drop.py"
-Ibomcheck = os.path.normpath("I:/bomceck/")  # path for drop.py on work computer
+Ibomcheck = os.path.normpath("I:/bomcheck/")  # path for drop.py on work computer
 project1 = os.path.normpath("/home/ken/projects/project1/")  # path on home computer
-if not Ibomcheck in sys.path:
+Cbomcheck = os.path.normpath("C:/bomcheck/")
+if os.path.exists(Ibomcheck) and not Ibomcheck in sys.path:
     sys.path.append(Ibomcheck)
-if not project1 in sys.path:
+if os.path.exists(Cbomcheck) and not Cbomcheck in sys.path:
+    sys.path.append(Cbomcheck)
+if os.path.exists(project1) and not project1 in sys.path:
     sys.path.append(project1)
 import drop  # contains two lists: drop & exceptions.  These lists uses in sw()
 
@@ -395,6 +397,7 @@ def sw(filename='clipboard', a=False):
         sys.exit()
 
     df_sw.fillna(0, inplace=True)  # fill NaN values with 0
+    df_sw['DESCRIPTION'].replace(0, '!! No SW description provided !!', inplace=True)
     df_sw['DESCRIPTION'] = df_sw['DESCRIPTION'].apply(lambda x: x.replace('\n', ''))  # get rid of "new line" character
     df_sw.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item',   # rename column titles
                           'DESCRIPTION': 'Material Description', 'QTY': 'Q', 'QTY.': 'Q'}, inplace=True)
