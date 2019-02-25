@@ -7,7 +7,7 @@ Created on Sun Nov 18 20:39:10 2018
 """
 
 
-__version__ = '0.1.15'
+__version__ = '0.1.16'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -16,16 +16,6 @@ pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
 pd.set_option('display.max_colwidth', 100)
 pd.set_option('display.width', 200)
-Ibomcheck = os.path.normpath("I:/bomcheck/")  # path for drop.py on work computer
-project1 = os.path.normpath("/home/ken/projects/project1/")  # path on home computer
-Cbomcheck = os.path.normpath("C:/bomcheck/")
-if os.path.exists(Ibomcheck) and not Ibomcheck in sys.path:
-    sys.path.append(Ibomcheck)
-if os.path.exists(Cbomcheck) and not Cbomcheck in sys.path:
-    sys.path.append(Cbomcheck)
-if os.path.exists(project1) and not project1 in sys.path:
-    sys.path.append(project1)
-import drop  # contains two lists: drop & exceptions.  These lists uses in sw()
 
 
 def main():
@@ -149,6 +139,27 @@ def get_version():
 
 def pause():
     programPause = input("Press the <ENTER> key to continue...")
+
+
+def importdrop():
+    global drop, exceptions
+    Ibomcheck = os.path.normpath("I:/bomcheck/")  # for Dekker networked computer
+    project1 = os.path.normpath("/home/ken/projects/project1xxx/")  # on my Linux home computer
+    Cbomcheck = os.path.normpath("C:/bomcheck/") # on my Wife's laptop
+    if os.path.exists(Ibomcheck) and not Ibomcheck in sys.path:
+        sys.path.append(Ibomcheck)
+    if os.path.exists(Cbomcheck) and not Cbomcheck in sys.path:
+        sys.path.append(Cbomcheck)
+    if os.path.exists(project1) and not project1 in sys.path:
+        sys.path.append(project1)
+    try:
+        import drop
+    except ModuleNotFoundError:
+        drop = ["3*-025", "3800-*"]
+        exceptions= ["3510-0200-025", "3086-1542-025"]
+        
+        
+    
 
 
 def export2excel(dirname, filename, results2export):
