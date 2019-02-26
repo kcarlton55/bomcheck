@@ -16,6 +16,7 @@ pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
 pd.set_option('display.max_colwidth', 100)
 pd.set_option('display.width', 200)
+createdroplists()
 
 
 def main():
@@ -34,7 +35,7 @@ def main():
 
     \u2009
     '''
-    dropcontents = 'drop: ' + str(drop.drop) + ', exceptions: ' + str(drop.exceptions)
+    dropcontents = 'drop: ' + str(drop) + ', exceptions: ' + str(exceptions)
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                         description='Program to compare SolidWorks BOMs to SyteLine BOMs')
     parser.add_argument('filename', help='Name of Excel or csv file.  Name ' +
@@ -141,25 +142,29 @@ def pause():
     programPause = input("Press the <ENTER> key to continue...")
 
 
-def importdrop():
+def createdroplists():
+    ''' Create two global python lists named drop and exceptions.  These lists
+    are derived from the file named droplists.py.  This file is meant for 
+    anyone in the Engineering department to be able to modify.  The lists are
+    of pns, like those for bolts and nuts, that are to be excluded from the bom
+    check.  These lists are called upon by the sw() function.
+    '''
     global drop, exceptions
-    Ibomcheck = os.path.normpath("I:/bomcheck/")  # for Dekker networked computer
-    project1 = os.path.normpath("/home/ken/projects/project1xxx/")  # on my Linux home computer
-    Cbomcheck = os.path.normpath("C:/bomcheck/") # on my Wife's laptop
-    if os.path.exists(Ibomcheck) and not Ibomcheck in sys.path:
-        sys.path.append(Ibomcheck)
-    if os.path.exists(Cbomcheck) and not Cbomcheck in sys.path:
-        sys.path.append(Cbomcheck)
-    if os.path.exists(project1) and not project1 in sys.path:
-        sys.path.append(project1)
+    pathDekker = os.path.normpath("I:/bomcheck/")
+    pathDevelopment = os.path.normpath("/home/ken/projects/project1/")
+    if os.path.exists(pathDekker) and not pathDekker in sys.path:
+        sys.path.append(pathDekker)
+    if os.path.exists(pathDevelopment) and not pathDevelopment in sys.path:
+        sys.path.append(pathDevelopment)
     try:
-        import drop
+        import droplists
+        drop = droplists.drop
+        exceptions = droplists.exceptions
     except ModuleNotFoundError:
+        print('\nFile droplists.py not found or corrupt.  Put it in the')
+        print('directory I:\\bomcheck\n')
         drop = ["3*-025", "3800-*"]
-        exceptions= ["3510-0200-025", "3086-1542-025"]
-        
-        
-    
+        exceptions= []
 
 
 def export2excel(dirname, filename, results2export):
@@ -426,11 +431,11 @@ def sw(filename='clipboard', a=False):
     
     if a==False:    
         drop2 = []
-        for d in drop.drop:
+        for d in drop:  # drop is a global list of pns to exclude from the bom check
             d = '^' + d + '$'
             drop2.append(d.replace('*', '[A-Za-z0-9-]*'))    
             exceptions2 = []
-        for e in drop.exceptions:
+        for e in exceptions:  # excpetion is also a globa list
             e = '^' + e + '$'
             exceptions2.append(e.replace('*', '[A-Za-z0-9-]*')) 
         filtr3 = df_sw['Item'].str.contains('|'.join(drop2)) & ~df_sw['Item'].str.contains('|'.join(exceptions2))
