@@ -16,7 +16,34 @@ pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
 pd.set_option('display.max_colwidth', 100)
 pd.set_option('display.width', 200)
-createdroplists()
+
+
+def getdroplist():
+    ''' Create two global python lists named drop and exceptions.  These lists
+    are derived from the file named droplists.py.  This file is meant for 
+    anyone in the Engineering department to be able to modify.  The lists are
+    of pns, like those for bolts and nuts, that are to be excluded from the bom
+    check.  These lists are called upon by the sw() function.
+    '''
+    global drop, exceptions
+    pathDekker = os.path.normpath("I:/bomcheck/")
+    pathDevelopment = os.path.normpath("/home/ken/projects/project1/")
+    if os.path.exists(pathDekker) and not pathDekker in sys.path:
+        sys.path.append(pathDekker)
+    if os.path.exists(pathDevelopment) and not pathDevelopment in sys.path:
+        sys.path.append(pathDevelopment)
+    try:
+        import droplist
+        drop = droplist.drop
+        exceptions = droplist.exceptions
+    except ModuleNotFoundError:
+        print('\nFile droplist.py not found or corrupt.  Put it in the')
+        print('directory I:\\bomcheck\n')
+        drop = ["3*-025", "3800-*"]
+        exceptions= []
+        
+        
+getdroplist()       
 
 
 def main():
@@ -38,26 +65,25 @@ def main():
     dropcontents = 'drop: ' + str(drop) + ', exceptions: ' + str(exceptions)
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                         description='Program to compare SolidWorks BOMs to SyteLine BOMs')
-    parser.add_argument('filename', help='Name of Excel or csv file.  Name ' +
+    parser.add_argument('filename', help='Name of file containing BOM.  Name ' +
                         'must end with _sw.xlsx, _sl.xlsx. _sw.csv, or ' +
-                        '_sl.csv.  Enclose name in quotes.  Star, *, ' +
+                        '_sl.csv.  Enclose name in quotes.  An asterisk, *, ' +
                         'caputures multiple files.  Examples: "6890-*", "*".  ' +
-                        'Optional: Can instead obtain BOM(s) from clipboard. '  
+                        'Optionally BOM can be entered via the clipboard: '  
                         ' Enter "1" to process only a SW BOM.  ' +
-                        ' Use "2" to process both a SW and SL BOM.')
+                        ' Enter "2" to process both a SW and SL BOM.')
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='Show results on the computer monitor')
     parser.add_argument('-d', '--drop', action='version', version=dropcontents,
-                        help='Show values of the "drop" list and the "exceptions" ' +
-                        'list and then exit.  In the drop list are pns that ' +
-                        'are dropped from the SW BOM and thus not included ' +
-                        'in the bom check.  The exeptions list are pns that are ' +
-                        'exceptions to those pns in the drop list.  These lists ' +
-                        'are in the file named drop.py')
+                        help='Show "drop" and "exceptions" lists and exit.  ' +
+                        'The drop list contains pns that are dropped from the ' +
+                        'the SW BOM and not included in the BOM check.  The ' +
+                        'exeptions list contains exceptions to pns of the drop ' +
+                        'list.  These lists are loaded from the file droplist.py')
     parser.add_argument('-a', '--all', action='store_true', default=False,
-                        help='Leave 3XXX-XXXX-025 part numbers in the SW BOMs')
+                        help='Include in the check pns of the drop list')
     parser.add_argument('--version', action='version', version=__version__,
-                        help="Show program's version number and exit.")
+                        help="Show program's version number and exit")
     args = parser.parse_args()
     bomcheck(args.filename, args.verbose, args.all)
 
@@ -140,31 +166,6 @@ def get_version():
 
 def pause():
     programPause = input("Press the <ENTER> key to continue...")
-
-
-def createdroplists():
-    ''' Create two global python lists named drop and exceptions.  These lists
-    are derived from the file named droplists.py.  This file is meant for 
-    anyone in the Engineering department to be able to modify.  The lists are
-    of pns, like those for bolts and nuts, that are to be excluded from the bom
-    check.  These lists are called upon by the sw() function.
-    '''
-    global drop, exceptions
-    pathDekker = os.path.normpath("I:/bomcheck/")
-    pathDevelopment = os.path.normpath("/home/ken/projects/project1/")
-    if os.path.exists(pathDekker) and not pathDekker in sys.path:
-        sys.path.append(pathDekker)
-    if os.path.exists(pathDevelopment) and not pathDevelopment in sys.path:
-        sys.path.append(pathDevelopment)
-    try:
-        import droplists
-        drop = droplists.drop
-        exceptions = droplists.exceptions
-    except ModuleNotFoundError:
-        print('\nFile droplists.py not found or corrupt.  Put it in the')
-        print('directory I:\\bomcheck\n')
-        drop = ["3*-025", "3800-*"]
-        exceptions= []
 
 
 def export2excel(dirname, filename, results2export):
