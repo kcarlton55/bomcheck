@@ -7,7 +7,7 @@ Created on Sun Nov 18 20:39:10 2018
 """
 
 
-__version__ = '0.1.16'
+__version__ = '0.1.17'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -122,11 +122,14 @@ def bomcheck(fn, v=False, a=False):
 
     \u2009
     '''
+    if os.path.isdir(fn):
+        fn = os.path.join(fn, '*')
+        
     dirname, swfiles, pairedfiles = gatherfilenames(fn)
     
     if ((not swfiles and not pairedfiles) and fn not in ['1', '2']):
-        print('\nNo _sw of _sl files found.  Check that you are working in the correct')
-        print('directory.  Check that Excel files are named correctly.')
+        print('\nNo sw or sl files found.  Check that you are working with the correct')
+        print('directory.  Check that files are named correctly (e.g. XXXXXX_sw.xlsx).')
         print()
         sys.exit()
     
