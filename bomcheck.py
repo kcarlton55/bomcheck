@@ -100,16 +100,20 @@ def bomcheck(fn, v=False, a=False):
     fn : string
         filename(s) of Excel files to do a BOM check on.
 
-    exceptions : string
-        Name of text file containing excecptions to pns (off-the-shelf items)
-        that are omited from SW BOMs (carried out by the `sw` function)
+    v : bool
+        verbose on or off (True or False).  Default: False
+    
+    a : bool
+        use all; that is, disreguard using the drop list.  The drop list is
+        a list of part nos. to disreguard for the bom check.  Default: False
 
     Returns
     =======
 
     out : Excel file (saved to disk)
-        The Excel file show the outputs from the lists title_dfsw and title_dfmerged.
-        Each object is shown on its own individual Excel worksheet.
+        The Excel file show the outputs from the lists title_dfsw and 
+        title_dfmerged.  Each object is shown on its own individual Excel
+        worksheet.
 
     Examples
     ========
@@ -119,6 +123,10 @@ def bomcheck(fn, v=False, a=False):
     >>> bomcheck("C:\\\\pathtomyfile\\\\6890-*")   # must use double (\\\\) backslash
 
     >>> bomcheck("*")
+    
+    Only a directory name specified.  Implies "*" for that directory:
+    
+    >>> bomcheck("C:\\\\pathtomyfile")  # only a directory name specified.  Implies '*" for that directory:
 
     \u2009
     '''
@@ -191,8 +199,7 @@ def export2excel(dirname, filename, results2export):
     =======
 
     out : Excel file (saved to disk)
-        The Excel file show the outputs from the lists named title_dfsw and  
-        title_dfmerged.  Each object is shown on its own individual Excel worksheet.
+        The Excel file shows on multiple sheets the results2export list.
 
      \u2009
     '''
@@ -249,18 +256,19 @@ def gatherfilenames(filename):
             
         (dirname,
           [(titleforswbom1, swpathname1), ...],
-          [(titleforslbom2, swpathname2, slpathname2),...])
+          [(titleformergedbom2, swpathname2, slpathname2),...])
                     
         Where:
-            dirname = the working driectory, i.e. where filename is located
+            dirname = the working driectory, i.e. where filename is located.
             swpathname = sw pathname, e.g., /dirpath/081233_sw.xlsx
             titleforbom = A name to attach to a bom for identification.  
-                          Derived from the file name (path and extension
-                          removed).
+                          Derived from the file name (that is, path and 
+                          extension removed gives the name).
                          
-        The 2nd item a list of tuples of length 2 containing only sw files for
-        which no matching sl bom was found.  The third item is a list of tuples
-        of length 3 containing sw boms for which a corresponding sl bom was found. 
+        The 2nd item a list of tuples, each of length 2, containing only sw 
+        files for which no matching sl bom was found.  The third item is a list
+        of tuples, each of length 3, containing sw and sl boms that are apt for
+        merging. 
         
      \u2009
     '''
@@ -296,8 +304,8 @@ def gatherfilenames(filename):
 
 
 def test_columns(df, required_columns):
-    '''The sw and sl functions call upon this function to ascertain whether
-    or not the user has input proper BOM data.
+    '''The sw and sl functions call upon this function to try to ascertain
+    whether or not the user has input proper BOM data.
 
     Parmeters
     =========
@@ -343,32 +351,32 @@ def sw(filename='clipboard', a=False):
     '''Take a SolidWorks BOM and restructure it to be like that of a SyteLine
     BOM.  That is, the following is done:
 
-    - If a part no. is shown multiple times in a BOM, change the BOM so that
-      the part no. is only shown once.  The quatity for that part is the sum
-      of the quantites for the multiple items.
-    - If the part is a pipe or beam, and it is shown multiple times in the BOM,
-      change the BOM so that it is shown only once.  The length for that part
-      is the sum of the lengths of the multiple parts.
-    - For parts that have a length associated with it, the lenghts are
-      converted from inches to feet.
+    - For parts with a length provided, the length is converted from inches
+      to feet.
+    - If the part is a pipe or beam, and it is shown multiple times in the bom,
+      change the bom so that it is shown only once.  The length for that part
+      in the new bom is the sum of the lengths of the multiple parts.  
+      The program knows to execute this process by whether a Length is given
+      for the part or not.
     - Any pipe fittings that start with "3" and end "025" (i.e., off-the-shelf
       pipe fittings) are removed from the BOM since these part nos. are not
-      shown on a SyteLine BOM.  Place exceptions to this rule in the file
-      `exceptions.txt`
+      normally shown in SyteLine bomss.  This rule is goverened by the part nos.
+      listed in the file named drop.py which may be updated by users.
+    - Many times part nos. for pipe nipples show more than once in a sw bom.
+      This function changes the occurance to one and sums the quatities.
     - Column titles are changed to match those of SyteLine.
 
     Parmeters
     =========
 
     filename : string
-        Name of Excel file(s) to process.
+        Name of SolidWorks Excel file to process.  If filename = clipboard, the 
+        sw bom is taken from the clipboard.
 
-    excpetions : string
-        Name of the text file containing a list part number exceptions.
-        (part numbers staring with `3` and ending with `025`, i.e.
-        off-the-shelf pipe fittings, are removed from SolidWorks boms.
-        Exceptions to this rule are listed in the text file.)
-
+    a : bool
+        use all; that is, disreguard using the drop list.  The drop list is
+        a list of part nos. to disreguard for the bom check.  Default: False
+    
     Returns
     =======
 
@@ -451,9 +459,9 @@ def sw(filename='clipboard', a=False):
 
 
 def sl(df_solidworks, filename='clipboard'):
-    '''This function reads in a BOM derived from StyeLine and then merges it
-    with the BOM from SolidWorks.  The merged BOMs allow differences to
-    easily seen between the two BOMs.
+    '''This function reads in a bom derived from StyeLine and then merges it
+    with the bom from SolidWorks.  The merged boms allow differences to
+    easily seen.
 
     The first column in the output is labeled `IQMU`.  Check marks and Xs will
     be under this column header.  `I` means that the item (part number) matches
@@ -463,22 +471,19 @@ def sl(df_solidworks, filename='clipboard'):
     Parmeters
     =========
 
-    filename : string
-        Name of Excel file(s) to process
+    df_solidworks : pandas DataFrame
+        A DataFrame produced by the function `sw()`
 
-    df_solidworks : pandas.DataFrame
-        A DataFrame produced by the function `sw`
+    filename : string
+        Name of SyteLine Excel file to process.  If filename = clipboard, the 
+        sl bom is taken from the clipboard.
 
     Returns
     =======
 
-
-    Examples
-    ========
-
-    >>> sl()
-
-    >>> sl(r"C:\\dirpath\\name2.xlsx", sw(filename))
+    df_merged : Pandas DataFrame
+        df_merged it a DataFrame that shows a side-by-side comparison of a
+        SolidWorks bom to a SyteLine bom.
 
     \u2009
     '''
