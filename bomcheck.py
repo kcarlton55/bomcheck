@@ -108,7 +108,7 @@ def bomcheck(fn, v=False, a=False):
     =======
 
     out : Excel file (saved to disk)
-        The Excel file show the outputs from the swlist and the mergedlist.
+        The Excel file show the outputs from the lists title_dfsw and title_dfmerged.
         Each object is shown on its own individual Excel worksheet.
 
     Examples
@@ -132,25 +132,21 @@ def bomcheck(fn, v=False, a=False):
         print('directory.  Check that files are named correctly (e.g. XXXXXX_sw.xlsx).')
         print()
         sys.exit()
-    
-    swlist = []
-    mergedlist = []
-    for _sw in swfiles:
-        swlist.append((_sw[0], sw(_sw[1], a)))
-    for pf in pairedfiles:
-        mergedlist.append((pf[0], sl(sw(pf[1], a), pf[2])))
+     
+    title_dfsw = list(map(lambda x: (x[0], sw(x[1], a)), swfiles)) # [(title, dfsw), ...]
+    title_dfmerged = list(map(lambda x: (x[0], sl(sw(x[1], a), x[2])), pairedfiles)) # [(title, dfmerged), ...]
 
     if fn in ['1', '2']:
         sw_df = sw('clipboard', a)
-        swlist.append(('clipboard', sw_df))
+        title_dfsw.append(('clipboard', sw_df))
     if fn == '2': 
-        swlist = []
-        mergedlist.append(('clipboard', sl(sw_df, filename='clipboard')))
+        title_dfsw = []
+        title_dfmerged.append(('clipboard', sl(sw_df, filename='clipboard')))
 
-    export2excel(dirname, 'bomcheck', swlist + mergedlist)
+    export2excel(dirname, 'bomcheck', title_dfsw + title_dfmerged)
 
     results = {}
-    for s in (swlist + mergedlist):
+    for s in (title_dfsw + title_dfmerged):
         results[s[0]] = s[1]
 
     if v:
@@ -195,8 +191,8 @@ def export2excel(dirname, filename, results2export):
     =======
 
     out : Excel file (saved to disk)
-        The Excel file show the outputs from the swlist and the mergedlist.
-        Each object is shown on its own individual Excel worksheet.
+        The Excel file show the outputs from the lists named title_dfsw and  
+        title_dfmerged.  Each object is shown on its own individual Excel worksheet.
 
      \u2009
     '''
@@ -245,20 +241,22 @@ def gatherfilenames(filename):
     Returns
     =======
 
-    out : tuple of length 3
+    out : tuple with tree elements: 1. name of working directory, 2. list of sw
+        files and titles to assign to sw's boms, and 3. list of sl files and
+        titles to assign to merged sw/sl boms.
     
         Tuple has the form:
             
         (dirname,
-          [(identifierA, swpathnameA), ...],
-          [(identifier1, swpathname1, slpathname1),...])
+          [(titleforswbom1, swpathname1), ...],
+          [(titleforslbom2, swpathname2, slpathname2),...])
                     
         Where:
-            dirname = is the directory where filename is located
+            dirname = the working driectory, i.e. where filename is located
             swpathname = sw pathname, e.g., /dirpath/081233_sw.xlsx
-            identifier = The top level name of the BOM, like 083125, derived
-                         from a swpathname by removing the directory path  and
-                         removing the extension _sw.xlsx extension.
+            titleforbom = A name to attach to a bom for identification.  
+                          Derived from the file name (path and extension
+                          removed).
                          
         The 2nd item a list of tuples of length 2 containing only sw files for
         which no matching sl bom was found.  The third item is a list of tuples
@@ -391,16 +389,16 @@ def sw(filename='clipboard', a=False):
         if filename.lower() in ['c', 'x', 'cb', 'clipboard']:
             print('\nCopy SolidWorks BOM to clipboard.  Include title.')
             pause()
-            df_sw = pd.read_clipboard(engine='python', na_values=[' '], skiprows=1)
+            dfsw = pd.read_clipboard(engine='python', na_values=[' '], skiprows=1)
         elif str(type(filename))[-11:-2] == 'DataFrame':
-            df_sw = filename
+            dfsw = filename
         elif ext=='.xlsx' or ext=='.xls':
             try:
-                df_sw = pd.read_excel(filename, na_values=[' '], skiprows=1, engine='python')
+                dfsw = pd.read_excel(filename, na_values=[' '], skiprows=1, engine='python')
             except:
-                df_sw = pd.read_excel(filename, na_values=[' '], skiprows=1)
+                dfsw = pd.read_excel(filename, na_values=[' '], skiprows=1)
         elif ext=='.csv':
-            df_sw = pd.read_csv(filename, na_values=[' '], skiprows=1,
+            dfsw = pd.read_csv(filename, na_values=[' '], skiprows=1,
                                 encoding='iso8859_1', engine='python')
         else:
             print('non valid file name (', filename, ') (err 102)')
@@ -411,27 +409,27 @@ def sw(filename='clipboard', a=False):
         sys.exit()
 
     required_columns = [('QTY', 'QTY.'), 'DESCRIPTION', ('PART NUMBER', 'PARTNUMBER')]  # optional: LENGTH
-    missing = test_columns(df_sw, required_columns)
+    missing = test_columns(dfsw, required_columns)
     if missing:
         print('At least one column in your SW data (' + os.path.split(filename)[1] + ')  not found: ', missing)
         sys.exit()
 
-    df_sw.fillna(0, inplace=True)  # fill NaN values with 0
-    df_sw['DESCRIPTION'].replace(0, '!! No SW description provided !!', inplace=True)
-    df_sw['DESCRIPTION'] = df_sw['DESCRIPTION'].apply(lambda x: x.replace('\n', ''))  # get rid of "new line" character
-    df_sw.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item',   # rename column titles
+    dfsw.fillna(0, inplace=True)  # fill NaN values with 0
+    dfsw['DESCRIPTION'].replace(0, '!! No SW description provided !!', inplace=True)
+    dfsw['DESCRIPTION'] = dfsw['DESCRIPTION'].apply(lambda x: x.replace('\n', ''))  # get rid of "new line" character
+    dfsw.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item',   # rename column titles
                           'DESCRIPTION': 'Material Description', 'QTY': 'Q', 'QTY.': 'Q'}, inplace=True)
-    filtr1 = df_sw['Item'].str.startswith('3086')  # filter pipe nipples (i.e. pn starting with 3086)
+    filtr1 = dfsw['Item'].str.startswith('3086')  # filter pipe nipples (i.e. pn starting with 3086)
     try:       # if no LENGTH in the table, an error occurs. "try" causes following lines to be passed over
-        df_sw['LENGTH'] = round((df_sw['Q'] * df_sw['LENGTH'] * ~filtr1) /12.0, 4)  # covert lenghts to feet. ~ = NOT
-        filtr2 = df_sw['LENGTH'] >= 0.00001  # a filter: only items where length greater than 0.0
-        df_sw['Q'] = df_sw['Q']*(~filtr2) + df_sw['LENGTH']  # move lengths (in feet) to the Qty column
-        df_sw['U'] = filtr2.apply(lambda x: 'FT' if x else 'EA')
+        dfsw['LENGTH'] = round((dfsw['Q'] * dfsw['LENGTH'] * ~filtr1) /12.0, 4)  # covert lenghts to feet. ~ = NOT
+        filtr2 = dfsw['LENGTH'] >= 0.00001  # a filter: only items where length greater than 0.0
+        dfsw['Q'] = dfsw['Q']*(~filtr2) + dfsw['LENGTH']  # move lengths (in feet) to the Qty column
+        dfsw['U'] = filtr2.apply(lambda x: 'FT' if x else 'EA')
     except:
-        df_sw['U'] = 'EA'
-    df_sw = df_sw.reindex(['Op', 'WC','Item', 'Q', 'Material Description', 'U'], axis=1)  # rename and/or remove columns
+        dfsw['U'] = 'EA'
+    dfsw = dfsw.reindex(['Op', 'WC','Item', 'Q', 'Material Description', 'U'], axis=1)  # rename and/or remove columns
     d = {'Q': 'sum', 'Material Description': 'first', 'U': 'first'}   # funtions to apply to next line
-    df_sw = df_sw.groupby('Item', as_index=False).aggregate(d).reindex(columns=df_sw.columns)
+    dfsw = dfsw.groupby('Item', as_index=False).aggregate(d).reindex(columns=dfsw.columns)
     
     if a==False:    
         drop2 = []
@@ -442,14 +440,14 @@ def sw(filename='clipboard', a=False):
         for e in exceptions:  # excpetion is also a globa list
             e = '^' + e + '$'
             exceptions2.append(e.replace('*', '[A-Za-z0-9-]*')) 
-        filtr3 = df_sw['Item'].str.contains('|'.join(drop2)) & ~df_sw['Item'].str.contains('|'.join(exceptions2))
-        df_sw.drop(df_sw[filtr3].index, inplace=True)  # drop frow SW BOM pns in "drop" list.
+        filtr3 = dfsw['Item'].str.contains('|'.join(drop2)) & ~dfsw['Item'].str.contains('|'.join(exceptions2))
+        dfsw.drop(dfsw[filtr3].index, inplace=True)  # drop frow SW BOM pns in "drop" list.
    
-    df_sw['WC'] = 'PICK'
-    df_sw['Op'] = str(10)
-    df_sw.set_index('Op', inplace=True)
+    dfsw['WC'] = 'PICK'
+    dfsw['Op'] = str(10)
+    dfsw.set_index('Op', inplace=True)
 
-    return df_sw
+    return dfsw
 
 
 def sl(df_solidworks, filename='clipboard'):
@@ -484,7 +482,7 @@ def sl(df_solidworks, filename='clipboard'):
 
     \u2009
     '''
-    df_sw = df_solidworks
+    dfsw = df_solidworks
     _, ext = os.path.splitext(filename)
 
     try:
@@ -516,7 +514,7 @@ def sl(df_solidworks, filename='clipboard'):
         print('At least one column in your SL data (' + os.path.split(filename)[1] + ') not found: ', missing)
         sys.exit()
 
-    if not str(type(df_sw))[-11:-2] == 'DataFrame':
+    if not str(type(dfsw))[-11:-2] == 'DataFrame':
         print('Program halted.  A fault with SolidWorks DataFrame occurred.')
         sys.exit()
 
@@ -527,25 +525,25 @@ def sl(df_solidworks, filename='clipboard'):
     if 'Item' in df_sl.columns and 'Material' in df_sl.columns:
         df_sl.drop(['Item'], axis=1, inplace=True)
     df_sl.rename(columns={'Material':'Item', 'Quantity':'Q', 'Qty':'Q', 'U/M':'U'}, inplace=True)
-    df_merged = pd.merge(df_sw, df_sl, on='Item', how='outer', suffixes=('_sw', '_sl'), indicator=True)
-    df_merged.sort_values(by=['Item'], inplace=True)
-    filtrI = df_merged['_merge'].str.contains('both')  # this filter determines if pn in both SW and SL
-    filtrQ = abs(df_merged['Q_sw'] - df_merged['Q_sl']) < .01  # a filter is a list of True/False values
-    filtrM = df_merged['Material Description_sw'].str.split()==df_merged['Material Description_sl'].str.split()
-    filtrU = df_merged['U_sw']==df_merged['U_sl']
+    dfmerged = pd.merge(dfsw, df_sl, on='Item', how='outer', suffixes=('_sw', '_sl'), indicator=True)
+    dfmerged.sort_values(by=['Item'], inplace=True)
+    filtrI = dfmerged['_merge'].str.contains('both')  # this filter determines if pn in both SW and SL
+    filtrQ = abs(dfmerged['Q_sw'] - dfmerged['Q_sl']) < .01  # a filter is a list of True/False values
+    filtrM = dfmerged['Material Description_sw'].str.split()==dfmerged['Material Description_sl'].str.split()
+    filtrU = dfmerged['U_sw']==dfmerged['U_sl']
     chkmark = '\u2713' # The UTF-8 character code for a check mark character
     err = '\u2716'     # X character
-    df_merged['IQMU'] = (filtrI.apply(lambda x: chkmark if x else err)   # X = Item not in SW or SL
+    dfmerged['IQMU'] = (filtrI.apply(lambda x: chkmark if x else err)   # X = Item not in SW or SL
                        + filtrQ.apply(lambda x: chkmark if x else err)   # X = Qty differs btwn SW and SL
                        + filtrM.apply(lambda x: chkmark if x else err)   # X = Mtl differs btwn SW & SL
                        + filtrU.apply(lambda x: chkmark if x else err))  # X = U differs btwn SW & SL
-    df_merged['IQMU'] = ~df_merged['Item'].duplicated(keep=False) * df_merged['IQMU'] # duplicate in SL? IQMU-> blank
-    df_merged = df_merged[['Item', 'IQMU', 'Q_sw', 'Q_sl', 'Material Description_sw',
+    dfmerged['IQMU'] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged['IQMU'] # duplicate in SL? IQMU-> blank
+    dfmerged = dfmerged[['Item', 'IQMU', 'Q_sw', 'Q_sl', 'Material Description_sw',
                            'Material Description_sl', 'U_sw', 'U_sl']]
-    df_merged.fillna('', inplace=True)
-    df_merged.set_index('Item', inplace=True)
-    #df_merged.to_clipboard()
-    return df_merged
+    dfmerged.fillna('', inplace=True)
+    dfmerged.set_index('Item', inplace=True)
+    #dfmerged.to_clipboard()
+    return dfmerged
 
 
 if __name__=='__main__':
