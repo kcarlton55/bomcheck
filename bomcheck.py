@@ -7,7 +7,7 @@ Created on Sun Nov 18 20:39:10 2018
 """
 
 
-__version__ = '0.1.17'
+__version__ = '0.1.18'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -54,7 +54,7 @@ def main():
 
     >>> python bomcheck.py "078551*"
 
-    >>> python bomcheck.py "C:\\\\pathtomyfile\\\\6890-*"  # must use double (\\\\) backslash
+    >>> python bomcheck.py "C:\\pathtomyfile\\6890-*"
 
     >>> python bomcheck.py "*"
 
@@ -120,13 +120,13 @@ def bomcheck(fn, v=False, a=False):
 
     >>> bomcheck("078551*")
 
-    >>> bomcheck("C:\\\\pathtomyfile\\\\6890-*")   # must use double (\\\\) backslash
+    >>> bomcheck("C:\\pathtomyfile\\6890-*")
 
     >>> bomcheck("*")
     
     Only a directory name specified.  Implies "*" for that directory:
     
-    >>> bomcheck("C:\\\\pathtomyfile")  # only a directory name specified.  Implies '*" for that directory:
+    >>> bomcheck("C:\\pathtomyfile")  # only a directory name specified.  Implies '*" for that directory:
 
     \u2009
     '''
@@ -163,6 +163,12 @@ def bomcheck(fn, v=False, a=False):
             print(pn + ":\n")      # print the pn.  \n prints a new line
             print(bom)             # print the bom
             print('\n\n')          # print two lines
+    
+    if sys.platform[:3] == 'win':  # Open bomcheck.xlsx in Excel
+        try:
+            os.startfile(os.path.join(dirname, 'bomcheck.xlsx'))
+        except:
+            print('Attempt to open bomcheck.xlsx in Excel failed.' )
 
     return results
 
@@ -536,8 +542,8 @@ def sl(df_solidworks, filename='clipboard'):
     filtrQ = abs(dfmerged['Q_sw'] - dfmerged['Q_sl']) < .01  # a filter is a list of True/False values
     filtrM = dfmerged['Material Description_sw'].str.split()==dfmerged['Material Description_sl'].str.split()
     filtrU = dfmerged['U_sw']==dfmerged['U_sl']
-    chkmark = '\u2713' # The UTF-8 character code for a check mark character
-    err = '\u2716'     # X character
+    chkmark = '\u02DC' # The UTF-8 character code for a check mark character (was \u2713)
+    err = 'X'     # X character (was \u2716)
     dfmerged['IQMU'] = (filtrI.apply(lambda x: chkmark if x else err)   # X = Item not in SW or SL
                        + filtrQ.apply(lambda x: chkmark if x else err)   # X = Qty differs btwn SW and SL
                        + filtrM.apply(lambda x: chkmark if x else err)   # X = Mtl differs btwn SW & SL
