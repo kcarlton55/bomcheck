@@ -7,7 +7,7 @@ Created on Sun Nov 18 20:39:10 2018
 """
 
 
-__version__ = '0.1.18'
+__version__ = '0.1.19'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -84,8 +84,13 @@ def main():
                         help='Include in the check pns of the drop list')
     parser.add_argument('--version', action='version', version=__version__,
                         help="Show program's version number and exit")
-    args = parser.parse_args()
-    bomcheck(args.filename, args.verbose, args.all)
+    try:  # When bomcheck.py run within Spyder, error occurs... program dan't find value for 'filename'
+        args = parser.parse_args()  
+        bomcheck(args.filename, args.verbose, args.all) 
+    except:
+        print('\n\nAn error occured.  The bomcheck function was not provided arguments.  Will set')
+        print("arguments 'filename', 'verbose', and 'all' to \"*\", True, and False respectively.  \n\n")
+        bomcheck('*', True, False)
 
     
 def bomcheck(fn, v=False, a=False):
@@ -227,14 +232,16 @@ def export2excel(dirname, filename, results2export):
             df = r[1]
             df.to_excel(writer, sheet_name=sheetname)
             worksheet = writer.sheets[sheetname]  # pull worksheet object
-            # adjust widths of columns in Excel worksheet to fit data's width:
-            for idx, col in enumerate(df):  # loop through all columns
+            # adjust widths of columns in Excel worksheet to fit data's width: 
+            mwic = max_width_index_column = df.index.astype(str).map(len).max() 
+            worksheet.set_column(0, 0, mwic + 1)  # set width of index column, col 0 (i.e. A)
+            for idx, col in enumerate(df):  # set width of rest of columns  
                 series = df[col]
                 max_len = max((
                     series.astype(str).map(len).max(),  # len of largest item
                     len(str(series.name))  # len of column name/header
                     )) + 1  # adding a little extra space
-                worksheet.set_column(idx+1, idx+1, max_len)  # set column width
+                worksheet.set_column(idx+1, idx+1, max_len)  # set column width of col 1, 2, ...
         writer.save()
     abspath = os.path.abspath(fn)
     print("\ncreated file: " + abspath + '\n')
