@@ -7,7 +7,7 @@ Created on Sun Nov 18 20:39:10 2018
 """
 
 
-__version__ = '0.1.19'
+__version__ = '0.1.20'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -83,14 +83,12 @@ def main():
     parser.add_argument('-a', '--all', action='store_true', default=False,
                         help='Include in the check pns of the drop list')
     parser.add_argument('--version', action='version', version=__version__,
-                        help="Show program's version number and exit")
-    try:  # When bomcheck.py run within Spyder, error occurs... program dan't find value for 'filename'
-        args = parser.parse_args()  
-        bomcheck(args.filename, args.verbose, args.all) 
-    except:
-        print('\n\nAn error occured.  The bomcheck function was not provided arguments.  Will set')
-        print("arguments 'filename', 'verbose', and 'all' to \"*\", True, and False respectively.  \n\n")
-        bomcheck('*', True, False)
+                        help="Show program's version number and exit")        
+    if len(sys.argv)==1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+    args = parser.parse_args()  
+    bomcheck(args.filename, args.verbose, args.all) 
 
     
 def bomcheck(fn, v=False, a=False):
@@ -565,6 +563,7 @@ def sl(df_solidworks, filename='clipboard'):
 
 
 if __name__=='__main__':
-    main()
+    main()                   # comment out this line for testing
+    #bomcheck('*', v=True)   # use for testing
 
 
