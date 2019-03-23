@@ -3,14 +3,19 @@
 """
 Created on Sun Nov 18 20:39:10 2018
 
-@author: ken
+@author: Ken Carlton
+
+This program compares to BOMs: one originating from SolidWorks and the other
+from SyteLine.  The structure of the BOMs (headings, structure, etc.) are
+unique to my company.
 """
 
 
-__version__ = '0.1.20'
+__version__ = '0.1.21'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
+#import codecs
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
@@ -153,9 +158,12 @@ def bomcheck(fn, v=False, a=False):
     if fn == '2': 
         title_dfsw = []
         title_dfmerged.append(('clipboard', sl(sw_df, filename='clipboard')))
-
-    export2excel(dirname, 'bomcheck', title_dfsw + title_dfmerged)
-
+        
+    try:    
+        export2excel(dirname, 'bomcheck', title_dfsw + title_dfmerged)
+    except PermissionError:
+        print('\nError: unable to write to bomcheck.xlsx')
+        
     results = {}
     for s in (title_dfsw + title_dfmerged):
         results[s[0]] = s[1]
@@ -219,7 +227,7 @@ def export2excel(dirname, filename, results2export):
     if e and not e[4].lower()=='.xls':
         print('output filename extension needs to be .xlsx')
         print('Program aborted.')
-        sys.exit()
+        sys.exit(0)
     else:
         e = '.xlsx'
     fn = os.path.join(dirname, f+e)
@@ -231,8 +239,8 @@ def export2excel(dirname, filename, results2export):
             df.to_excel(writer, sheet_name=sheetname)
             worksheet = writer.sheets[sheetname]  # pull worksheet object
             # adjust widths of columns in Excel worksheet to fit data's width: 
-            mwic = max_width_index_column = df.index.astype(str).map(len).max() 
-            worksheet.set_column(0, 0, mwic + 1)  # set width of index column, col 0 (i.e. A)
+            mwic = df.index.astype(str).map(len).max() # max width of index column
+            worksheet.set_column(0, 0, mwic + 1)  # set width of index column, i.e. col 0, i.e. col A
             for idx, col in enumerate(df):  # set width of rest of columns  
                 series = df[col]
                 max_len = max((
@@ -286,7 +294,7 @@ def gatherfilenames(filename):
     dirname = os.path.dirname(filename)
     if dirname and not os.path.exists(dirname):
         print('directory not found: ', dirname)
-        sys.exit()
+        sys.exit(0)
     gatherednames = sorted(glob.glob(filename))
     swfilenames_tmp = []
     for f in gatherednames:  # Grab a list of all the SW files that glob grabbed.
@@ -358,6 +366,30 @@ def test_columns(df, required_columns):
     return not_found
 
 
+def testcsv(filename):
+    ''' Test so see if the number of commas in each row is the same or not.  
+    For a comma delimited csv file the no. of commas in each row should be the
+    same.  If not, a program crash occurs with an error message that can be 
+    confusing to the user.  This function on the other hand gives a user
+    friendly error message.  This type of failure typically occurs in a SW csv
+    file since SL csv files do not use commas as a delimiter.”
+    '''
+    with open(filename, encoding="ISO-8859-1") as f:
+        num = f.readline().count(',')  # get number of commas in 1st line of f
+        failed_lines = [x for x in f if x.count(',') != num]
+    if failed_lines:
+        print('\nParsing Error.  Program halted.')
+        print('File causing problem: ' + filename)
+        print('Reason for failure: number of commas in each row of the file is not the same.')
+        print('(Commas separate fields in the row.  Unequal commas represent unequal number')
+        print('of fields.)  Most likely culprit: a comma within the part description,')
+        print('e.g. “KIT, VMX0153 MECH SEAL”\n')
+        print('Offendig line(s):')
+        for j in failed_lines:
+            print('  ', j)
+    return failed_lines  # if list empty, equivalent to False, else True
+
+
 def sw(filename='clipboard', a=False):
     '''Take a SolidWorks BOM and restructure it to be like that of a SyteLine
     BOM.  That is, the following is done:
@@ -417,15 +449,18 @@ def sw(filename='clipboard', a=False):
             except:
                 dfsw = pd.read_excel(filename, na_values=[' '], skiprows=1)
         elif ext=='.csv':
-            dfsw = pd.read_csv(filename, na_values=[' '], skiprows=1,
-                                encoding='iso8859_1', engine='python')
+            if testcsv(filename):
+                sys.exit(1)
+            else:
+                dfsw = pd.read_csv(filename, na_values=[' '], skiprows=1,
+                                   encoding='iso8859_1', engine='python')
         else:
             print('non valid file name (', filename, ') (err 102)')
-            sys.exit()
+            sys.exit(0)
 
     except IOError:
         print('FILNAME NOT FOUND: ', filename)
-        sys.exit()
+        sys.exit(0)
 
     required_columns = [('QTY', 'QTY.'), 'DESCRIPTION', ('PART NUMBER', 'PARTNUMBER')]  # optional: LENGTH
     missing = test_columns(dfsw, required_columns)
