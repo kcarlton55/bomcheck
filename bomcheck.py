@@ -8,6 +8,9 @@ Created on Sun Nov 18 20:39:10 2018
 This program compares to BOMs: one originating from SolidWorks and the other
 from SyteLine.  The structure of the BOMs (headings, structure, etc.) are
 unique to my company.
+
+Run from the command line: python bomcheck -v '*'
+Run from a python console terminal: bomcheck('*', v=True)
 """
 
 
@@ -15,7 +18,7 @@ __version__ = '0.1.21'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
-#import codecs
+import tempfile
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
@@ -366,6 +369,54 @@ def test_columns(df, required_columns):
     return not_found
 
 
+def reverse(s):
+   ''' Reverse a string.  For example, "abcde" to "edcba".'''
+   str = "" 
+   for i in s: 
+       str = i + str
+   return str
+
+
+def fixcsv(filename):
+    '''fixcsv if called when a SW csv file is used.  Commas are on rare 
+    occasions used within a part's description.  This comma causes the program 
+    to crash.  (See the testcsv()).  
+    
+    Parmeters
+    =========
+
+    filename : string
+        Name of SolidWorks csv file to process.
+        
+    Returns
+    =======
+    
+    data : list
+        A list of all the lines in filename except that the commas (,) in each
+        line, save those that are within of the pn descriptions, are converted
+        to semicolons (;).
+    '''
+    with open(filename, encoding="ISO-8859-1") as f:
+        data1 = f.readlines()
+    num = data1[0].count(',')  # no. of commas in first line of filename      
+    data2 = list(map(lambda x: x.replace(',', ';') , data1)) # replace commas with semicolons
+    # The last two columns in a SW BOM are always Descrition and Part Number.
+    # Reverse each line of data2 and "replace" (which works from the start
+    # of a string to the end) the semicolons with commas up to postion i.
+    # Then replace the comma between pn and descrip back to a semicolon.  
+    # Finally reverse the string and append to the list named data3.
+    data = []
+    for d in data2:
+        if d.count(';') != num:
+            i = d.count(';') - num + 1
+            reversed_str = reverse(d).replace(';', ',', i)
+            reversed_str = reversed_str.replace(',', ';', 1)
+            data.append(reverse(reversed_str))
+        else:
+            data.append(d)
+    return data  # a list of lines from filename with semicolons as separators
+         
+
 def testcsv(filename):
     ''' Test so see if the number of commas in each row is the same or not.  
     For a comma delimited csv file the no. of commas in each row should be the
@@ -448,12 +499,21 @@ def sw(filename='clipboard', a=False):
                 dfsw = pd.read_excel(filename, na_values=[' '], skiprows=1, engine='python')
             except:
                 dfsw = pd.read_excel(filename, na_values=[' '], skiprows=1)
-        elif ext=='.csv':
+        elif False: #ext=='.csv':
             if testcsv(filename):
                 sys.exit(1)
             else:
                 dfsw = pd.read_csv(filename, na_values=[' '], skiprows=1,
                                    encoding='iso8859_1', engine='python')
+        elif ext=='.csv':
+            data = fixcsv(filename)
+            temp = tempfile.TemporaryFile(mode='w+t')
+            for d in data:
+                temp.write(d)
+            temp.seek(0)
+            dfsw = pd.read_csv(temp, na_values=[' '], skiprows=1, sep=';',
+                                   encoding='iso8859_1', engine='python')
+            temp.close()
         else:
             print('non valid file name (', filename, ') (err 102)')
             sys.exit(0)
@@ -599,6 +659,6 @@ def sl(df_solidworks, filename='clipboard'):
 
 if __name__=='__main__':
     main()                   # comment out this line for testing
-    #bomcheck('*', v=True)   # use for testing
+    # bomcheck('*', v=True)   # use for testing
 
 
