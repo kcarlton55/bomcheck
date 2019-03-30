@@ -7,14 +7,15 @@ Created on Sun Nov 18 20:39:10 2018
 
 This program compares to BOMs: one originating from SolidWorks and the other
 from SyteLine.  The structure of the BOMs (headings, structure, etc.) are
-unique to my company.
+very unique to my company and so this program, unaltered, will fail to
+function. 
 
 Run from the command line: python bomcheck -v '*'
 Run from a python console terminal: bomcheck('*', v=True)
 """
 
 
-__version__ = '0.1.21'
+__version__ = '0.1.22'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -32,6 +33,11 @@ def getdroplist():
     anyone in the Engineering department to be able to modify.  The lists are
     of pns, like those for bolts and nuts, that are to be excluded from the bom
     check.  These lists are called upon by the sw() function.
+    
+    Returns
+    =======
+    
+    out : None
     '''
     global drop, exceptions
     pathDekker = os.path.normpath("I:/bomcheck/")
@@ -55,18 +61,18 @@ getdroplist()
 
 
 def main():
-    '''bomcheck.py can be run from a command line.
+    '''Allows the bomcheck.py function to be run from the command line.
 
     Examples
     ========
 
-    >>> python bomcheck.py "078551*"
+    $ python bomcheck.py "078551*"
 
-    >>> python bomcheck.py "C:\\pathtomyfile\\6890-*"
+    $ python bomcheck.py "C:\\pathtomyfile\\6890-*"
 
-    >>> python bomcheck.py "*"
+    $ python bomcheck.py "*"
 
-    >>> python bomcheck.py --help
+    $ python bomcheck.py --help
 
     \u2009
     '''
@@ -147,9 +153,8 @@ def bomcheck(fn, v=False, a=False):
     dirname, swfiles, pairedfiles = gatherfilenames(fn)
     
     if ((not swfiles and not pairedfiles) and fn not in ['1', '2']):
-        print('\nNo sw or sl files found.  Check that you are working with the correct')
-        print('directory.  Check that files are named correctly (e.g. XXXXXX_sw.xlsx).')
-        print()
+        print('\nNo sw or sl files found.  Check that you are working from the correct')
+        print('directory.  Also check that files are named correctly (e.g. XXXXXX_sw.xlsx).\n')
         sys.exit()
      
     title_dfsw = list(map(lambda x: (x[0], sw(x[1], a)), swfiles)) # [(title, dfsw), ...]
@@ -191,10 +196,6 @@ def get_version():
     return __version__
 
 
-def pause():
-    programPause = input("Press the <ENTER> key to continue...")
-
-
 def export2excel(dirname, filename, results2export):
     '''Export to an Excel file the results of all the bom checks that have
     been done.
@@ -219,7 +220,7 @@ def export2excel(dirname, filename, results2export):
     =======
 
     out : Excel file (saved to disk)
-        The Excel file shows on multiple sheets the results2export list.
+        The Excel file shows on multiple sheets the "results2export" list.
 
      \u2009
     '''
@@ -228,7 +229,7 @@ def export2excel(dirname, filename, results2export):
     if d:
         dirname = d   # if user specified a directory, use it instead
     if e and not e[4].lower()=='.xls':
-        print('output filename extension needs to be .xlsx')
+        print('Output filename extension needs to be .xlsx')
         print('Program aborted.')
         sys.exit(0)
     else:
@@ -253,7 +254,7 @@ def export2excel(dirname, filename, results2export):
                 worksheet.set_column(idx+1, idx+1, max_len)  # set column width of col 1, 2, ...
         writer.save()
     abspath = os.path.abspath(fn)
-    print("\ncreated file: " + abspath + '\n')
+    print("\nCreated file: " + abspath + '\n')
 
 
 def gatherfilenames(filename):
@@ -264,33 +265,31 @@ def gatherfilenames(filename):
     =========
 
     filename : string
-        e.g., r"C:/filepath/*".  The `*` means that all excel files ending with
-        `_sw.xlsx` or `_sl.xlsx` will be gathered.
+        For example "C:/filepath/*".  The `*` means that from this directory 
+        all Excel files ending with _sw.xlsx or _sl.xlsx will be gathered.
 
     Returns
     =======
 
-    out : tuple with tree elements: 1. name of working directory, 2. list of sw
-        files and titles to assign to sw's boms, and 3. list of sl files and
-        titles to assign to merged sw/sl boms.
+    out : tuple with three elements
+        - Tuple 1: Name of working directory.  
+        - Tuple 2: A list of titles to assign to results and names of Excel or
+          csv files containing sw boms.  (This list contains sw file names for
+          which no corresonding sl file was found.)
+        - Tuple 3: A list of titles to assign to results, names of Excel or 
+          csv files containing sw boms, and names of Excel or csv files 
+          containing sl boms.
     
-        Tuple has the form:
+        The tuple has the form:
             
-        (dirname,
-          [(titleforswbom1, swpathname1), ...],
-          [(titleformergedbom2, swpathname2, slpathname2),...])
+        (dirname, [(title1, swpathname1), ...], [(title2, swpathname2, slpathname2),...])
                     
-        Where:
-            dirname = the working driectory, i.e. where filename is located.
-            swpathname = sw pathname, e.g., /dirpath/081233_sw.xlsx
-            titleforbom = A name to attach to a bom for identification.  
-                          Derived from the file name (that is, path and 
-                          extension removed gives the name).
-                         
-        The 2nd item a list of tuples, each of length 2, containing only sw 
-        files for which no matching sl bom was found.  The third item is a list
-        of tuples, each of length 3, containing sw and sl boms that are apt for
-        merging. 
+        Where: 
+            
+            - dirname : the working driectory, i.e. where filename is located. 
+            - swpathname : sw path + filename, e.g., /dirpath/081233_sw.xlsx  
+            - title : A name to attach to a result bom.  Derived from the file   
+                    name (that is, path and extension removed gives the name).
         
      \u2009
     '''
@@ -370,7 +369,20 @@ def test_columns(df, required_columns):
 
 
 def reverse(s):
-   ''' Reverse a string.  For example, "abcde" to "edcba".'''
+   ''' Reverse a string.  For example, "abcde" to "edcba".
+    
+   Parameters
+   ==========
+   
+   s : string
+       String to be reversed:
+           
+   Returns
+   =======
+   
+   out : string
+       String s but with characters in reverse order.    
+   '''
    str = "" 
    for i in s: 
        str = i + str
@@ -391,7 +403,7 @@ def fixcsv(filename):
     Returns
     =======
     
-    data : list
+    out : list
         A list of all the lines in filename except that the commas (,) in each
         line, save those that are within of the pn descriptions, are converted
         to semicolons (;).
@@ -447,17 +459,18 @@ def sw(filename='clipboard', a=False):
 
     - For parts with a length provided, the length is converted from inches
       to feet.
-    - If the part is a pipe or beam, and it is shown multiple times in the bom,
-      change the bom so that it is shown only once.  The length for that part
-      in the new bom is the sum of the lengths of the multiple parts.  
-      The program knows to execute this process by whether a Length is given
-      for the part or not.
-    - Any pipe fittings that start with "3" and end "025" (i.e., off-the-shelf
-      pipe fittings) are removed from the BOM since these part nos. are not
-      normally shown in SyteLine bomss.  This rule is goverened by the part nos.
-      listed in the file named drop.py which may be updated by users.
+    - If the part is a pipe or beam and it is listed multiple times in the bom,
+      the bom is updated so that the part is shown only once.  The length is 
+      converted to the sum of the lengths of the multiple parts.
+    - Any pipe fittings that start with "3" and end with "025" are 
+      off-the-shelf parts.  They are removed from the SolidWorks bom.  (As a
+      rule off-the-shelf parts are not shown on SyteLine boms.)  The list
+      that governs this rule is in a file named drop.py.  This file may be
+      updated by authorized users.  That is, other part nos. may be added to 
+      this list if required.
     - Many times part nos. for pipe nipples show more than once in a sw bom.
-      This function changes the occurance to one and sums the quatities.
+      If this occurs the bom is updated so that the part no. shows only once.
+      The quantity is updated accordingly.
     - Column titles are changed to match those of SyteLine.
 
     Parmeters
@@ -489,8 +502,8 @@ def sw(filename='clipboard', a=False):
     _, ext = os.path.splitext(filename)
     try:
         if filename.lower() in ['c', 'x', 'cb', 'clipboard']:
-            print('\nCopy SolidWorks BOM to clipboard.  Include title.')
-            pause()
+            print('\nCopy SolidWorks BOM to clipboard (from xlxs file only) including the BOM header')
+            input("Press the <ENTER> key to continue...")
             dfsw = pd.read_clipboard(engine='python', na_values=[' '], skiprows=1)
         elif str(type(filename))[-11:-2] == 'DataFrame':
             dfsw = filename
@@ -528,7 +541,8 @@ def sw(filename='clipboard', a=False):
         print('At least one column in your SW data (' + os.path.split(filename)[1] + ')  not found: ', missing)
         sys.exit()
 
-    dfsw.fillna(0, inplace=True)  # fill NaN values with 0
+    values = {'QTY':0, 'QTY.':0, 'LENGTH':0, 'DESCRIPTION': '?', 'PART NUMBER': '?', 'PARTNUMBER': '?'} 
+    dfsw.fillna(value=values, inplace=True)  # fill NaN values with 0 
     dfsw['DESCRIPTION'].replace(0, '!! No SW description provided !!', inplace=True)
     dfsw['DESCRIPTION'] = dfsw['DESCRIPTION'].apply(lambda x: x.replace('\n', ''))  # get rid of "new line" character
     dfsw.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item',   # rename column titles
@@ -599,7 +613,7 @@ def sl(df_solidworks, filename='clipboard'):
     try:
         if filename.lower() in ['c', 'x', 'cb', 'clipboard']:
             print('\nCopy SyteLine BOM to clipboard.')
-            pause()
+            input("Press the <ENTER> key to continue...")
             df_sl = pd.read_clipboard(engine='python', na_values=[' '])
         elif str(type(filename))[-11:-2] == 'DataFrame':
             df_sl = filename
