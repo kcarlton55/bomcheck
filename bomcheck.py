@@ -5,13 +5,13 @@ Created on Sun Nov 18 20:39:10 2018
 
 @author: Ken Carlton
 
-This program compares to BOMs: one originating from SolidWorks and the other
-from SyteLine.  The structure of the BOMs (headings, structure, etc.) are
-very unique to my company and so this program, unaltered, will fail to
-function. 
+This program compares to BOMs: one originating from SolidWorks (sw) and the 
+other from SyteLine (sl).  The structure of the BOMs (headings, structure, 
+etc.) are very unique to my company.  Therefore this program, unaltered, will
+fail to function. 
 
-Run from the command line: python bomcheck -v '*'
-Run from a python console terminal: bomcheck('*', v=True)
+Run from the command line like this: python bomcheck -v '*'
+Run from a python console terminal like this: bomcheck('*', v=True)
 """
 
 
@@ -28,11 +28,12 @@ pd.set_option('display.width', 200)
 
 
 def getdroplist():
-    ''' Create two global python lists named drop and exceptions.  These lists
-    are derived from the file named droplists.py.  This file is meant for 
-    anyone in the Engineering department to be able to modify.  The lists are
-    of pns, like those for bolts and nuts, that are to be excluded from the bom
-    check.  These lists are called upon by the sw() function.
+    ''' Create two global python lists named drop and exceptions.  Make these
+    lists global thus allowing easy access to other functions (speciffically to
+    sw).  These lists are derived from the file named droplists.py.  This file
+    is meant for anyone with proper authority to be able to modify.  The drop 
+    list contains pns of off-the-shelf parts, like bolts and pipe nipples, that
+    are to be excluded from the bom check.
     
     Returns
     =======
@@ -57,11 +58,14 @@ def getdroplist():
         exceptions= []
         
         
-getdroplist()       
+getdroplist()       # create global variables named drop and exceptions
 
 
 def main():
-    '''Allows the bomcheck.py function to be run from the command line.
+    '''This fuction allows this bomcheck.py program to be run from the command
+    line.  It is started automatically (via the "if __name__=='__main__'"
+    command at the bottom of this file) when bomecheck.py is run from the
+    command line.
 
     Examples
     ========
@@ -79,10 +83,13 @@ def main():
     dropcontents = 'drop: ' + str(drop) + ', exceptions: ' + str(exceptions)
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                         description='Program to compare SolidWorks BOMs to SyteLine BOMs')
-    parser.add_argument('filename', help='Name of file containing BOM.  Name ' +
+    parser.add_argument('filename', help='Name of file containing a BOM.  Name ' +
                         'must end with _sw.xlsx, _sl.xlsx. _sw.csv, or ' +
-                        '_sl.csv.  Enclose name in quotes.  An asterisk, *, ' +
+                        '_sl.csv.  Enclose filename in quotes!  An asterisk, *, ' +
                         'caputures multiple files.  Examples: "6890-*", "*".  ' +
+                        'Or if filename is a directory path, all _sw and _sl files ' +
+                        'will be gathered from that directory.  ' +
+                        '_sl files without a corresponding _sw file are ignored.  ' +
                         'Optionally BOM can be entered via the clipboard: '  
                         ' Enter "1" to process only a SW BOM.  ' +
                         ' Enter "2" to process both a SW and SL BOM.')
@@ -178,7 +185,7 @@ def bomcheck(fn, v=False, a=False):
 
     if v:
         print()
-        for pn, bom in results.items():  # cycle through each pn and bom in d
+        for pn, bom in results.items():  # cycle through each pn and bom
             print(pn + ":\n")      # print the pn.  \n prints a new line
             print(bom)             # print the bom
             print('\n\n')          # print two lines
@@ -244,14 +251,14 @@ def export2excel(dirname, filename, results2export):
             worksheet = writer.sheets[sheetname]  # pull worksheet object
             # adjust widths of columns in Excel worksheet to fit data's width: 
             mwic = df.index.astype(str).map(len).max() # max width of index column
-            worksheet.set_column(0, 0, mwic + 1)  # set width of index column, i.e. col 0, i.e. col A
+            worksheet.set_column(0, 0, mwic + 1)  # set width of index column, i.e. col 0/col A
             for idx, col in enumerate(df):  # set width of rest of columns  
                 series = df[col]
                 max_len = max((
                     series.astype(str).map(len).max(),  # len of largest item
-                    len(str(series.name))  # len of column name/header
+                    len(str(series.name))  # len of the column's title
                     )) + 1  # adding a little extra space
-                worksheet.set_column(idx+1, idx+1, max_len)  # set column width of col 1, 2, ...
+                worksheet.set_column(idx+1, idx+1, max_len)  # set column width
         writer.save()
     abspath = os.path.abspath(fn)
     print("\nCreated file: " + abspath + '\n')
@@ -272,24 +279,25 @@ def gatherfilenames(filename):
     =======
 
     out : tuple with three elements
-        - Tuple 1: Name of working directory.  
-        - Tuple 2: A list of titles to assign to results and names of Excel or
-          csv files containing sw boms.  (This list contains sw file names for
+    
+        - Tuple element 1: Name of working directory; that is, the dircectory
+          containing _sw and _sl files, and where the bomcheck.xlsx file will
+          be placed.  
+        - Tuple element 2: A list of tuples, each tuple containing a title to 
+          assign to result data, and also a name of a sw Excel or sw csv file 
+          to which the title will apply.  (Only contains sw file names for
           which no corresonding sl file was found.)
-        - Tuple 3: A list of titles to assign to results, names of Excel or 
-          csv files containing sw boms, and names of Excel or csv files 
-          containing sl boms.
+        - Tuple element 3: A list of tuples, each containing three elements:
+          1.  title to assign to data, 2. name of sw Excel or sw csv file,
+          3. name of sl Excel or sl csv file.  (The sw file name corresponds
+          to the sl file name.)
+          
+        If a sl (SyteLine) file exists, and if no correspoinding sw file
+        was found to exist, then the sl file is ignored.
     
         The tuple has the form:
             
         (dirname, [(title1, swpathname1), ...], [(title2, swpathname2, slpathname2),...])
-                    
-        Where: 
-            
-            - dirname : the working driectory, i.e. where filename is located. 
-            - swpathname : sw path + filename, e.g., /dirpath/081233_sw.xlsx  
-            - title : A name to attach to a result bom.  Derived from the file   
-                    name (that is, path and extension removed gives the name).
         
      \u2009
     '''
@@ -305,9 +313,9 @@ def gatherfilenames(filename):
             swfilenames_tmp.append(f)  # [/pathname/file1_sw.xlxs, ...,/pathname/fileN_sw.xlx]
     swfilenames = []
     pairedfilenames = []
-    # go through the sw files.  Find find the matching sl file for a given sw file
+    # go through the sw files.  Find the matching sl file for a given sw file
     for s in swfilenames_tmp:
-        flag = True    # assume only a sw file exists...  no matching sl file.
+        flag = True    # assume only a sw file exists...  that is, no matching sl file.
         j = s.rfind('_')  # this to truncate the sw filename; i.e. to git rid of _sw.xlsx
         for f in gatherednames:
             i = f.rfind('_')
@@ -315,12 +323,12 @@ def gatherfilenames(filename):
                 dname, fname = os.path.split(s)
                 k = fname.rfind('_')
                 fntrunc = fname[:k]  # Name of the sw file, excluding path, and excluding _sw.xlsx
-                pairedfilenames.append((fntrunc, s, f))  # (identifier, sw filename, sl filename)
+                pairedfilenames.append((fntrunc, s, f))  # (title, sw pathname, sl pathname)
                 flag = False  # sw file is not alone!
         if flag==True:  # sw file is alone... no matching sl file found.
             dname, fname = os.path.split(s)
             fname, ext = os.path.splitext(fname)
-            swfilenames.append((fname, s))  #  (identifier with _sw.xlsx ext, sw filename)
+            swfilenames.append((fname, s))  #  (title, sw pathname)
     return dirname, swfilenames, pairedfilenames
 
 
@@ -390,9 +398,9 @@ def reverse(s):
 
 
 def fixcsv(filename):
-    '''fixcsv if called when a SW csv file is used.  Commas are on rare 
+    '''fixcsv if called when a sw csv file is used.  Commas are on rare 
     occasions used within a part's description.  This comma causes the program 
-    to crash.  (See the testcsv()).  
+    to crash.  (See the testcsv() function).  
     
     Parmeters
     =========
@@ -404,19 +412,19 @@ def fixcsv(filename):
     =======
     
     out : list
-        A list of all the lines in filename except that the commas (,) in each
-        line, save those that are within of the pn descriptions, are converted
-        to semicolons (;).
+        A list of all the lines in filename, except that the commas (,) in each
+        line, except those that are within of the pn descriptions, are
+        converted to semicolons (;).
     '''
     with open(filename, encoding="ISO-8859-1") as f:
         data1 = f.readlines()
     num = data1[0].count(',')  # no. of commas in first line of filename      
     data2 = list(map(lambda x: x.replace(',', ';') , data1)) # replace commas with semicolons
-    # The last two columns in a SW BOM are always Descrition and Part Number.
+    # The last two columns in a SW BOM are always "Descrition" and "Part Number".
     # Reverse each line of data2 and "replace" (which works from the start
     # of a string to the end) the semicolons with commas up to postion i.
     # Then replace the comma between pn and descrip back to a semicolon.  
-    # Finally reverse the string and append to the list named data3.
+    # Finally reverse the string and append to the list named data.
     data = []
     for d in data2:
         if d.count(';') != num:
@@ -464,13 +472,13 @@ def sw(filename='clipboard', a=False):
       converted to the sum of the lengths of the multiple parts.
     - Any pipe fittings that start with "3" and end with "025" are 
       off-the-shelf parts.  They are removed from the SolidWorks bom.  (As a
-      rule off-the-shelf parts are not shown on SyteLine boms.)  The list
+      rule, off-the-shelf parts are not shown on SyteLine boms.)  The list
       that governs this rule is in a file named drop.py.  This file may be
-      updated by authorized users.  That is, other part nos. may be added to 
+      updated by authorized users.  Therefore other part nos. may be added to 
       this list if required.
     - Many times part nos. for pipe nipples show more than once in a sw bom.
-      If this occurs the bom is updated so that the part no. shows only once.
-      The quantity is updated accordingly.
+      If this occurs the bom is updated so that the nipple part no. shows only 
+      once.  The quantity is updated accordingly for this nipple.
     - Column titles are changed to match those of SyteLine.
 
     Parmeters
@@ -481,8 +489,8 @@ def sw(filename='clipboard', a=False):
         sw bom is taken from the clipboard.
 
     a : bool
-        use all; that is, disreguard using the drop list.  The drop list is
-        a list of part nos. to disreguard for the bom check.  Default: False
+        use all; that is, disreguard using the drop list.  (See getdroplist()).
+        Default: False
     
     Returns
     =======
@@ -541,9 +549,9 @@ def sw(filename='clipboard', a=False):
         print('At least one column in your SW data (' + os.path.split(filename)[1] + ')  not found: ', missing)
         sys.exit()
 
-    values = {'QTY':0, 'QTY.':0, 'LENGTH':0, 'DESCRIPTION': '?', 'PART NUMBER': '?', 'PARTNUMBER': '?'} 
+    values = {'QTY':0, 'QTY.':0, 'LENGTH':0, 'DESCRIPTION': 'description missing', 'PART NUMBER': 'pn missing', 'PARTNUMBER': 'pn missing'} 
     dfsw.fillna(value=values, inplace=True)  # fill NaN values with 0 
-    dfsw['DESCRIPTION'].replace(0, '!! No SW description provided !!', inplace=True)
+    # obsolete: dfsw['DESCRIPTION'].replace(0, '!! No SW description provided !!', inplace=True)
     dfsw['DESCRIPTION'] = dfsw['DESCRIPTION'].apply(lambda x: x.replace('\n', ''))  # get rid of "new line" character
     dfsw.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item',   # rename column titles
                           'DESCRIPTION': 'Material Description', 'QTY': 'Q', 'QTY.': 'Q'}, inplace=True)
