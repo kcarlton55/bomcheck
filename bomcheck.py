@@ -1,17 +1,29 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Sun Nov 18 20:39:10 2018
+File initial creation on Sun Nov 18 2018
 
 @author: Ken Carlton
 
-This program compares to BOMs: one originating from SolidWorks (sw) and the 
+This program compares two BOMs: one originating from SolidWorks (sw) and the 
 other from SyteLine (sl).  The structure of the BOMs (headings, structure, 
-etc.) are very unique to my company.  Therefore this program, unaltered, will
-fail to function. 
+etc.) are very unique to our company.  Therefore this program, unaltered, will
+fail to function at another company. 
 
-Run from the command line like this: python bomcheck -v '*'
+Run from the command line like this: python bomcheck.py -v '*'
+
+Run without any arguments shows help info about the program: python bomcheck.py
+
 Run from a python console terminal like this: bomcheck('*', v=True)
+
+This program was designed with the intent that the program "pyinstaller" be
+able to create a self executing program from bomcheck.py.  In this case, the
+python modules listed in the file "requirements.txt" must be present in the
+environment in which self executing program is created.
+
+Also, the file droplist.py should be present in a location that the bomcheck
+program can find it.  Within the code of the function "getdroplist" is shown
+the location where the file is looked for.
 """
 
 
