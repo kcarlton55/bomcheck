@@ -27,7 +27,7 @@ the location where the file is looked for.
 """
 
 
-__version__ = '0.1.22'
+__version__ = '1.0'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
