@@ -27,7 +27,7 @@ the location where the file is looked for.
 """
 
 
-__version__ = '1.0'
+__version__ = '1.0.1'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -53,12 +53,11 @@ def getdroplist():
     out : None
     '''
     global drop, exceptions
-    pathDekker = os.path.normpath("I:/bomcheck/")
-    pathDevelopment = os.path.normpath("/home/ken/projects/project1/")
-    if os.path.exists(pathDekker) and not pathDekker in sys.path:
-        sys.path.append(pathDekker)
-    if os.path.exists(pathDevelopment) and not pathDevelopment in sys.path:
-        sys.path.append(pathDevelopment)
+    paths = ["I:/bomcheck/", "C:/tmp/", "I:/DVT-BOMCHECK/", "/home/ken/projects/project1/"]
+    for p in paths:
+        if os.path.exists(p) and not p in sys.path:
+            sys.path.append(p)
+            break
     try:
         import droplist
         drop = droplist.drop
@@ -66,7 +65,7 @@ def getdroplist():
     except ModuleNotFoundError:
         print('\nFile droplist.py not found or corrupt.  Put it in the')
         print('directory I:\\bomcheck\n')
-        drop = ["3*-025", "3800-*"]
+        drop = []   # If droplist.py not found, use this
         exceptions= []
         
         
@@ -562,7 +561,7 @@ def sw(filename='clipboard', a=False):
         sys.exit()
 
     values = {'QTY':0, 'QTY.':0, 'LENGTH':0, 'DESCRIPTION': 'description missing', 'PART NUMBER': 'pn missing', 'PARTNUMBER': 'pn missing'} 
-    dfsw.fillna(value=values, inplace=True)  # fill NaN values with 0 
+    dfsw.fillna(value=values, inplace=True)
     # obsolete: dfsw['DESCRIPTION'].replace(0, '!! No SW description provided !!', inplace=True)
     dfsw['DESCRIPTION'] = dfsw['DESCRIPTION'].apply(lambda x: x.replace('\n', ''))  # get rid of "new line" character
     dfsw.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item',   # rename column titles
