@@ -112,6 +112,10 @@ def main():
                         'the SW BOM and not included in the BOM check.  The ' +
                         'exeptions list contains exceptions to pns of the drop ' +
                         'list.  These lists are loaded from the file droplist.py')
+#    parser.add_argument('-1', --clipboard1, action='store_true', default=False,
+#                        help='Allow import of a SolidWorks BOM from clipboard')
+#    parser.add_argument('-2', --clipboard2, action='store_true', default=False,
+#                        help='Allow import of a SyteLine BOM from clipboard')  
     parser.add_argument('-a', '--all', action='store_true', default=False,
                         help='Include in the check pns of the drop list')
     parser.add_argument('--version', action='version', version=__version__,
