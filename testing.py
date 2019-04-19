@@ -121,10 +121,6 @@ def multilevelbom(df, top='TOPLEVEL'):
             poplist.append(row[ptno])
             level2.append(poplist[-2])
             lvl = row['Level']
-            
-    for i, x in enumerate(df['Level']):
-        print(i, x)        
-            
     df['Level2'] = level2  # attach column named Level2 to the dataframe
     # collect all assemblies within df and return a dictionary.  keys
     # of the dictionary are assembly pt. numbers.
@@ -137,10 +133,40 @@ def multilevelbom(df, top='TOPLEVEL'):
         
         
 
-def gatherfilenames2(filename):
-    if type(filename) == str:
-        filename = [filename]
+def gatherBOMs(filename):
+    ''' Gather all SolidWorks and SyteLine BOMs derived from "filename".
+    "filename" can be a string containing wildcards, e.g. 6890-085555-*, which
+    allows the capture of multiple files; or "filename" can be a list of such 
+    strings.  These BOMs will be converted to Pandas DataFrame objects.
+    
+    Only files prefixed with _sw.xlsx, _sw.csv, _sl.xlsx, or _sl.csv will be
+    chosen.  These files will then be converted to two python dictionaries.  
+    One dictionary will contain SolidWorks BOMs only.  The other will contain
+    only SyteLine BOMs.  The dictionary keys (i.e., "handles" allowing access
+    to each BOM) will be the part numbers of the BOMs.
+    
+    If a filename corresponds to a BOM containing a multiple level BOM, then
+    that BOM will be broken down to subassemblies and will be added to the
+    dictionaries.
+    
+    Parmeters
+    =========
+
+    filename : string or list
         
+    Returns
+    =======
+    
+    out : tuple
+        The output tuple contains three items.  The first is the directory
+        corresponding the the first file in the filename list.  If this
+        directory is an empty string, then it refers to the current working
+        directory.  The remainder of the tuple items are python dictionararies.
+        The first dictionary contains only SolidWorks BOMs,  The second, 
+        SyteLine BOMs.
+    '''
+    if type(filename) == str:
+        filename = [filename]     
     swfilesdic = {}
     slfilesdic = {}
     for x in filename:
@@ -159,7 +185,6 @@ def gatherfilenames2(filename):
                     swfilesdic.update({fntrunc: f})
                 elif f[i:i+4].lower() == '_sl.':
                     slfilesdic.update({fntrunc: f})                 
-     
     swdfsdic = {}
     for k, v in swfilesdic.items():
         filename, file_extension = os.path.splitext(v)
@@ -173,17 +198,17 @@ def gatherfilenames2(filename):
                                    encoding='iso8859_1', engine='python')
             temp.close()
         elif file_extension == '.xlsx' or file_extension == '.xls':
-            df = pd.read_excel(filename, na_values=[' '], skiprows=1)
+            df = pd.read_excel(v, na_values=[' '], skiprows=1)
         swdfsdic.update(multilevelbom(df, k))
         
     sldfsdic = {}
     for k, v in slfilesdic.items(): 
         filename, file_extension = os.path.splitext(v)
         if file_extension == '.csv':
-            df = pd.read_csv(filename, na_values=[' '], engine='python',
+            df = pd.read_csv(v, na_values=[' '], engine='python',
                              encoding='utf-16', sep='\t')
         elif file_extension == '.xlsx' or file_extension == '.xls':
-            df = pd.read_excel(filename, na_values=[' '])
+            df = pd.read_excel(v, na_values=[' '])
         swdfsdic.update(multilevelbom(df, k))
     
     dirname = os.path.dirname(filename[0])
@@ -191,8 +216,7 @@ def gatherfilenames2(filename):
         print('directory not found: ', dirname)
         sys.exit(0)
         
-        
-    return swdfsdic     
+    return dirname, swdfsdic, sldfsdic     
 
 
 
