@@ -22,8 +22,9 @@ pd.set_option('display.width', 200)
 f = '/home/ken/projects/bomdata/top_level/084387_truncated_sltop.xlsx'
 f = '/home/ken/projects/bomdata/top_level/084387_sltop2.xlsx'
 f = '/home/ken/projects/bomdata/top_level/068278_TOP.xlsx'
-f = '/home/ken/projects/bomdata/080493_3rd_go/6875-080493-1_sl.xlsx'
-f = '/home/ken/projects/bomdata/top_level/081779-LH_081779-RH.xlsx'
+# f = '/home/ken/projects/bomdata/080493_3rd_go/6875-080493-1_sl.xlsx'
+# f = '/home/ken/projects/bomdata/top_level/081779-LH_081779-RH_sl.xlsx'
+# f = '/home/ken/projects/bomdata/top_level/test_sl.xlsx'
 dfsl = pd.read_excel(f, na_values=[' '])
 f = '/home/ken/projects/bomdata/top_level/082009_top_sw.xlsx'
 f = '/home/ken/projects/bomdata/080493_3rd_go/6875-080493-1_sw.xlsx'
@@ -88,49 +89,50 @@ def multilevelbom(df, top='TOPLEVEL'):
     # Level, which contains integers like [0, 1, 2, 2, 1], Level2 contains
     # the parent part no. of the part at a particular level, i.e. 
     # ['TOPLEVEL', '068278', '2648-0300-001', '2648-0300-001', '068278']
-    lvl = 0
+    lvl = l = 0
     level2 = []  # record pn of subassy corresponding to a part at rows 0, 1, 2, 3, ...
     poplist = []  # add or remove pns depending on the integer in column "Level"
     assys = []  # get a list of all subassys found... don't record stand-alone pns
+    flag = False
     for item, row in df.iterrows():
         if row['Level'] == 0:
             level2.append(top)
-            poplist.append(row[ptno])
             if top != "TOPLEVEL":
                 assys.append(top)
-        # part is a member of the subassy whose pn is givin in the previous row:
         elif row['Level'] > lvl: 
-            lvl = row['Level']
-            if poplist[-1] in assys:  # If subassy already acounted for, ignore it.
+            if p in assys:  # If subassy already acounted for, ignore it.
+                level2.append('repeat')
+                flag = True
+                l = lvl                
+            else:
+                assys.append(p)  # collect all subassy pns, not part pns
+                level2.append(p)
+                poplist.append(p)
+        elif row['Level'] == lvl:
+            if flag == True:
                 level2.append('repeat')
             else:
                 level2.append(poplist[-1])
-            assys.append(poplist[-1])  # collect all subassy pns, not part pns
-            poplist.append(row[ptno])
-        elif row['Level'] == lvl:
-            # If subassy already acounted for, ignore it.
-            if poplist[-2] in assys and assys.count(poplist[-2]) > 1:
-                level2.append('repeat')
-            else:
-                level2.append(poplist[-2])
-            poplist.pop() # get rid of previouly recorded pn.  Not needed.
-            poplist.append(row[ptno]) # pn at row we're on may be the next subassy pn 
         elif row['Level'] < lvl:
-            i = -(1 + lvl - row['Level'])  # how much to pop
+            if row['Level'] <= l:
+                flag = False
+            i = row['Level'] - lvl  # how much to pop
+            # print('i = ', i, 'poplist = ', poplist, 'item = ', item, 'row[ptno] = ', row[ptno])
             poplist = poplist[:i]   # remove, i.e. pop, i items from end of list
-            poplist.append(row[ptno])
-            level2.append(poplist[-2])
-            lvl = row['Level']
+            level2.append(poplist[-1])
+        p = row[ptno]
+        lvl = row['Level']
+
+
     df['Level2'] = level2  # attach column named Level2 to the dataframe
     # collect all assemblies within df and return a dictionary.  keys
     # of the dictionary are assembly pt. numbers.
-    assys = set(assys)
     dic_assys = {}
     for k in assys:
         if k != 'repeat':
             dic_assys[k] = df[df['Level2'] == k]         
     return dic_assys
-        
+    #return df    
         
 
 def gatherBOMs(filename):
@@ -187,7 +189,7 @@ def gatherBOMs(filename):
                     slfilesdic.update({fntrunc: f})                 
     swdfsdic = {}
     for k, v in swfilesdic.items():
-        filename, file_extension = os.path.splitext(v)
+        _, file_extension = os.path.splitext(v)
         if file_extension == '.csv':
             data = fixcsv(v)
             temp = tempfile.TemporaryFile(mode='w+t')
@@ -203,7 +205,7 @@ def gatherBOMs(filename):
         
     sldfsdic = {}
     for k, v in slfilesdic.items(): 
-        filename, file_extension = os.path.splitext(v)
+        _, file_extension = os.path.splitext(v)
         if file_extension == '.csv':
             df = pd.read_csv(v, na_values=[' '], engine='python',
                              encoding='utf-16', sep='\t')
@@ -217,7 +219,6 @@ def gatherBOMs(filename):
         sys.exit(0)
         
     return dirname, swdfsdic, sldfsdic     
-
 
 
 
