@@ -23,7 +23,8 @@ f = '/home/ken/projects/bomdata/top_level/084387_truncated_sltop.xlsx'
 f = '/home/ken/projects/bomdata/top_level/084387_sltop2.xlsx'
 f = '/home/ken/projects/bomdata/top_level/068278_TOP.xlsx'
 # f = '/home/ken/projects/bomdata/080493_3rd_go/6875-080493-1_sl.xlsx'
-# f = '/home/ken/projects/bomdata/top_level/081779-LH_081779-RH_sl.xlsx'
+f = '/home/ken/projects/bomdata/top_level/081779-LH_081779-RH_sl.xlsx'
+# f = '/home/ken/projects/bomdata/top_level/081779-RH_sl.xlsx'
 # f = '/home/ken/projects/bomdata/top_level/test_sl.xlsx'
 dfsl = pd.read_excel(f, na_values=[' '])
 f = '/home/ken/projects/bomdata/top_level/082009_top_sw.xlsx'
@@ -37,9 +38,9 @@ dfsw = pd.read_excel(f, na_values=[' '], skiprows=1)
 [('Qty', 'Quantity'), 'Material Description', 'U/M', ('Item', 'Material')]
 
 def multilevelbom(df, top='TOPLEVEL'):
-    ''' If the BOM is a multilevel BOM, pull out the components of; that is
-    pull out the main assembly and the subassemblies.  These assmblies are 
-    placed in a dictionary and returned.
+    ''' If the BOM is a multilevel BOM, pull out the components thereof; that
+    is, pull out the main assembly and the subassemblies thereof.  These 
+    assys/subassys are  placed in a python dictionary and returned.
 
     Parmeters
     =========
@@ -48,28 +49,29 @@ def multilevelbom(df, top='TOPLEVEL'):
         The DataFrame is that of a SolidWorks or SyteLine BOM.
         
     top : string
-        If df is derived a file such as 082009_sw.xlxs, "top" should be
-        assigned "082009" because the top level part number is not shown
-        in the Excel file.  On the other hand, in a SyteLine BOM the
-        top level part number is present.  Use the default "TOPLEVEL".
+        If df is derived from a file such as 082009_sw.xlxs, "top" should be
+        assigned "082009" since the top level part number is not given in the 
+        Excel file and therefore can't be derived from the file.  Likewise for a
+        single level Syteline BOM.  On the other hand a mulilevel SyteLine BOM,
+        which has a column named "Level", has the top level pn contained within
+        (assigned at "Level" 0).  In this case use the default "TOPLEVEL".
         
     Returns
     =======
     
-    out : dictionary
-        The dictionary has the from {assypn1: BOM1, assypn2: BOM2, ...}.
+    out : python dictionary
+        The dictionary has the form {assypn1: BOM1, assypn2: BOM2, ...}.
         Where assypn is a string object and is the part number of a BOM.
-        Each BOM in the dictionary is a DataFrame object and is the BOM 
-        pertaining to an assembly part number.
+        The BOMs are pandas DataFrame objects.
     '''
-    # Find the column name that contains the pns.  The column name varies
-    # depending on whether it came from SW or SL and varies based upon which
+    # Find the column name that contains the pns.  This column name varies
+    # depending on whether it came from SW or SL, and varies based upon which
     # section of the program generated the BOM.
     for pncolname in ['Item', 'Material', 'PARTNUMBER', 'PART NUMBER']:
         if pncolname in df.columns:
             ptno = pncolname
-    df[ptno] = df[ptno].str.strip()  # At times SW pn values are like: "    "
-    df[ptno].replace('', 'description missing', inplace=True)
+    df[ptno] = df[ptno].str.strip() # make sure pt nos. are "clean"
+    df[ptno].replace('', 'pn missing', inplace=True)
     values = {'QTY':0, 'QTY.':0, 'Qty':0, 'Quantity':0, 'LENGTH':0, 
               'DESCRIPTION': 'description missing', 
               'Material Description': 'description missing',
@@ -84,56 +86,43 @@ def multilevelbom(df, top='TOPLEVEL'):
         df['Level'] = df['ITEM NO.'].str.count('\.')
     elif 'Level' not in df.columns:  # is a single level sl bom
         df['Level'] = 0
-    # Take the the column named "Level" and create a new column: "Level2".
+    # Take the the column named "Level" and create a new column: "Level_pn".
     # Instead of the level at which a part exists with in an assembly, like
-    # Level, which contains integers like [0, 1, 2, 2, 1], Level2 contains
+    # "Level", which contains integers like [0, 1, 2, 2, 1], "Level_pn" contains
     # the parent part no. of the part at a particular level, i.e. 
     # ['TOPLEVEL', '068278', '2648-0300-001', '2648-0300-001', '068278']
-    lvl = l = 0
-    level2 = []  # record pn of subassy corresponding to a part at rows 0, 1, 2, 3, ...
-    poplist = []  # add or remove pns depending on the integer in column "Level"
-    assys = []  # get a list of all subassys found... don't record stand-alone pns
-    flag = False
+    lvl = 0
+    level_pn = []  # storage of pns of parent assy/subassy of the part at rows 0, 1, 2, 3, ...
+    assys = []  # storage of all assys/subassys found (stand alone parts ignored)
     for item, row in df.iterrows():
         if row['Level'] == 0:
-            level2.append(top)
+            poplist = []
+            level_pn.append(top)
             if top != "TOPLEVEL":
                 assys.append(top)
         elif row['Level'] > lvl: 
-            if p in assys:  # If subassy already acounted for, ignore it.
-                level2.append('repeat')
-                flag = True
-                l = lvl                
+            if p in assys:
+                poplist.append('repeat')
             else:
-                assys.append(p)  # collect all subassy pns, not part pns
-                level2.append(p)
+                assys.append(p)
                 poplist.append(p)
+            level_pn.append(poplist[-1]) 
         elif row['Level'] == lvl:
-            if flag == True:
-                level2.append('repeat')
-            else:
-                level2.append(poplist[-1])
+            level_pn.append(poplist[-1])
         elif row['Level'] < lvl:
-            if row['Level'] <= l:
-                flag = False
-            i = row['Level'] - lvl  # how much to pop
-            # print('i = ', i, 'poplist = ', poplist, 'item = ', item, 'row[ptno] = ', row[ptno])
+            i = row['Level'] - lvl  # how much to pop.  i is a negative number.
             poplist = poplist[:i]   # remove, i.e. pop, i items from end of list
-            level2.append(poplist[-1])
+            level_pn.append(poplist[-1])
         p = row[ptno]
         lvl = row['Level']
-
-
-    df['Level2'] = level2  # attach column named Level2 to the dataframe
-    # collect all assemblies within df and return a dictionary.  keys
-    # of the dictionary are assembly pt. numbers.
+    df['Level_pn'] = level_pn
+    # collect all assys/subassys within df and return a dictionary.  keys
+    # of the dictionary are pt. numbers of assys/subassys.
     dic_assys = {}
     for k in assys:
-        if k != 'repeat':
-            dic_assys[k] = df[df['Level2'] == k]         
+        dic_assys[k] = df[df['Level_pn'] == k]         
     return dic_assys
-    #return df    
-        
+
 
 def gatherBOMs(filename):
     ''' Gather all SolidWorks and SyteLine BOMs derived from "filename".
