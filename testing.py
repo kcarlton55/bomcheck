@@ -207,9 +207,113 @@ def gatherBOMs(filename):
         print('directory not found: ', dirname)
         sys.exit(0)
         
+    swdfsdic = missing_columns('sw', swdfsdic, [('QTY', 'QTY.'), 'DESCRIPTION',
+                                                ('PART NUMBER', 'PARTNUMBER')])
+    sldfsdic = missing_columns('sw', sldfsdic, [('Qty', 'Quantity'), 
+                                                'Material Description', 'U/M', 
+                                                ('Item', 'Material')])
     return dirname, swdfsdic, sldfsdic     
 
 
+def missing_tuple(tpl, lst):
+    ''' If none of the items of tpl (tuple) are in lst (list) return
+    tpl.  Else return None
+    '''
+    flag = True
+    for t in tpl:
+        if t in lst:
+            flag = False
+    if flag:
+        return tpl
+
+
+def missing_columns(bomtype, dfdic, required_columns):
+    ''' SolidWorks and SyteLine BOMs require certain columns to be
+    present.  This function looks at those BOMs that are within dfdic
+    to see if any required columns are missing.  If missing columns found,
+    prints them to screen.  Then returns a dictionary like that input less
+    the faulty BOMs.
+
+    Parameters
+    ==========
+
+    bomtype : string
+        "sw" or "sl"
+
+    dfdic : dictionary
+        Dictionary keys are strings and they are of assembly part numbers.
+        Dictionary values are pandas DataFrame objects which are
+        BOMs for those assemblies.
+
+    required_columns : list
+        List items are strings or tuples.  If a string, then it is
+        the name of a required column.  If a tuple, they are column
+        names where only one of which is a required column.  For example:
+        [('QTY', 'QTY.'), 'DESCRIPTION', ('PART NUMBER', 'PARTNUMBER')]
+        Note that column names are case sensitive.   
+
+    Returns
+    =======
+
+    out : dictionary
+        Returns dfdic except any items that fail the test are removed. 
+    '''
+    missing = []   # list of strings detailing missing column info
+    dfdic_screened = dict(dfdic)
+    for key, df in dfdic.items():
+        missing_per_df = []
+        for r in required_columns:
+            if ((isinstance(r, str) and r in df.columns) or
+                 isinstance(r, tuple) and not missing_tuple(r, df.columns)):
+                break
+            elif isinstance(r, str) and r not in df.columns:
+                missing_per_df.append(r)
+            elif isinstance(r, tuple) and missing_tuple(r, df.columns):
+                missing_per_df.append(' or '.join(missing_tuple(r, df.columns)))
+        if missing_per_df:
+            missing.append(key + '_' + bomtype + ' has missing columns: ')
+            missing.append(' ,'.join(missing_per_df))
+            del dfdic_screened[key]
+    print('\n'.join(missing))
+    return dfdic_screened
+
+
+def combine_tables(swdic, sldic):
+    ''' Match SolidWorks assembly nos. to those from SyteLine and then merge
+    their BOMs to create a BOM check.  For any SolidWorks assemblies for which
+    no SyteLine BOM was found, put those in a separate dictionary for output.
+
+    Parameters
+    ==========
+
+    swdic : dictionary
+        Dictinary of SolidWorks BOMs.  Dictionary keys are strings and they 
+        are of assembly part numbers.  Dictionary values are pandas DataFrame 
+        objects which are BOMs for those assemblies.
+
+    sldic : dictionary
+        Dictinary of SyteLine BOMs.  Dictionary keys are strings and they 
+        are of assembly part numbers.  Dictionary values are pandas DataFrame 
+        objects which are BOMs for those assemblies.
+
+    Returns
+    =======
+
+    out : tuple
+        The output tuple contains two values: 1.  Dictionary containing SolidWorks
+        BOMs for which no matching SyteLine BOM was found.  The BOMs have been
+        converted to a SyteLine like format.  Keys of the dictionary are assembly
+        part numbers.  2.  Dictionary of merged SolidWorks and SyteLine BOMs, thus
+        creating a BOM check.  Keys for the dictionary are assembly part numbers.
+    '''
+    lone_sw_dic = {}  # sw boms with no matching sl bom found
+    combined_dic = {}   # sl bom found for given sw bom.  Then merged
+    for key, swdf in swdic:
+        if key in sldic:
+            combined_dic[key] = sl(sw(swdf), sldic[key])
+        else:
+            lone_sw_dic[key + '_sw'] = su(sldic[key])
+    return lone_sw_dic, combined_dic
 
 
 
