@@ -190,8 +190,7 @@ def gatherBOMs(filename):
             temp.close()
         elif file_extension == '.xlsx' or file_extension == '.xls':
             df = pd.read_excel(v, na_values=[' '], skiprows=1)
-        swdfsdic.update(multilevelbom(df, k))
-        
+        swdfsdic.update(multilevelbom(df, k))  
     sldfsdic = {}
     for k, v in slfilesdic.items(): 
         _, file_extension = os.path.splitext(v)
@@ -200,8 +199,7 @@ def gatherBOMs(filename):
                              encoding='utf-16', sep='\t')
         elif file_extension == '.xlsx' or file_extension == '.xls':
             df = pd.read_excel(v, na_values=[' '])
-        swdfsdic.update(multilevelbom(df, k))
-    
+        sldfsdic.update(multilevelbom(df, k))
     dirname = os.path.dirname(filename[0])
     if dirname and not os.path.exists(dirname):
         print('directory not found: ', dirname)
@@ -209,7 +207,7 @@ def gatherBOMs(filename):
         
     swdfsdic = missing_columns('sw', swdfsdic, [('QTY', 'QTY.'), 'DESCRIPTION',
                                                 ('PART NUMBER', 'PARTNUMBER')])
-    sldfsdic = missing_columns('sw', sldfsdic, [('Qty', 'Quantity'), 
+    sldfsdic = missing_columns('sl', sldfsdic, [('Qty', 'Quantity'), 
                                                 'Material Description', 'U/M', 
                                                 ('Item', 'Material')])
     return dirname, swdfsdic, sldfsdic     
@@ -262,13 +260,14 @@ def missing_columns(bomtype, dfdic, required_columns):
     dfdic_screened = dict(dfdic)
     for key, df in dfdic.items():
         missing_per_df = []
+        flag = True
         for r in required_columns:
             if ((isinstance(r, str) and r in df.columns) or
-                 isinstance(r, tuple) and not missing_tuple(r, df.columns)):
-                break
-            elif isinstance(r, str) and r not in df.columns:
+                 (isinstance(r, tuple) and not missing_tuple(r, df.columns))):
+                flag = False
+            elif flag and isinstance(r, str) and r not in df.columns:
                 missing_per_df.append(r)
-            elif isinstance(r, tuple) and missing_tuple(r, df.columns):
+            elif flag and isinstance(r, tuple) and missing_tuple(r, df.columns):
                 missing_per_df.append(' or '.join(missing_tuple(r, df.columns)))
         if missing_per_df:
             missing.append(key + '_' + bomtype + ' has missing columns: ')
