@@ -572,7 +572,7 @@ def sw(filename='clipboard', a=False):
                           'DESCRIPTION': 'Material Description', 'QTY': 'Q', 'QTY.': 'Q'}, inplace=True)
     filtr1 = dfsw['Item'].str.startswith('3086')  # filter pipe nipples (i.e. pn starting with 3086)
     try:       # if no LENGTH in the table, an error occurs. "try" causes following lines to be passed over
-        dfsw['LENGTH'] = round((dfsw['Q'] * dfsw['LENGTH'] * ~filtr1) /12.0, 4)  # covert lenghts to feet. ~ = NOT
+        dfsw['LENGTH'] = round((dfsw['Q'] * dfsw['LENGTH'] * ~filtr1) /12.0, 2)  # covert lenghts to feet. ~ = NOT
         filtr2 = dfsw['LENGTH'] >= 0.00001  # a filter: only items where length greater than 0.0
         dfsw['Q'] = dfsw['Q']*(~filtr2) + dfsw['LENGTH']  # move lengths (in feet) to the Qty column
         dfsw['U'] = filtr2.apply(lambda x: 'FT' if x else 'EA')
@@ -676,7 +676,7 @@ def sl(df_solidworks, filename='clipboard'):
     dfmerged = pd.merge(dfsw, df_sl, on='Item', how='outer', suffixes=('_sw', '_sl'), indicator=True)
     dfmerged.sort_values(by=['Item'], inplace=True)
     filtrI = dfmerged['_merge'].str.contains('both')  # this filter determines if pn in both SW and SL
-    filtrQ = abs(dfmerged['Q_sw'] - dfmerged['Q_sl']) < .01  # a filter is a list of True/False values
+    filtrQ = abs(dfmerged['Q_sw'] - dfmerged['Q_sl']) < .005  # a filter is a list of True/False values
     filtrM = dfmerged['Material Description_sw'].str.split()==dfmerged['Material Description_sl'].str.split()
     filtrU = dfmerged['U_sw']==dfmerged['U_sl']
     chkmark = '\u02DC' # The UTF-8 character code for a check mark character (was \u2713)

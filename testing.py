@@ -22,8 +22,10 @@ pd.set_option('display.width', 200)
 f = '/home/ken/projects/bomdata/top_level/084387_truncated_sltop.xlsx'
 f = '/home/ken/projects/bomdata/top_level/084387_sltop2.xlsx'
 f = '/home/ken/projects/bomdata/top_level/068278_TOP.xlsx'
-f = '/home/ken/projects/bomdata/080493_3rd_go/6875-080493-1_sl.xlsx'
-f = '/home/ken/projects/bomdata/top_level/081779-LH_081779-RH.xlsx'
+# f = '/home/ken/projects/bomdata/080493_3rd_go/6875-080493-1_sl.xlsx'
+f = '/home/ken/projects/bomdata/top_level/081779-LH_081779-RH_sl.xlsx'
+# f = '/home/ken/projects/bomdata/top_level/081779-RH_sl.xlsx'
+# f = '/home/ken/projects/bomdata/top_level/test_sl.xlsx'
 dfsl = pd.read_excel(f, na_values=[' '])
 f = '/home/ken/projects/bomdata/top_level/082009_top_sw.xlsx'
 f = '/home/ken/projects/bomdata/080493_3rd_go/6875-080493-1_sw.xlsx'
@@ -36,9 +38,9 @@ dfsw = pd.read_excel(f, na_values=[' '], skiprows=1)
 [('Qty', 'Quantity'), 'Material Description', 'U/M', ('Item', 'Material')]
 
 def multilevelbom(df, top='TOPLEVEL'):
-    ''' If the BOM is a multilevel BOM, pull out the components of; that is
-    pull out the main assembly and the subassemblies.  These assmblies are 
-    placed in a dictionary and returned.
+    ''' If the BOM is a multilevel BOM, pull out the components thereof; that
+    is, pull out the main assembly and the subassemblies thereof.  These 
+    assys/subassys are  placed in a python dictionary and returned.
 
     Parmeters
     =========
@@ -47,28 +49,30 @@ def multilevelbom(df, top='TOPLEVEL'):
         The DataFrame is that of a SolidWorks or SyteLine BOM.
         
     top : string
-        If df is derived a file such as 082009_sw.xlxs, "top" should be
-        assigned "082009" because the top level part number is not shown
-        in the Excel file.  On the other hand, in a SyteLine BOM the
-        top level part number is present.  Use the default "TOPLEVEL".
+        If df is derived from a file such as 082009_sw.xlxs, "top" should be
+        assigned for "082009" since the top level part number is not given in 
+        the Excel file and therefore can't be derived from the file.  This is
+        also true for a single level Syteline BOM.  On the other hand a 
+        mulilevel SyteLine BOM, which has a column named "Level", has the top
+        level pn contained within (assigned at "Level" 0).  In this case use 
+        the default "TOPLEVEL".
         
     Returns
     =======
     
-    out : dictionary
-        The dictionary has the from {assypn1: BOM1, assypn2: BOM2, ...}.
+    out : python dictionary
+        The dictionary has the form {assypn1: BOM1, assypn2: BOM2, ...}.
         Where assypn is a string object and is the part number of a BOM.
-        Each BOM in the dictionary is a DataFrame object and is the BOM 
-        pertaining to an assembly part number.
+        All BOMs are pandas DataFrame objects.
     '''
-    # Find the column name that contains the pns.  The column name varies
-    # depending on whether it came from SW or SL and varies based upon which
+    # Find the column name that contains the pns.  This column name varies
+    # depending on whether it came from SW or SL, and varies based upon which
     # section of the program generated the BOM.
     for pncolname in ['Item', 'Material', 'PARTNUMBER', 'PART NUMBER']:
         if pncolname in df.columns:
             ptno = pncolname
-    df[ptno] = df[ptno].str.strip()  # At times SW pn values are like: "    "
-    df[ptno].replace('', 'description missing', inplace=True)
+    df[ptno] = df[ptno].str.strip() # make sure pt nos. are "clean"
+    df[ptno].replace('', 'pn missing', inplace=True)
     values = {'QTY':0, 'QTY.':0, 'Qty':0, 'Quantity':0, 'LENGTH':0, 
               'DESCRIPTION': 'description missing', 
               'Material Description': 'description missing',
@@ -83,55 +87,43 @@ def multilevelbom(df, top='TOPLEVEL'):
         df['Level'] = df['ITEM NO.'].str.count('\.')
     elif 'Level' not in df.columns:  # is a single level sl bom
         df['Level'] = 0
-    # Take the the column named "Level" and create a new column: "Level2".
+    # Take the the column named "Level" and create a new column: "Level_pn".
     # Instead of the level at which a part exists with in an assembly, like
-    # Level, which contains integers like [0, 1, 2, 2, 1], Level2 contains
+    # "Level", which contains integers like [0, 1, 2, 2, 1], "Level_pn" contains
     # the parent part no. of the part at a particular level, i.e. 
     # ['TOPLEVEL', '068278', '2648-0300-001', '2648-0300-001', '068278']
     lvl = 0
-    level2 = []  # record pn of subassy corresponding to a part at rows 0, 1, 2, 3, ...
-    poplist = []  # add or remove pns depending on the integer in column "Level"
-    assys = []  # get a list of all subassys found... don't record stand-alone pns
+    level_pn = []  # storage of pns of parent assy/subassy of the part at rows 0, 1, 2, 3, ...
+    assys = []  # storage of all assys/subassys found (stand alone parts ignored)
     for item, row in df.iterrows():
         if row['Level'] == 0:
-            level2.append(top)
-            poplist.append(row[ptno])
+            poplist = []
+            level_pn.append(top)
             if top != "TOPLEVEL":
                 assys.append(top)
-        # part is a member of the subassy whose pn is givin in the previous row:
         elif row['Level'] > lvl: 
-            lvl = row['Level']
-            if poplist[-1] in assys:  # If subassy already acounted for, ignore it.
-                level2.append('repeat')
+            if p in assys:
+                poplist.append('repeat')
             else:
-                level2.append(poplist[-1])
-            assys.append(poplist[-1])  # collect all subassy pns, not part pns
-            poplist.append(row[ptno])
+                assys.append(p)
+                poplist.append(p)
+            level_pn.append(poplist[-1]) 
         elif row['Level'] == lvl:
-            # If subassy already acounted for, ignore it.
-            if poplist[-2] in assys and assys.count(poplist[-2]) > 1:
-                level2.append('repeat')
-            else:
-                level2.append(poplist[-2])
-            poplist.pop() # get rid of previouly recorded pn.  Not needed.
-            poplist.append(row[ptno]) # pn at row we're on may be the next subassy pn 
+            level_pn.append(poplist[-1])
         elif row['Level'] < lvl:
-            i = -(1 + lvl - row['Level'])  # how much to pop
+            i = row['Level'] - lvl  # how much to pop.  i is a negative number.
             poplist = poplist[:i]   # remove, i.e. pop, i items from end of list
-            poplist.append(row[ptno])
-            level2.append(poplist[-2])
-            lvl = row['Level']
-    df['Level2'] = level2  # attach column named Level2 to the dataframe
-    # collect all assemblies within df and return a dictionary.  keys
-    # of the dictionary are assembly pt. numbers.
-    assys = set(assys)
+            level_pn.append(poplist[-1])
+        p = row[ptno]
+        lvl = row['Level']
+    df['Level_pn'] = level_pn
+    # collect all assys/subassys within df and return a dictionary.  keys
+    # of the dictionary are pt. numbers of assys/subassys.
     dic_assys = {}
     for k in assys:
-        if k != 'repeat':
-            dic_assys[k] = df[df['Level2'] == k]         
+        dic_assys[k] = df[df['Level_pn'] == k]         
     return dic_assys
-        
-        
+
 
 def gatherBOMs(filename):
     ''' Gather all SolidWorks and SyteLine BOMs derived from "filename".
@@ -187,7 +179,7 @@ def gatherBOMs(filename):
                     slfilesdic.update({fntrunc: f})                 
     swdfsdic = {}
     for k, v in swfilesdic.items():
-        filename, file_extension = os.path.splitext(v)
+        _, file_extension = os.path.splitext(v)
         if file_extension == '.csv':
             data = fixcsv(v)
             temp = tempfile.TemporaryFile(mode='w+t')
@@ -199,27 +191,131 @@ def gatherBOMs(filename):
             temp.close()
         elif file_extension == '.xlsx' or file_extension == '.xls':
             df = pd.read_excel(v, na_values=[' '], skiprows=1)
-        swdfsdic.update(multilevelbom(df, k))
-        
+        swdfsdic.update(multilevelbom(df, k))  
     sldfsdic = {}
     for k, v in slfilesdic.items(): 
-        filename, file_extension = os.path.splitext(v)
+        _, file_extension = os.path.splitext(v)
         if file_extension == '.csv':
             df = pd.read_csv(v, na_values=[' '], engine='python',
                              encoding='utf-16', sep='\t')
         elif file_extension == '.xlsx' or file_extension == '.xls':
             df = pd.read_excel(v, na_values=[' '])
-        swdfsdic.update(multilevelbom(df, k))
-    
+        sldfsdic.update(multilevelbom(df, k))
     dirname = os.path.dirname(filename[0])
     if dirname and not os.path.exists(dirname):
         print('directory not found: ', dirname)
         sys.exit(0)
         
+    swdfsdic = missing_columns('sw', swdfsdic, [('QTY', 'QTY.'), 'DESCRIPTION',
+                                                ('PART NUMBER', 'PARTNUMBER')])
+    sldfsdic = missing_columns('sl', sldfsdic, [('Qty', 'Quantity'), 
+                                                'Material Description', 'U/M', 
+                                                ('Item', 'Material')])
     return dirname, swdfsdic, sldfsdic     
 
 
+def missing_tuple(tpl, lst):
+    ''' If none of the items of tpl (tuple) are in lst (list) return
+    tpl.  Else return None
+    '''
+    flag = True
+    for t in tpl:
+        if t in lst:
+            flag = False
+    if flag:
+        return tpl
 
+
+def missing_columns(bomtype, dfdic, required_columns):
+    ''' SolidWorks and SyteLine BOMs require certain essential columns to be
+    present.  This function looks at those BOMs that are within dfdic to see if
+    any required columns are missing.  If found, print to screen.  Finally, 
+    return a dictionary like that input less the faulty BOMs.
+
+    Parameters
+    ==========
+
+    bomtype : string
+        "sw" or "sl"
+
+    dfdic : dictionary
+        Dictionary keys are strings are assembly part numbers.  Dictionary 
+        values are pandas DataFrame objects which are BOMs for those 
+        assemblies.
+
+    required_columns : list
+        List items are strings or tuples.  If a string, then it is
+        the name of a required column.  If a tuple, they are column
+        names where only one of which is a required column.  For example:
+        [('QTY', 'QTY.'), 'DESCRIPTION', ('PART NUMBER', 'PARTNUMBER')]
+        Note that column names are case sensitive.   
+
+    Returns
+    =======
+
+    out : dictionary
+        Returns dfdic except any items that fail the test are removed. 
+    '''
+    missing = {}
+    dfdic_screened = dict(dfdic)
+    for key, df in dfdic.items():
+        missing_per_df = []
+        for r in required_columns:
+            if isinstance(r, str) and r not in df.columns:
+                missing_per_df.append(r)
+            elif isinstance(r, tuple) and missing_tuple(r, df.columns):
+                missing_per_df.append(' or '.join(missing_tuple(r, df.columns)))
+        if missing_per_df:
+            if ' ,'.join(missing_per_df) not in missing:
+                missing[' ,'.join(missing_per_df)] = [key]
+            else:
+                missing[' ,'.join(missing_per_df)].append(key)
+            del dfdic_screened[key]
+    if missing:
+        print('\nSome essential BOM columns missing.  Associated BOM will not be processed:\n')
+        for k, v in missing.items():
+            print('    missing: ' + k)
+            v_bomtype = [s + '_' + bomtype for s in v]
+            print('    missing in: ' + ' ,'.join(v_bomtype) + '\n')          
+    return dfdic_screened
+
+
+def combine_tables(swdic, sldic):
+    ''' Match SolidWorks assembly nos. to those from SyteLine and then merge
+    their BOMs to create a BOM check.  For any SolidWorks assemblies for which
+    no SyteLine BOM was found, put those in a separate dictionary for output.
+
+    Parameters
+    ==========
+
+    swdic : dictionary
+        Dictinary of SolidWorks BOMs.  Dictionary keys are strings and they 
+        are of assembly part numbers.  Dictionary values are pandas DataFrame 
+        objects which are BOMs for those assemblies.
+
+    sldic : dictionary
+        Dictinary of SyteLine BOMs.  Dictionary keys are strings and they 
+        are of assembly part numbers.  Dictionary values are pandas DataFrame 
+        objects which are BOMs for those assemblies.
+
+    Returns
+    =======
+
+    out : tuple
+        The output tuple contains two values: 1.  Dictionary containing SolidWorks
+        BOMs for which no matching SyteLine BOM was found.  The BOMs have been
+        converted to a SyteLine like format.  Keys of the dictionary are assembly
+        part numbers.  2.  Dictionary of merged SolidWorks and SyteLine BOMs, thus
+        creating a BOM check.  Keys for the dictionary are assembly part numbers.
+    '''
+    lone_sw_dic = {}  # sw boms with no matching sl bom found
+    combined_dic = {}   # sl bom found for given sw bom.  Then merged
+    for key, swdf in swdic:
+        if key in sldic:
+            combined_dic[key] = sl(sw(swdf), sldic[key])
+        else:
+            lone_sw_dic[key + '_sw'] = su(sldic[key])
+    return lone_sw_dic, combined_dic
 
 
 
