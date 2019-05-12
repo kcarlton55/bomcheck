@@ -50,11 +50,12 @@ def multilevelbom(df, top='TOPLEVEL'):
         
     top : string
         If df is derived from a file such as 082009_sw.xlxs, "top" should be
-        assigned "082009" since the top level part number is not given in the 
-        Excel file and therefore can't be derived from the file.  Likewise for a
-        single level Syteline BOM.  On the other hand a mulilevel SyteLine BOM,
-        which has a column named "Level", has the top level pn contained within
-        (assigned at "Level" 0).  In this case use the default "TOPLEVEL".
+        assigned for "082009" since the top level part number is not given in 
+        the Excel file and therefore can't be derived from the file.  This is
+        also true for a single level Syteline BOM.  On the other hand a 
+        mulilevel SyteLine BOM, which has a column named "Level", has the top
+        level pn contained within (assigned at "Level" 0).  In this case use 
+        the default "TOPLEVEL".
         
     Returns
     =======
@@ -62,7 +63,7 @@ def multilevelbom(df, top='TOPLEVEL'):
     out : python dictionary
         The dictionary has the form {assypn1: BOM1, assypn2: BOM2, ...}.
         Where assypn is a string object and is the part number of a BOM.
-        The BOMs are pandas DataFrame objects.
+        All BOMs are pandas DataFrame objects.
     '''
     # Find the column name that contains the pns.  This column name varies
     # depending on whether it came from SW or SL, and varies based upon which
@@ -226,11 +227,10 @@ def missing_tuple(tpl, lst):
 
 
 def missing_columns(bomtype, dfdic, required_columns):
-    ''' SolidWorks and SyteLine BOMs require certain columns to be
-    present.  This function looks at those BOMs that are within dfdic
-    to see if any required columns are missing.  If missing columns found,
-    prints them to screen.  Then returns a dictionary like that input less
-    the faulty BOMs.
+    ''' SolidWorks and SyteLine BOMs require certain essential columns to be
+    present.  This function looks at those BOMs that are within dfdic to see if
+    any required columns are missing.  If found, print to screen.  Finally, 
+    return a dictionary like that input less the faulty BOMs.
 
     Parameters
     ==========
@@ -239,9 +239,9 @@ def missing_columns(bomtype, dfdic, required_columns):
         "sw" or "sl"
 
     dfdic : dictionary
-        Dictionary keys are strings and they are of assembly part numbers.
-        Dictionary values are pandas DataFrame objects which are
-        BOMs for those assemblies.
+        Dictionary keys are strings are assembly part numbers.  Dictionary 
+        values are pandas DataFrame objects which are BOMs for those 
+        assemblies.
 
     required_columns : list
         List items are strings or tuples.  If a string, then it is
@@ -256,24 +256,27 @@ def missing_columns(bomtype, dfdic, required_columns):
     out : dictionary
         Returns dfdic except any items that fail the test are removed. 
     '''
-    missing = []   # list of strings detailing missing column info
+    missing = {}
     dfdic_screened = dict(dfdic)
     for key, df in dfdic.items():
         missing_per_df = []
-        flag = True
         for r in required_columns:
-            if ((isinstance(r, str) and r in df.columns) or
-                 (isinstance(r, tuple) and not missing_tuple(r, df.columns))):
-                flag = False
-            elif flag and isinstance(r, str) and r not in df.columns:
+            if isinstance(r, str) and r not in df.columns:
                 missing_per_df.append(r)
-            elif flag and isinstance(r, tuple) and missing_tuple(r, df.columns):
+            elif isinstance(r, tuple) and missing_tuple(r, df.columns):
                 missing_per_df.append(' or '.join(missing_tuple(r, df.columns)))
         if missing_per_df:
-            missing.append(key + '_' + bomtype + ' has missing columns: ')
-            missing.append(' ,'.join(missing_per_df))
+            if ' ,'.join(missing_per_df) not in missing:
+                missing[' ,'.join(missing_per_df)] = [key]
+            else:
+                missing[' ,'.join(missing_per_df)].append(key)
             del dfdic_screened[key]
-    print('\n'.join(missing))
+    if missing:
+        print('\nSome essential BOM columns missing.  Associated BOM will not be processed:\n')
+        for k, v in missing.items():
+            print('    missing: ' + k)
+            v_bomtype = [s + '_' + bomtype for s in v]
+            print('    missing in: ' + ' ,'.join(v_bomtype) + '\n')          
     return dfdic_screened
 
 
