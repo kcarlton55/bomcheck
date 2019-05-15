@@ -27,7 +27,7 @@ the location where the file is looked for.
 """
 
 
-__version__ = '1.0.1'
+__version__ = '1.0.2'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -39,37 +39,8 @@ pd.set_option('display.max_colwidth', 100)
 pd.set_option('display.width', 200)
 
 
-def getdroplist():
-    ''' Create two global python lists named drop and exceptions.  Make these
-    lists global thus allowing easy access to other functions (speciffically to
-    sw).  These lists are derived from the file named droplists.py.  This file
-    is meant for anyone with proper authority to be able to modify.  The drop 
-    list contains pns of off-the-shelf parts, like bolts and pipe nipples, that
-    are to be excluded from the bom check.
-    
-    Returns
-    =======
-    
-    out : None
-    '''
-    global drop, exceptions
-    paths = ["I:/bomcheck/", "C:/tmp/", "I:/DVT-BOMCHECK/", "/home/ken/projects/project1/"]
-    for p in paths:
-        if os.path.exists(p) and not p in sys.path:
-            sys.path.append(p)
-            break
-    try:
-        import droplist
-        drop = droplist.drop
-        exceptions = droplist.exceptions
-    except ModuleNotFoundError:
-        print('\nFile droplist.py not found or corrupt.  Put it in the')
-        print('directory I:\\bomcheck\n')
-        drop = []   # If droplist.py not found, use this
-        exceptions= []
-        
-        
-getdroplist()       # create global variables named drop and exceptions
+def get_version():
+    return __version__
 
 
 def main():
@@ -172,50 +143,28 @@ def bomcheck(fn, v=False, a=False):
     if os.path.isdir(fn):
         fn = os.path.join(fn, '*')
         
-    dirname, swfiles, pairedfiles = gatherfilenames(fn)
+    dirname, swfiles, pairedfiles = gatherBOMs(fn)
     
-    if ((not swfiles and not pairedfiles) and fn not in ['1', '2']):
-        print('\nNo sw or sl files found.  Check that you are working from the correct')
-        print('directory.  Also check that files are named correctly (e.g. XXXXXX_sw.xlsx).\n')
-        sys.exit()
-     
-    title_dfsw = list(map(lambda x: (x[0], sw(x[1], a)), swfiles)) # [(title, dfsw), ...]
-    title_dfmerged = list(map(lambda x: (x[0], sl(sw(x[1], a), x[2])), pairedfiles)) # [(title, dfmerged), ...]
-
-    if fn in ['1', '2']:
-        sw_df = sw('clipboard', a)
-        title_dfsw.append(('clipboard', sw_df))
-    if fn == '2': 
-        title_dfsw = []
-        title_dfmerged.append(('clipboard', sl(sw_df, filename='clipboard')))
+    lone_sw, merged_sw2sl = combine_tables(swfiles, pairedfiles) # lone_sw & merged_sw2sl are dics
+    
+    title_dfsw = []
+    for k, v in lone_sw.items():
+        title_dfsw.append((k, v))
         
+    title_dfmerged = []
+    for k, v in merged_sw2sl.items():
+        title_dfmerged.append((k, v))        
+   
     try:    
         export2excel(dirname, 'bomcheck', title_dfsw + title_dfmerged)
     except PermissionError:
         print('\nError: unable to write to bomcheck.xlsx')
-        
-    results = {}
-    for s in (title_dfsw + title_dfmerged):
-        results[s[0]] = s[1]
-
-    if v:
-        print()
-        for pn, bom in results.items():  # cycle through each pn and bom
-            print(pn + ":\n")      # print the pn.  \n prints a new line
-            print(bom)             # print the bom
-            print('\n\n')          # print two lines
     
     if sys.platform[:3] == 'win':  # Open bomcheck.xlsx in Excel
         try:
             os.startfile(os.path.join(dirname, 'bomcheck.xlsx'))
         except:
             print('Attempt to open bomcheck.xlsx in Excel failed.' )
-
-    return results
-
-
-def get_version():
-    return __version__
 
 
 def export2excel(dirname, filename, results2export):
@@ -277,120 +226,8 @@ def export2excel(dirname, filename, results2export):
         writer.save()
     abspath = os.path.abspath(fn)
     print("\nCreated file: " + abspath + '\n')
-
-
-def gatherfilenames(filename):
-    '''Gather names of excel files to be processed and return them in organized
-    lists.  Names must end with `_sw.xlsx`, `_sl.xlsx`, `_sw.csv`, or `_sl.csv`
-
-    Parmeters
-    =========
-
-    filename : string
-        For example "C:/filepath/*".  The `*` means that from this directory 
-        all Excel files ending with _sw.xlsx or _sl.xlsx will be gathered.
-
-    Returns
-    =======
-
-    out : tuple with three elements
     
-        - Tuple element 1: Name of working directory; that is, the dircectory
-          containing _sw and _sl files, and where the bomcheck.xlsx file will
-          be placed.  
-        - Tuple element 2: A list of tuples, each tuple containing a title to 
-          assign to result data, and also a name of a sw Excel or sw csv file 
-          to which the title will apply.  (Only contains sw file names for
-          which no corresonding sl file was found.)
-        - Tuple element 3: A list of tuples, each containing three elements:
-          1.  title to assign to data, 2. name of sw Excel or sw csv file,
-          3. name of sl Excel or sl csv file.  (The sw file name corresponds
-          to the sl file name.)
-          
-        If a sl (SyteLine) file exists, and if no correspoinding sw file
-        was found to exist, then the sl file is ignored.
     
-        The tuple has the form:
-            
-        (dirname, [(title1, swpathname1), ...], [(title2, swpathname2, slpathname2),...])
-        
-     \u2009
-    '''
-    dirname = os.path.dirname(filename)
-    if dirname and not os.path.exists(dirname):
-        print('directory not found: ', dirname)
-        sys.exit(0)
-    gatherednames = sorted(glob.glob(filename))
-    swfilenames_tmp = []
-    for f in gatherednames:  # Grab a list of all the SW files that glob grabbed.
-        i = f.rfind('_')
-        if f[i:i+4].lower()=='_sw.':
-            swfilenames_tmp.append(f)  # [/pathname/file1_sw.xlxs, ...,/pathname/fileN_sw.xlx]
-    swfilenames = []
-    pairedfilenames = []
-    # go through the sw files.  Find the matching sl file for a given sw file
-    for s in swfilenames_tmp:
-        flag = True    # assume only a sw file exists...  that is, no matching sl file.
-        j = s.rfind('_')  # this to truncate the sw filename; i.e. to git rid of _sw.xlsx
-        for f in gatherednames:
-            i = f.rfind('_')
-            if f[i:i+4].lower()=='_sl.' and s[:j].lower()==f[:i].lower():  # found sw/sl match
-                dname, fname = os.path.split(s)
-                k = fname.rfind('_')
-                fntrunc = fname[:k]  # Name of the sw file, excluding path, and excluding _sw.xlsx
-                pairedfilenames.append((fntrunc, s, f))  # (title, sw pathname, sl pathname)
-                flag = False  # sw file is not alone!
-        if flag==True:  # sw file is alone... no matching sl file found.
-            dname, fname = os.path.split(s)
-            fname, ext = os.path.splitext(fname)
-            swfilenames.append((fname, s))  #  (title, sw pathname)
-    return dirname, swfilenames, pairedfilenames
-
-
-def test_columns(df, required_columns):
-    '''The sw and sl functions call upon this function to try to ascertain
-    whether or not the user has input proper BOM data.
-
-    Parmeters
-    =========
-
-    df : pandas DataFrame
-        A Dataframe from which column titles are extracted to see if they match
-        columns that should be in a SolidWorks or SyteLine BOM.
-
-    required_columns : list
-        A list of column titles, each a string object, that should be present
-        in a BOM that tells the program that all is OK.  If the list item is a
-        tuple, for example ('PARTNUMBER', 'PART NUMBER'), then either of
-        tuple items are acceptable.
-
-    Returns
-    =======
-
-    out : string
-        if the string is a null string, i.e. '', then the test has been passed
-        and all column titles are present.  However if a non null string is
-        returned, e.g., 'U', then at least one column title is missing and
-        the test fails.
-
-    \u2009
-    '''
-    not_found = ''  # not_found is a column title that is not found
-    c = df.columns
-    for r in required_columns:
-        if type(r) == tuple:
-            for r0 in r:
-                if r0 in c:
-                    not_found = ''
-                    break
-                not_found = r
-        else:
-            if r not in c:
-                not_found = r
-                break
-    return not_found
-
-
 def reverse(s):
    ''' Reverse a string.  For example, "abcde" to "edcba".
     
@@ -452,31 +289,323 @@ def fixcsv(filename):
     return data  # a list of lines from filename with semicolons as separators
          
 
-def testcsv(filename):
-    ''' Test so see if the number of commas in each row is the same or not.  
-    For a comma delimited csv file the no. of commas in each row should be the
-    same.  If not, a program crash occurs with an error message that can be 
-    confusing to the user.  This function on the other hand gives a user
-    friendly error message.  This type of failure typically occurs in a SW csv
-    file since SL csv files do not use commas as a delimiter.”
+def getdroplist():
+    ''' Create two global python lists named drop and exceptions.  Make these
+    lists global thus allowing easy access to other functions (speciffically to
+    sw).  These lists are derived from the file named droplists.py.  This file
+    is meant for anyone with proper authority to be able to modify.  The drop 
+    list contains pns of off-the-shelf parts, like bolts and pipe nipples, that
+    are to be excluded from the bom check.
+    
+    Returns
+    =======
+    
+    out : None
     '''
-    with open(filename, encoding="ISO-8859-1") as f:
-        num = f.readline().count(',')  # get number of commas in 1st line of f
-        failed_lines = [x for x in f if x.count(',') != num]
-    if failed_lines:
-        print('\nParsing Error.  Program halted.')
-        print('File causing problem: ' + filename)
-        print('Reason for failure: number of commas in each row of the file is not the same.')
-        print('(Commas separate fields in the row.  Unequal commas represent unequal number')
-        print('of fields.)  Most likely culprit: a comma within the part description,')
-        print('e.g. “KIT, VMX0153 MECH SEAL”\n')
-        print('Offendig line(s):')
-        for j in failed_lines:
-            print('  ', j)
-    return failed_lines  # if list empty, equivalent to False, else True
+    global drop, exceptions
+    paths = ["I:/bomcheck/", "C:/tmp/", "I:/DVT-BOMCHECK/", "/home/ken/projects/project1/"]
+    for p in paths:
+        if os.path.exists(p) and not p in sys.path:
+            sys.path.append(p)
+            break
+    try:
+        import droplist
+        drop = droplist.drop
+        exceptions = droplist.exceptions
+    except ModuleNotFoundError:
+        print('\nFile droplist.py not found or corrupt.  Put it in the')
+        print('directory I:\\bomcheck\n')
+        drop = []   # If droplist.py not found, use this
+        exceptions= []
+        
+        
+getdroplist()       # create global variables named drop and exceptions
 
 
-def sw(filename='clipboard', a=False):
+def multilevelbom(df, top='TOPLEVEL'):
+    ''' If the BOM is a multilevel BOM, pull out the components thereof; that
+    is, pull out the main assembly and the subassemblies thereof.  These 
+    assys/subassys are  placed in a python dictionary and returned.
+
+    Parmeters
+    =========
+
+    df : Pandas DataFrame
+        The DataFrame is that of a SolidWorks or SyteLine BOM.
+        
+    top : string
+        If df is derived from a file such as 082009_sw.xlxs, "top" should be
+        assigned for "082009" since the top level part number is not given in 
+        the Excel file and therefore can't be derived from the file.  This is
+        also true for a single level Syteline BOM.  On the other hand a 
+        mulilevel SyteLine BOM, which has a column named "Level", has the top
+        level pn contained within (assigned at "Level" 0).  In this case use 
+        the default "TOPLEVEL".
+        
+    Returns
+    =======
+    
+    out : python dictionary
+        The dictionary has the form {assypn1: BOM1, assypn2: BOM2, ...}.
+        Where assypn is a string object and is the part number of a BOM.
+        All BOMs are pandas DataFrame objects.
+    '''
+    # Find the column name that contains the pns.  This column name varies
+    # depending on whether it came from SW or SL, and varies based upon which
+    # section of the program generated the BOM.
+    for pncolname in ['Item', 'Material', 'PARTNUMBER', 'PART NUMBER']:
+        if pncolname in df.columns:
+            ptno = pncolname
+    df[ptno] = df[ptno].str.strip() # make sure pt nos. are "clean"
+    df[ptno].replace('', 'pn missing', inplace=True)
+    values = {'QTY':0, 'QTY.':0, 'Qty':0, 'Quantity':0, 'LENGTH':0, 
+              'DESCRIPTION': 'description missing', 
+              'Material Description': 'description missing',
+              'PART NUMBER': 'pn missing', 'PARTNUMBER': 'pn missing', 
+              'Item': 'pn missing', 'Material':'pn missing'} 
+    df.fillna(value=values, inplace=True)
+    # if BOM is from SW, generate a column named Level based on the column
+    # ITEM NO.  This column constains values like 1, 2, 3, 3.1, 3.1.1, 3.1.2,
+    # 3.2, etc. where item 3.1 is a member of subassy 3.
+    if 'ITEM NO.' in df.columns:  # is a sw bom
+        df['ITEM NO.'] = df['ITEM NO.'].astype('str')
+        df['Level'] = df['ITEM NO.'].str.count('\.')
+    elif 'Level' not in df.columns:  # is a single level sl bom
+        df['Level'] = 0
+    # Take the the column named "Level" and create a new column: "Level_pn".
+    # Instead of the level at which a part exists with in an assembly, like
+    # "Level", which contains integers like [0, 1, 2, 2, 1], "Level_pn" contains
+    # the parent part no. of the part at a particular level, i.e. 
+    # ['TOPLEVEL', '068278', '2648-0300-001', '2648-0300-001', '068278']
+    lvl = 0
+    level_pn = []  # storage of pns of parent assy/subassy of the part at rows 0, 1, 2, 3, ...
+    assys = []  # storage of all assys/subassys found (stand alone parts ignored)
+    for item, row in df.iterrows():
+        if row['Level'] == 0:
+            poplist = []
+            level_pn.append(top)
+            if top != "TOPLEVEL":
+                assys.append(top)
+        elif row['Level'] > lvl: 
+            if p in assys:
+                poplist.append('repeat')
+            else:
+                assys.append(p)
+                poplist.append(p)
+            level_pn.append(poplist[-1]) 
+        elif row['Level'] == lvl:
+            level_pn.append(poplist[-1])
+        elif row['Level'] < lvl:
+            i = row['Level'] - lvl  # how much to pop.  i is a negative number.
+            poplist = poplist[:i]   # remove, i.e. pop, i items from end of list
+            level_pn.append(poplist[-1])
+        p = row[ptno]
+        lvl = row['Level']
+    df['Level_pn'] = level_pn
+    # collect all assys/subassys within df and return a dictionary.  keys
+    # of the dictionary are pt. numbers of assys/subassys.
+    dic_assys = {}
+    for k in assys:
+        dic_assys[k] = df[df['Level_pn'] == k]         
+    return dic_assys
+
+
+def gatherBOMs(filename):
+    ''' Gather all SolidWorks and SyteLine BOMs derived from "filename".
+    "filename" can be a string containing wildcards, e.g. 6890-085555-*, which
+    allows the capture of multiple files; or "filename" can be a list of such 
+    strings.  These BOMs will be converted to Pandas DataFrame objects.
+    
+    Only files prefixed with _sw.xlsx, _sw.csv, _sl.xlsx, or _sl.csv will be
+    chosen.  These files will then be converted to two python dictionaries.  
+    One dictionary will contain SolidWorks BOMs only.  The other will contain
+    only SyteLine BOMs.  The dictionary keys (i.e., "handles" allowing access
+    to each BOM) will be the part numbers of the BOMs.
+    
+    If a filename corresponds to a BOM containing a multiple level BOM, then
+    that BOM will be broken down to subassemblies and will be added to the
+    dictionaries.
+    
+    Parmeters
+    =========
+
+    filename : string or list
+        
+    Returns
+    =======
+    
+    out : tuple
+        The output tuple contains three items.  The first is the directory
+        corresponding the the first file in the filename list.  If this
+        directory is an empty string, then it refers to the current working
+        directory.  The remainder of the tuple items are python dictionararies.
+        The first dictionary contains only SolidWorks BOMs,  The second, 
+        SyteLine BOMs.
+    '''
+    if type(filename) == str:
+        filename = [filename]     
+    swfilesdic = {}
+    slfilesdic = {}
+    for x in filename:
+        dirname = os.path.dirname(x)
+        if dirname and not os.path.exists(dirname):
+             print('directory not found: ', dirname)
+             sys.exit(0)
+        gatherednames = sorted(glob.glob(x))
+        for f in gatherednames:
+            i = f.rfind('_')
+            if f[i:i+4].lower() == '_sw.' or f[i:i+4].lower() == '_sl.':
+                dname, fname = os.path.split(f)
+                k = fname.rfind('_')
+                fntrunc = fname[:k]  # Name of the sw file, excluding path, and excluding _sw.xlsx
+                if f[i:i+4].lower() == '_sw.':
+                    swfilesdic.update({fntrunc: f})
+                elif f[i:i+4].lower() == '_sl.':
+                    slfilesdic.update({fntrunc: f})                 
+    swdfsdic = {}
+    for k, v in swfilesdic.items():
+        _, file_extension = os.path.splitext(v)
+        if file_extension == '.csv':
+            data = fixcsv(v)
+            temp = tempfile.TemporaryFile(mode='w+t')
+            for d in data:
+                temp.write(d)
+            temp.seek(0)
+            df = pd.read_csv(temp, na_values=[' '], skiprows=1, sep=';',
+                                   encoding='iso8859_1', engine='python')
+            temp.close()
+        elif file_extension == '.xlsx' or file_extension == '.xls':
+            df = pd.read_excel(v, na_values=[' '], skiprows=1)
+        swdfsdic.update(multilevelbom(df, k))  
+    sldfsdic = {}
+    for k, v in slfilesdic.items(): 
+        _, file_extension = os.path.splitext(v)
+        if file_extension == '.csv':
+            df = pd.read_csv(v, na_values=[' '], engine='python',
+                             encoding='utf-16', sep='\t')
+        elif file_extension == '.xlsx' or file_extension == '.xls':
+            df = pd.read_excel(v, na_values=[' '])
+        sldfsdic.update(multilevelbom(df, k))
+    dirname = os.path.dirname(filename[0])
+    if dirname and not os.path.exists(dirname):
+        print('directory not found: ', dirname)
+        sys.exit(0)
+        
+    swdfsdic = missing_columns('sw', swdfsdic, [('QTY', 'QTY.'), 'DESCRIPTION',
+                                                ('PART NUMBER', 'PARTNUMBER')])
+    sldfsdic = missing_columns('sl', sldfsdic, [('Qty', 'Quantity'), 
+                                                'Material Description', 'U/M', 
+                                                ('Item', 'Material')])
+    return dirname, swdfsdic, sldfsdic     
+
+
+def missing_tuple(tpl, lst):
+    ''' If none of the items of tpl (tuple) are in lst (list) return
+    tpl.  Else return None
+    '''
+    flag = True
+    for t in tpl:
+        if t in lst:
+            flag = False
+    if flag:
+        return tpl
+
+
+def missing_columns(bomtype, dfdic, required_columns):
+    ''' SolidWorks and SyteLine BOMs require certain essential columns to be
+    present.  This function looks at those BOMs that are within dfdic to see if
+    any required columns are missing.  If found, print to screen.  Finally, 
+    return a dictionary like that input less the faulty BOMs.
+
+    Parameters
+    ==========
+
+    bomtype : string
+        "sw" or "sl"
+
+    dfdic : dictionary
+        Dictionary keys are strings are assembly part numbers.  Dictionary 
+        values are pandas DataFrame objects which are BOMs for those 
+        assemblies.
+
+    required_columns : list
+        List items are strings or tuples.  If a string, then it is
+        the name of a required column.  If a tuple, they are column
+        names where only one of which is a required column.  For example:
+        [('QTY', 'QTY.'), 'DESCRIPTION', ('PART NUMBER', 'PARTNUMBER')]
+        Note that column names are case sensitive.   
+
+    Returns
+    =======
+
+    out : dictionary
+        Returns dfdic except any items that fail the test are removed. 
+    '''
+    missing = {}
+    dfdic_screened = dict(dfdic)
+    for key, df in dfdic.items():
+        missing_per_df = []
+        for r in required_columns:
+            if isinstance(r, str) and r not in df.columns:
+                missing_per_df.append(r)
+            elif isinstance(r, tuple) and missing_tuple(r, df.columns):
+                missing_per_df.append(' or '.join(missing_tuple(r, df.columns)))
+        if missing_per_df:
+            if ' ,'.join(missing_per_df) not in missing:
+                missing[' ,'.join(missing_per_df)] = [key]
+            else:
+                missing[' ,'.join(missing_per_df)].append(key)
+            del dfdic_screened[key]
+    if missing:
+        print('\nSome essential BOM columns missing.  Associated BOM will not be processed:\n')
+        for k, v in missing.items():
+            print('    missing: ' + k)
+            v_bomtype = [s + '_' + bomtype for s in v]
+            print('    missing in: ' + ' ,'.join(v_bomtype) + '\n')          
+    return dfdic_screened
+
+
+def combine_tables(swdic, sldic):
+    ''' Match SolidWorks assembly nos. to those from SyteLine and then merge
+    their BOMs to create a BOM check.  For any SolidWorks assemblies for which
+    no SyteLine BOM was found, put those in a separate dictionary for output.
+
+    Parameters
+    ==========
+
+    swdic : dictionary
+        Dictinary of SolidWorks BOMs.  Dictionary keys are strings and they 
+        are of assembly part numbers.  Dictionary values are pandas DataFrame 
+        objects which are BOMs for those assemblies.
+
+    sldic : dictionary
+        Dictinary of SyteLine BOMs.  Dictionary keys are strings and they 
+        are of assembly part numbers.  Dictionary values are pandas DataFrame 
+        objects which are BOMs for those assemblies.
+
+    Returns
+    =======
+
+    out : tuple
+        The output tuple contains two values: 1.  Dictionary containing SolidWorks
+        BOMs for which no matching SyteLine BOM was found.  The BOMs have been
+        converted to a SyteLine like format.  Keys of the dictionary are assembly
+        part numbers.  2.  Dictionary of merged SolidWorks and SyteLine BOMs, thus
+        creating a BOM check.  Keys for the dictionary are assembly part numbers.
+    '''
+    lone_sw_dic = {}  # sw boms with no matching sl bom found
+    combined_dic = {}   # sl bom found for given sw bom.  Then merged
+    for key, dfsw in swdic.items():
+        if key in sldic:
+            combined_dic[key] = sl(sw(dfsw), sldic[key])
+        else:
+            lone_sw_dic[key + '_sw'] = sw(dfsw)
+    return lone_sw_dic, combined_dic
+
+
+
+
+def sw(df, a=False):
     '''Take a SolidWorks BOM and restructure it to be like that of a SyteLine
     BOM.  That is, the following is done:
 
@@ -499,7 +628,7 @@ def sw(filename='clipboard', a=False):
     Parmeters
     =========
 
-    filename : string
+    df : Pandas DataFrame
         Name of SolidWorks Excel file to process.  If filename = clipboard, the 
         sw bom is taken from the clipboard.
 
@@ -521,66 +650,24 @@ def sw(filename='clipboard', a=False):
     >>> sw(r"C:\\dirpath\\name.xlsx")
 
     \u2009
-    '''
-    _, ext = os.path.splitext(filename)
-    try:
-        if filename.lower() in ['c', 'x', 'cb', 'clipboard']:
-            print('\nCopy SolidWorks BOM to clipboard (from xlxs file only) including the BOM header')
-            input("Press the <ENTER> key to continue...")
-            dfsw = pd.read_clipboard(engine='python', na_values=[' '], skiprows=1)
-        elif str(type(filename))[-11:-2] == 'DataFrame':
-            dfsw = filename
-        elif ext=='.xlsx' or ext=='.xls':
-            try:
-                dfsw = pd.read_excel(filename, na_values=[' '], skiprows=1, engine='python')
-            except:
-                dfsw = pd.read_excel(filename, na_values=[' '], skiprows=1)
-        elif False: #ext=='.csv':
-            if testcsv(filename):
-                sys.exit(1)
-            else:
-                dfsw = pd.read_csv(filename, na_values=[' '], skiprows=1,
-                                   encoding='iso8859_1', engine='python')
-        elif ext=='.csv':
-            data = fixcsv(filename)
-            temp = tempfile.TemporaryFile(mode='w+t')
-            for d in data:
-                temp.write(d)
-            temp.seek(0)
-            dfsw = pd.read_csv(temp, na_values=[' '], skiprows=1, sep=';',
-                                   encoding='iso8859_1', engine='python')
-            temp.close()
-        else:
-            print('non valid file name (', filename, ') (err 102)')
-            sys.exit(0)
-
-    except IOError:
-        print('FILNAME NOT FOUND: ', filename)
-        sys.exit(0)
-
-    required_columns = [('QTY', 'QTY.'), 'DESCRIPTION', ('PART NUMBER', 'PARTNUMBER')]  # optional: LENGTH
-    missing = test_columns(dfsw, required_columns)
-    if missing:
-        print('At least one column in your SW data (' + os.path.split(filename)[1] + ')  not found: ', missing)
-        sys.exit()
-
+    '''  
     values = {'QTY':0, 'QTY.':0, 'LENGTH':0, 'DESCRIPTION': 'description missing', 'PART NUMBER': 'pn missing', 'PARTNUMBER': 'pn missing'} 
-    dfsw.fillna(value=values, inplace=True)
-    # obsolete: dfsw['DESCRIPTION'].replace(0, '!! No SW description provided !!', inplace=True)
-    dfsw['DESCRIPTION'] = dfsw['DESCRIPTION'].apply(lambda x: x.replace('\n', ''))  # get rid of "new line" character
-    dfsw.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item',   # rename column titles
+    df.fillna(value=values, inplace=True)
+    # obsolete: df['DESCRIPTION'].replace(0, '!! No SW description provided !!', inplace=True)
+    df['DESCRIPTION'] = df['DESCRIPTION'].apply(lambda x: x.replace('\n', ''))  # get rid of "new line" character
+    df.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item',   # rename column titles
                           'DESCRIPTION': 'Material Description', 'QTY': 'Q', 'QTY.': 'Q'}, inplace=True)
-    filtr1 = dfsw['Item'].str.startswith('3086')  # filter pipe nipples (i.e. pn starting with 3086)
+    filtr1 = df['Item'].str.startswith('3086')  # filter pipe nipples (i.e. pn starting with 3086)
     try:       # if no LENGTH in the table, an error occurs. "try" causes following lines to be passed over
-        dfsw['LENGTH'] = round((dfsw['Q'] * dfsw['LENGTH'] * ~filtr1) /12.0, 2)  # covert lenghts to feet. ~ = NOT
-        filtr2 = dfsw['LENGTH'] >= 0.00001  # a filter: only items where length greater than 0.0
-        dfsw['Q'] = dfsw['Q']*(~filtr2) + dfsw['LENGTH']  # move lengths (in feet) to the Qty column
-        dfsw['U'] = filtr2.apply(lambda x: 'FT' if x else 'EA')
+        df['LENGTH'] = round((df['Q'] * df['LENGTH'] * ~filtr1) /12.0, 2)  # covert lenghts to feet. ~ = NOT
+        filtr2 = df['LENGTH'] >= 0.00001  # a filter: only items where length greater than 0.0
+        df['Q'] = df['Q']*(~filtr2) + df['LENGTH']  # move lengths (in feet) to the Qty column
+        df['U'] = filtr2.apply(lambda x: 'FT' if x else 'EA')
     except:
-        dfsw['U'] = 'EA'
-    dfsw = dfsw.reindex(['Op', 'WC','Item', 'Q', 'Material Description', 'U'], axis=1)  # rename and/or remove columns
+        df['U'] = 'EA'
+    df = df.reindex(['Op', 'WC','Item', 'Q', 'Material Description', 'U'], axis=1)  # rename and/or remove columns
     d = {'Q': 'sum', 'Material Description': 'first', 'U': 'first'}   # funtions to apply to next line
-    dfsw = dfsw.groupby('Item', as_index=False).aggregate(d).reindex(columns=dfsw.columns)
+    df = df.groupby('Item', as_index=False).aggregate(d).reindex(columns=df.columns)
     
     if a==False:    
         drop2 = []
@@ -591,17 +678,17 @@ def sw(filename='clipboard', a=False):
         for e in exceptions:  # excpetion is also a globa list
             e = '^' + e + '$'
             exceptions2.append(e.replace('*', '[A-Za-z0-9-]*')) 
-        filtr3 = dfsw['Item'].str.contains('|'.join(drop2)) & ~dfsw['Item'].str.contains('|'.join(exceptions2))
-        dfsw.drop(dfsw[filtr3].index, inplace=True)  # drop frow SW BOM pns in "drop" list.
-   
-    dfsw['WC'] = 'PICK'
-    dfsw['Op'] = str(10)
-    dfsw.set_index('Op', inplace=True)
+        filtr3 = df['Item'].str.contains('|'.join(drop2)) & ~df['Item'].str.contains('|'.join(exceptions2))
+        df.drop(df[filtr3].index, inplace=True)  # drop frow SW BOM pns in "drop" list.
+    
+    df['WC'] = 'PICK'
+    df['Op'] = str(10)
+    df.set_index('Op', inplace=True)
 
-    return dfsw
+    return df
 
 
-def sl(df_solidworks, filename='clipboard'):
+def sl(dfsw, dfsl):
     '''This function reads in a bom derived from StyeLine and then merges it
     with the bom from SolidWorks.  The merged boms allow differences to
     easily seen.
@@ -630,37 +717,6 @@ def sl(df_solidworks, filename='clipboard'):
 
     \u2009
     '''
-    dfsw = df_solidworks
-    _, ext = os.path.splitext(filename)
-
-    try:
-        if filename.lower() in ['c', 'x', 'cb', 'clipboard']:
-            print('\nCopy SyteLine BOM to clipboard.')
-            input("Press the <ENTER> key to continue...")
-            df_sl = pd.read_clipboard(engine='python', na_values=[' '])
-        elif str(type(filename))[-11:-2] == 'DataFrame':
-            df_sl = filename
-        elif ext=='.xlsx' or ext=='.xls':
-            df_sl = pd.read_excel(filename, na_values=[' '])
-        elif ext=='.csv':
-            df_sl = pd.read_csv(filename, na_values=[' '], engine='python',
-                                encoding='utf-16', sep='\t')
-        else:
-            print('non valid file name (', filename, ') (err 101)')
-            sys.exit()
-
-    except IOError:
-        print('FILNAME NOT FOUND: ', filename)
-        sys.exit()
-    #except:
-    #    print('unknown error in function sl')
-    #    sys.exit()
-
-    sl_required_columns = [('Qty', 'Quantity'), 'Material Description', 'U/M', ('Item', 'Material')]
-    missing = test_columns(df_sl, sl_required_columns)
-    if missing:
-        print('At least one column in your SL data (' + os.path.split(filename)[1] + ') not found: ', missing)
-        sys.exit()
 
     if not str(type(dfsw))[-11:-2] == 'DataFrame':
         print('Program halted.  A fault with SolidWorks DataFrame occurred.')
@@ -670,10 +726,10 @@ def sl(df_solidworks, filename='clipboard'):
     # the `Item` is the part number.  From another `Material` is the part number.
     # When `Material` is the part number, a useless 'Item' column is also present.
     # It causes the bomcheck program confusion and the program crashes.
-    if 'Item' in df_sl.columns and 'Material' in df_sl.columns:
-        df_sl.drop(['Item'], axis=1, inplace=True)
-    df_sl.rename(columns={'Material':'Item', 'Quantity':'Q', 'Qty':'Q', 'U/M':'U'}, inplace=True)
-    dfmerged = pd.merge(dfsw, df_sl, on='Item', how='outer', suffixes=('_sw', '_sl'), indicator=True)
+    if 'Item' in dfsl.columns and 'Material' in dfsl.columns:
+        dfsl.drop(['Item'], axis=1, inplace=True)
+    dfsl.rename(columns={'Material':'Item', 'Quantity':'Q', 'Qty':'Q', 'U/M':'U'}, inplace=True)
+    dfmerged = pd.merge(dfsw, dfsl, on='Item', how='outer', suffixes=('_sw', '_sl'), indicator=True)
     dfmerged.sort_values(by=['Item'], inplace=True)
     filtrI = dfmerged['_merge'].str.contains('both')  # this filter determines if pn in both SW and SL
     filtrQ = abs(dfmerged['Q_sw'] - dfmerged['Q_sl']) < .005  # a filter is a list of True/False values
@@ -696,6 +752,14 @@ def sl(df_solidworks, filename='clipboard'):
 
 if __name__=='__main__':
     main()                   # comment out this line for testing
-    # bomcheck('*', v=True)   # use for testing
+    #bomcheck('*', v=True)   # use for testing
 
 
+
+
+
+
+
+        
+
+    
