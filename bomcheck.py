@@ -364,6 +364,8 @@ def multilevelbom(df, top='TOPLEVEL'):
               'PART NUMBER': 'pn missing', 'PARTNUMBER': 'pn missing', 
               'Item': 'pn missing', 'Material':'pn missing'} 
     df.fillna(value=values, inplace=True)
+    if 'Level' in df.columns:  # if present, is a SL BOM.  Make sure top='TOPLEVEL'
+        top = 'TOPLEVEL'
     # if BOM is from SW, generate a column named Level based on the column
     # ITEM NO.  This column constains values like 1, 2, 3, 3.1, 3.1.1, 3.1.2,
     # 3.2, etc. where item 3.1 is a member of subassy 3.
@@ -472,7 +474,8 @@ def gatherBOMs(filename):
                 temp.write(d)
             temp.seek(0)
             df = pd.read_csv(temp, na_values=[' '], skiprows=1, sep=';',
-                                   encoding='iso8859_1', engine='python')
+                                   encoding='iso8859_1', engine='python',
+                                   dtype = {'ITEM NO.': 'str'})
             temp.close()
         elif file_extension == '.xlsx' or file_extension == '.xls':
             df = pd.read_excel(v, na_values=[' '], skiprows=1)
@@ -493,9 +496,9 @@ def gatherBOMs(filename):
         
     swdfsdic = missing_columns('sw', swdfsdic, [('QTY', 'QTY.'), 'DESCRIPTION',
                                                 ('PART NUMBER', 'PARTNUMBER')])
-    sldfsdic = missing_columns('sl', sldfsdic, [('Qty', 'Quantity'), 
-                                                'Material Description', 'U/M', 
-                                                ('Item', 'Material')])
+    sldfsdic = missing_columns('sl', sldfsdic, [('Qty', 'Quantity', 'Qty Per'), 
+                                  ('Material Description', 'Description'), 
+                                  ('U/M', 'UM'), ('Item', 'Material')])
     return dirname, swdfsdic, sldfsdic     
 
 
@@ -728,7 +731,8 @@ def sl(dfsw, dfsl):
     # It causes the bomcheck program confusion and the program crashes.
     if 'Item' in dfsl.columns and 'Material' in dfsl.columns:
         dfsl.drop(['Item'], axis=1, inplace=True)
-    dfsl.rename(columns={'Material':'Item', 'Quantity':'Q', 'Qty':'Q', 'U/M':'U'}, inplace=True)
+    dfsl.rename(columns={'Material':'Item', 'Quantity':'Q', 'Description':'Material Description',
+                         'Qty':'Q', 'Qty Per': 'Q', 'U/M':'U', 'UM':'U'}, inplace=True)
     dfmerged = pd.merge(dfsw, dfsl, on='Item', how='outer', suffixes=('_sw', '_sl'), indicator=True)
     dfmerged.sort_values(by=['Item'], inplace=True)
     filtrI = dfmerged['_merge'].str.contains('both')  # this filter determines if pn in both SW and SL
@@ -751,8 +755,8 @@ def sl(dfsw, dfsl):
 
 
 if __name__=='__main__':
-    main()                   # comment out this line for testing
-    #bomcheck('*', v=True)   # use for testing
+    #main()                   # comment out this line for testing
+    bomcheck('/home/ken/projects/bomdata/085354/*')   # use for testing
 
 
 
