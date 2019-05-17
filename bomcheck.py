@@ -27,7 +27,7 @@ the location where the file is looked for.
 """
 
 
-__version__ = '1.0.2'
+__version__ = '1.0.3'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -755,8 +755,8 @@ def sl(dfsw, dfsl):
 
 
 if __name__=='__main__':
-    #main()                   # comment out this line for testing
-    bomcheck('/home/ken/projects/bomdata/085354/*')   # use for testing
+    main()                   # comment out this line for testing
+    #bomcheck('/home/ken/projects/bomdata/085354/*')   # use for testing
 
 
 
