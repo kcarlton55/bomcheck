@@ -27,7 +27,7 @@ the location where the file is looked for.
 """
 
 
-__version__ = '1.0.3'
+__version__ = '1.0.4'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -479,7 +479,8 @@ def gatherBOMs(filename):
             temp.close()
         elif file_extension == '.xlsx' or file_extension == '.xls':
             df = pd.read_excel(v, na_values=[' '], skiprows=1)
-        swdfsdic.update(multilevelbom(df, k))  
+        if not missing_columns('sw', df, k):
+            swdfsdic.update(multilevelbom(df, k))
     sldfsdic = {}
     for k, v in slfilesdic.items(): 
         _, file_extension = os.path.splitext(v)
@@ -488,17 +489,12 @@ def gatherBOMs(filename):
                              encoding='utf-16', sep='\t')
         elif file_extension == '.xlsx' or file_extension == '.xls':
             df = pd.read_excel(v, na_values=[' '])
-        sldfsdic.update(multilevelbom(df, k))
+        if not missing_columns('sl', df, k):
+            sldfsdic.update(multilevelbom(df, k))
     dirname = os.path.dirname(filename[0])
     if dirname and not os.path.exists(dirname):
         print('directory not found: ', dirname)
         sys.exit(0)
-        
-    swdfsdic = missing_columns('sw', swdfsdic, [('QTY', 'QTY.'), 'DESCRIPTION',
-                                                ('PART NUMBER', 'PARTNUMBER')])
-    sldfsdic = missing_columns('sl', sldfsdic, [('Qty', 'Quantity', 'Qty Per'), 
-                                  ('Material Description', 'Description'), 
-                                  ('U/M', 'UM'), ('Item', 'Material')])
     return dirname, swdfsdic, sldfsdic     
 
 
@@ -514,7 +510,7 @@ def missing_tuple(tpl, lst):
         return tpl
 
 
-def missing_columns(bomtype, dfdic, required_columns):
+def missing_columns(bomtype, df, pn):
     ''' SolidWorks and SyteLine BOMs require certain essential columns to be
     present.  This function looks at those BOMs that are within dfdic to see if
     any required columns are missing.  If found, print to screen.  Finally, 
@@ -544,28 +540,32 @@ def missing_columns(bomtype, dfdic, required_columns):
     out : dictionary
         Returns dfdic except any items that fail the test are removed. 
     '''
-    missing = {}
-    dfdic_screened = dict(dfdic)
-    for key, df in dfdic.items():
-        missing_per_df = []
-        for r in required_columns:
-            if isinstance(r, str) and r not in df.columns:
-                missing_per_df.append(r)
-            elif isinstance(r, tuple) and missing_tuple(r, df.columns):
-                missing_per_df.append(' or '.join(missing_tuple(r, df.columns)))
-        if missing_per_df:
-            if ' ,'.join(missing_per_df) not in missing:
-                missing[' ,'.join(missing_per_df)] = [key]
-            else:
-                missing[' ,'.join(missing_per_df)].append(key)
-            del dfdic_screened[key]
-    if missing:
-        print('\nSome essential BOM columns missing.  Associated BOM will not be processed:\n')
-        for k, v in missing.items():
-            print('    missing: ' + k)
-            v_bomtype = [s + '_' + bomtype for s in v]
-            print('    missing in: ' + ' ,'.join(v_bomtype) + '\n')          
-    return dfdic_screened
+    if bomtype == 'sw':
+        required_columns = [('QTY', 'QTY.'), 'DESCRIPTION',
+                            ('PART NUMBER', 'PARTNUMBER')]
+    else: # 'sl bom'
+        required_columns = [('Qty', 'Quantity', 'Qty Per'), 
+                            ('Material Description', 'Description'), 
+                            ('U/M', 'UM'), ('Item', 'Material')]
+    missing = []
+    for r in required_columns:
+        if isinstance(r, str) and r not in df.columns:
+            missing.append(r)
+        elif isinstance(r, tuple) and missing_tuple(r, df.columns):
+            missing.append(' or '.join(missing_tuple(r, df.columns)))
+    if missing and bomtype=='sw':
+        print('\nEssential BOM columns missing.  SolidWorks requires a BOM header\n' +
+              'to be in place.  Is this missing?  This BOM will not be processed.\n\n' +
+              '    missing: ' + ' ,'.join(missing) +  '\n' +    
+              '    missing in: ' + pn)
+        return True
+    elif missing:    
+        print('\nEssential BOM columns missing.  This BOM will not be processed.\n' +
+             '    missing: ' + ' ,'.join(missing) +  '\n\n' +    
+             '    missing in: ' + pn)
+        return True
+    else:
+        return False
 
 
 def combine_tables(swdic, sldic):
@@ -604,8 +604,6 @@ def combine_tables(swdic, sldic):
         else:
             lone_sw_dic[key + '_sw'] = sw(dfsw)
     return lone_sw_dic, combined_dic
-
-
 
 
 def sw(df, a=False):
@@ -654,12 +652,14 @@ def sw(df, a=False):
 
     \u2009
     '''  
-    values = {'QTY':0, 'QTY.':0, 'LENGTH':0, 'DESCRIPTION': 'description missing', 'PART NUMBER': 'pn missing', 'PARTNUMBER': 'pn missing'} 
+    values = {'QTY':0, 'QTY.':0, 'LENGTH':0, 'DESCRIPTION': 'description missing',
+              'PART NUMBER': 'pn missing', 'PARTNUMBER': 'pn missing'} 
     df.fillna(value=values, inplace=True)
     # obsolete: df['DESCRIPTION'].replace(0, '!! No SW description provided !!', inplace=True)
     df['DESCRIPTION'] = df['DESCRIPTION'].apply(lambda x: x.replace('\n', ''))  # get rid of "new line" character
-    df.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item',   # rename column titles
-                          'DESCRIPTION': 'Material Description', 'QTY': 'Q', 'QTY.': 'Q'}, inplace=True)
+    df.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item', 'L': 'LENGTH',
+                       'DESCRIPTION': 'Material Description', 'QTY': 'Q', 'QTY.': 'Q',
+                       'Description':'Material Description'}, inplace=True)
     filtr1 = df['Item'].str.startswith('3086')  # filter pipe nipples (i.e. pn starting with 3086)
     try:       # if no LENGTH in the table, an error occurs. "try" causes following lines to be passed over
         df['LENGTH'] = round((df['Q'] * df['LENGTH'] * ~filtr1) /12.0, 2)  # covert lenghts to feet. ~ = NOT
@@ -677,12 +677,13 @@ def sw(df, a=False):
         for d in drop:  # drop is a global list of pns to exclude from the bom check
             d = '^' + d + '$'
             drop2.append(d.replace('*', '[A-Za-z0-9-]*'))    
-            exceptions2 = []
+        exceptions2 = []
         for e in exceptions:  # excpetion is also a globa list
             e = '^' + e + '$'
-            exceptions2.append(e.replace('*', '[A-Za-z0-9-]*')) 
-        filtr3 = df['Item'].str.contains('|'.join(drop2)) & ~df['Item'].str.contains('|'.join(exceptions2))
-        df.drop(df[filtr3].index, inplace=True)  # drop frow SW BOM pns in "drop" list.
+            exceptions2.append(e.replace('*', '[A-Za-z0-9-]*'))
+        if drop2:
+            filtr3 = df['Item'].str.contains('|'.join(drop2)) & ~df['Item'].str.contains('|'.join(exceptions2))
+            df.drop(df[filtr3].index, inplace=True)  # drop frow SW BOM pns in "drop" list.
     
     df['WC'] = 'PICK'
     df['Op'] = str(10)
@@ -755,8 +756,8 @@ def sl(dfsw, dfsl):
 
 
 if __name__=='__main__':
-    main()                   # comment out this line for testing
-    #bomcheck('/home/ken/projects/bomdata/085354/*')   # use for testing
+    #main()                   # comment out this line for testing
+    bomcheck('*')   # use for testing
 
 
 
