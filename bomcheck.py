@@ -756,8 +756,8 @@ def sl(dfsw, dfsl):
 
 
 if __name__=='__main__':
-    #main()                   # comment out this line for testing
-    bomcheck('*')   # use for testing
+    main()                   # comment out this line for testing
+    #bomcheck('*')   # use for testing #
 
 
 
