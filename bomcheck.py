@@ -490,7 +490,10 @@ def gatherBOMs(filename):
         elif file_extension == '.xlsx' or file_extension == '.xls':
             df = pd.read_excel(v, na_values=[' '])
         if not missing_columns('sl', df, k):
-            sldfsdic.update(multilevelbom(df, k))
+            sldfsdic.update(multilevelbom(df, k))      
+    df = pd.read_clipboard(engine='python', na_values=[' '])
+    if not missing_columns('sl', df, 'BOMfromClipboard', printerror=False):
+        sldfsdic.update(multilevelbom(df, 'TOPLEVEL'))       
     dirname = os.path.dirname(filename[0])
     if dirname and not os.path.exists(dirname):
         print('directory not found: ', dirname)
@@ -510,7 +513,7 @@ def missing_tuple(tpl, lst):
         return tpl
 
 
-def missing_columns(bomtype, df, pn):
+def missing_columns(bomtype, df, pn, printerror=True):
     ''' SolidWorks and SyteLine BOMs require certain essential columns to be
     present.  This function looks at those BOMs that are within dfdic to see if
     any required columns are missing.  If found, print to screen.  Finally, 
@@ -522,23 +525,17 @@ def missing_columns(bomtype, df, pn):
     bomtype : string
         "sw" or "sl"
 
-    dfdic : dictionary
-        Dictionary keys are strings are assembly part numbers.  Dictionary 
-        values are pandas DataFrame objects which are BOMs for those 
-        assemblies.
+    df : Pandas DataFRame
+        A SW or SL BOM
 
-    required_columns : list
-        List items are strings or tuples.  If a string, then it is
-        the name of a required column.  If a tuple, they are column
-        names where only one of which is a required column.  For example:
-        [('QTY', 'QTY.'), 'DESCRIPTION', ('PART NUMBER', 'PARTNUMBER')]
-        Note that column names are case sensitive.   
+    pn : string
+        Part number of the BOM   
 
     Returns
     =======
 
-    out : dictionary
-        Returns dfdic except any items that fail the test are removed. 
+    out : bool
+        True if BOM afoul.  Otherwise False.
     '''
     if bomtype == 'sw':
         required_columns = [('QTY', 'QTY.'), 'DESCRIPTION',
@@ -553,16 +550,18 @@ def missing_columns(bomtype, df, pn):
             missing.append(r)
         elif isinstance(r, tuple) and missing_tuple(r, df.columns):
             missing.append(' or '.join(missing_tuple(r, df.columns)))
-    if missing and bomtype=='sw':
+    if missing and bomtype=='sw' and printerror:
         print('\nEssential BOM columns missing.  SolidWorks requires a BOM header\n' +
               'to be in place.  Is this missing?  This BOM will not be processed.\n\n' +
               '    missing: ' + ' ,'.join(missing) +  '\n' +    
               '    missing in: ' + pn)
         return True
-    elif missing:    
+    elif missing and printerror:
         print('\nEssential BOM columns missing.  This BOM will not be processed.\n' +
              '    missing: ' + ' ,'.join(missing) +  '\n\n' +    
              '    missing in: ' + pn)
+        return True
+    elif missing:
         return True
     else:
         return False
