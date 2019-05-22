@@ -31,6 +31,7 @@ __version__ = '1.0.4'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
+import os
 import tempfile
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', 150)
@@ -216,12 +217,18 @@ def export2excel(dirname, filename, results2export):
             # adjust widths of columns in Excel worksheet to fit data's width: 
             mwic = df.index.astype(str).map(len).max() # max width of index column
             worksheet.set_column(0, 0, mwic + 1)  # set width of index column, i.e. col 0/col A
+            worksheet.hide_gridlines(2)  # see: https://xlsxwriter.readthedocs.io/page_setup.html
+            j = 0
+            k = 0
             for idx, col in enumerate(df):  # set width of rest of columns  
                 series = df[col]
                 max_len = max((
                     series.astype(str).map(len).max(),  # len of largest item
                     len(str(series.name))  # len of the column's title
-                    )) + 1  # adding a little extra space
+                    )) + k  # adding a little extra space
+                j += 1
+                if j >= 4:
+                    k = 1
                 worksheet.set_column(idx+1, idx+1, max_len)  # set column width
         writer.save()
     abspath = os.path.abspath(fn)
@@ -250,9 +257,10 @@ def reverse(s):
 
 
 def fixcsv(filename):
-    '''fixcsv if called when a sw csv file is used.  Commas are on rare 
-    occasions used within a part's description.  This comma causes the program 
-    to crash.  (See the testcsv() function).  
+    '''fixcsv is called when a SW csv file is used.  Commas are used as
+    separators of table values in SW BOMs.  Commas are on rare occasions used
+    within a part's description.  This extra comma causes the program to crash.
+    fixcsv fixes the problem so that the file is usefull. 
     
     Parmeters
     =========
@@ -303,19 +311,20 @@ def getdroplist():
     out : None
     '''
     global drop, exceptions
-    paths = ["I:/bomcheck/", "C:/tmp/", "I:/DVT-BOMCHECK/", "/home/ken/projects/project1/"]
+    usrPrf = os.getenv('USERPROFILE', 'C:/nonexistent')  # on my win computer, USERPROFILE = C:\Users\k_carlton
+    userDocDir = os.path.join(usrPrf, 'Documents')
+    paths = [userDocDir, "I:/DVT-BOMCHECK/settings", "/home/ken/projects/project1/", "I:/bomcheck/"]
     for p in paths:
         if os.path.exists(p) and not p in sys.path:
             sys.path.append(p)
+            print('\ndroplist loaded from ' + p + '\n')
             break
     try:
         import droplist
         drop = droplist.drop
         exceptions = droplist.exceptions
     except ModuleNotFoundError:
-        print('\nFile droplist.py not found or corrupt.  Put it in the')
-        print('directory I:\\bomcheck\n')
-        drop = []   # If droplist.py not found, use this
+        drop = ['3*-025']   # If droplist.py not found, use this
         exceptions= []
         
         
@@ -657,8 +666,7 @@ def sw(df, a=False):
     # obsolete: df['DESCRIPTION'].replace(0, '!! No SW description provided !!', inplace=True)
     df['DESCRIPTION'] = df['DESCRIPTION'].apply(lambda x: x.replace('\n', ''))  # get rid of "new line" character
     df.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item', 'L': 'LENGTH',
-                       'DESCRIPTION': 'Material Description', 'QTY': 'Q', 'QTY.': 'Q',
-                       'Description':'Material Description'}, inplace=True)
+                       'DESCRIPTION': 'Description', 'QTY': 'Q', 'QTY.': 'Q',}, inplace=True)
     filtr1 = df['Item'].str.startswith('3086')  # filter pipe nipples (i.e. pn starting with 3086)
     try:       # if no LENGTH in the table, an error occurs. "try" causes following lines to be passed over
         df['LENGTH'] = round((df['Q'] * df['LENGTH'] * ~filtr1) /12.0, 2)  # covert lenghts to feet. ~ = NOT
@@ -667,8 +675,8 @@ def sw(df, a=False):
         df['U'] = filtr2.apply(lambda x: 'FT' if x else 'EA')
     except:
         df['U'] = 'EA'
-    df = df.reindex(['Op', 'WC','Item', 'Q', 'Material Description', 'U'], axis=1)  # rename and/or remove columns
-    d = {'Q': 'sum', 'Material Description': 'first', 'U': 'first'}   # funtions to apply to next line
+    df = df.reindex(['Op', 'WC','Item', 'Q', 'Description', 'U'], axis=1)  # rename and/or remove columns
+    d = {'Q': 'sum', 'Description': 'first', 'U': 'first'}   # funtions to apply to next line
     df = df.groupby('Item', as_index=False).aggregate(d).reindex(columns=df.columns)
     
     if a==False:    
@@ -731,23 +739,28 @@ def sl(dfsw, dfsl):
     # It causes the bomcheck program confusion and the program crashes.
     if 'Item' in dfsl.columns and 'Material' in dfsl.columns:
         dfsl.drop(['Item'], axis=1, inplace=True)
-    dfsl.rename(columns={'Material':'Item', 'Quantity':'Q', 'Description':'Material Description',
+    dfsl.rename(columns={'Material':'Item', 'Quantity':'Q', 'Material Description':'Description',
                          'Qty':'Q', 'Qty Per': 'Q', 'U/M':'U', 'UM':'U'}, inplace=True)
     dfmerged = pd.merge(dfsw, dfsl, on='Item', how='outer', suffixes=('_sw', '_sl'), indicator=True)
     dfmerged.sort_values(by=['Item'], inplace=True)
     filtrI = dfmerged['_merge'].str.contains('both')  # this filter determines if pn in both SW and SL
     filtrQ = abs(dfmerged['Q_sw'] - dfmerged['Q_sl']) < .005  # a filter is a list of True/False values
-    filtrM = dfmerged['Material Description_sw'].str.split()==dfmerged['Material Description_sl'].str.split()
+    filtrM = dfmerged['Description_sw'].str.split()==dfmerged['Description_sl'].str.split()
     filtrU = dfmerged['U_sw']==dfmerged['U_sl']
-    chkmark = '\u02DC' # The UTF-8 character code for a check mark character (was \u2713)
+    chkmark = '-' # '\u02DC' # The UTF-8 character code for a check mark character (was \u2713)
     err = 'X'     # X character (was \u2716)
-    dfmerged['IQMU'] = (filtrI.apply(lambda x: chkmark if x else err)   # X = Item not in SW or SL
-                       + filtrQ.apply(lambda x: chkmark if x else err)   # X = Qty differs btwn SW and SL
-                       + filtrM.apply(lambda x: chkmark if x else err)   # X = Mtl differs btwn SW & SL
-                       + filtrU.apply(lambda x: chkmark if x else err))  # X = U differs btwn SW & SL
-    dfmerged['IQMU'] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged['IQMU'] # duplicate in SL? IQMU-> blank
-    dfmerged = dfmerged[['Item', 'IQMU', 'Q_sw', 'Q_sl', 'Material Description_sw',
-                           'Material Description_sl', 'U_sw', 'U_sl']]
+    
+    dfmerged['i'] = filtrI.apply(lambda x: chkmark if x else err)     # X = Item not in SW or SL
+    dfmerged['q'] = filtrQ.apply(lambda x: chkmark if x else err)     # X = Qty differs btwn SW and SL
+    dfmerged['d'] = filtrM.apply(lambda x: chkmark if x else err)     # X = Mtl differs btwn SW & SL
+    dfmerged['u'] = filtrU.apply(lambda x: chkmark if x else err)     # X = U differs btwn SW & SL
+    dfmerged['i'] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged['i'] # duplicate in SL? IQMU-> blank
+    dfmerged['q'] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged['q'] # duplicate in SL? IQMU-> blank
+    dfmerged['d'] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged['d'] # duplicate in SL? IQMU-> blank
+    dfmerged['u'] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged['u'] # duplicate in SL? IQMU-> blank
+    
+    dfmerged = dfmerged[['Item', 'i', 'q', 'd', 'u', 'Q_sw', 'Q_sl', 'Description_sw',
+                           'Description_sl', 'U_sw', 'U_sl']]
     dfmerged.fillna('', inplace=True)
     dfmerged.set_index('Item', inplace=True)
     #dfmerged.to_clipboard()
