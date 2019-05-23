@@ -3,18 +3,18 @@
 """
 File initial creation on Sun Nov 18 2018
 
-@author: Ken Carlton
+@author: Kenneth Carlton
 
-This program compares two BOMs: one originating from SolidWorks (sw) and the 
-other from SyteLine (sl).  The structure of the BOMs (headings, structure, 
+This program compares two BOMs: one originating from SolidWorks (SW) and the 
+other from SyteLine (SL).  The structure of the BOMs (headings, structure, 
 etc.) are very unique to our company.  Therefore this program, unaltered, will
 fail to function at another company. 
 
-Run from the command line like this: python bomcheck.py -v '*'
+Run from the command line like this: python bomcheck.py '*'
 
 Run without any arguments shows help info about the program: python bomcheck.py
 
-Run from a python console terminal like this: bomcheck('*', v=True)
+Run from a python console terminal like this: bomcheck('*')
 
 This program was designed with the intent that the program "pyinstaller" be
 able to create a self executing program from bomcheck.py.  In this case, the
@@ -28,6 +28,7 @@ the location where the file is looked for.
 
 
 __version__ = '1.0.4'
+__author__ = 'Kenneth Carlton'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -63,7 +64,6 @@ def main():
 
     \u2009
     '''
-    dropcontents = 'drop: ' + str(drop) + ', exceptions: ' + str(exceptions)
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                         description='Program to compare SolidWorks BOMs to SyteLine BOMs')
     parser.add_argument('filename', help='Name of file containing a BOM.  Name ' +
@@ -72,34 +72,19 @@ def main():
                         'caputures multiple files.  Examples: "6890-*", "*".  ' +
                         'Or if filename is a directory path, all _sw and _sl files ' +
                         'will be gathered from that directory.  ' +
-                        '_sl files without a corresponding _sw file are ignored.  ' +
-                        'Optionally BOM can be entered via the clipboard: '  
-                        ' Enter "1" to process only a SW BOM.  ' +
-                        ' Enter "2" to process both a SW and SL BOM.')
-    parser.add_argument('-v', '--verbose', action='store_true', default=False,
-                        help='Show results on the computer monitor')
-    parser.add_argument('-d', '--drop', action='version', version=dropcontents,
-                        help='Show "drop" and "exceptions" lists and exit.  ' +
-                        'The drop list contains pns that are dropped from the ' +
-                        'the SW BOM and not included in the BOM check.  The ' +
-                        'exeptions list contains exceptions to pns of the drop ' +
-                        'list.  These lists are loaded from the file droplist.py')
-#    parser.add_argument('-1', --clipboard1, action='store_true', default=False,
-#                        help='Allow import of a SolidWorks BOM from clipboard')
-#    parser.add_argument('-2', --clipboard2, action='store_true', default=False,
-#                        help='Allow import of a SyteLine BOM from clipboard')  
-    parser.add_argument('-a', '--all', action='store_true', default=False,
-                        help='Include in the check pns of the drop list')
+                        '_sl files without a corresponding _sw file are ignored.')
+    parser.add_argument('-d', '--drop', action='store_true', default=False,
+                        help='Ignore pns listed in the file droplist.py')
     parser.add_argument('--version', action='version', version=__version__,
                         help="Show program's version number and exit")        
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
         sys.exit(1)
     args = parser.parse_args()  
-    bomcheck(args.filename, args.verbose, args.all) 
+    bomcheck(args.filename, args.drop) 
 
     
-def bomcheck(fn, v=False, a=False):
+def bomcheck(fn, d=False):
     '''Do BOM checks on a group of Excel files containing BOMs.  Filenames must
     end with _sw.xlsx or _sl.xlsx.  Leading part of file names must match.  For
     example, leading parts of names 0300-2018-797_sw.xlsx and 0300-2018-797_sw.xlsx
@@ -114,9 +99,10 @@ def bomcheck(fn, v=False, a=False):
     v : bool
         verbose on or off (True or False).  Default: False
     
-    a : bool
-        use all; that is, disreguard using the drop list.  The drop list is
-        a list of part nos. to disreguard for the bom check.  Default: False
+    d : bool
+        If True, omit items from the droplist for BOM checking.  The drop list
+        is a list of part nos. to disreguard for the bom check.  Default: False.
+        See the function "getdroplist" for more info.
 
     Returns
     =======
@@ -146,7 +132,7 @@ def bomcheck(fn, v=False, a=False):
         
     dirname, swfiles, pairedfiles = gatherBOMs(fn)
     
-    lone_sw, merged_sw2sl = combine_tables(swfiles, pairedfiles) # lone_sw & merged_sw2sl are dics
+    lone_sw, merged_sw2sl = combine_tables(swfiles, pairedfiles, d) # lone_sw & merged_sw2sl are dics
     
     title_dfsw = []
     for k, v in lone_sw.items():
@@ -234,33 +220,11 @@ def export2excel(dirname, filename, results2export):
     abspath = os.path.abspath(fn)
     print("\nCreated file: " + abspath + '\n')
     
-    
-def reverse(s):
-   ''' Reverse a string.  For example, "abcde" to "edcba".
-    
-   Parameters
-   ==========
-   
-   s : string
-       String to be reversed:
-           
-   Returns
-   =======
-   
-   out : string
-       String s but with characters in reverse order.    
-   '''
-   str = "" 
-   for i in s: 
-       str = i + str
-   return str
-
 
 def fixcsv(filename):
-    '''fixcsv is called when a SW csv file is used.  Commas are used as
-    separators of table values in SW BOMs.  Commas are on rare occasions used
-    within a part's description.  This extra comma causes the program to crash.
-    fixcsv fixes the problem so that the file is usefull. 
+    '''fixcsv if called when a sw csv file is used.  Commas are on rare 
+    occasions used within a part's description.  This comma causes the program 
+    to crash.  (See the testcsv() function).  
     
     Parmeters
     =========
@@ -279,12 +243,13 @@ def fixcsv(filename):
     with open(filename, encoding="ISO-8859-1") as f:
         data1 = f.readlines()
     num = data1[0].count(',')  # no. of commas in first line of filename      
-    data2 = list(map(lambda x: x.replace(',', ';') , data1)) # replace commas with semicolons
+    data2 = list(map(lambda x: x.replace(',', ';') , data1)) # replace all commas with semicolons
     # The last two columns in a SW BOM are always "Descrition" and "Part Number".
-    # Reverse each line of data2 and "replace" (which works from the start
-    # of a string to the end) the semicolons with commas up to postion i.
-    # Then replace the comma between pn and descrip back to a semicolon.  
-    # Finally reverse the string and append to the list named data.
+    # Reverse each item (each string) of data2 and "replace" (which works from 
+    # the start of a string to the end) the semicolons with commas up to 
+    # postion i. Then replace the comma between pn and descrip back to a 
+    # semicolon.  Finally reverse the string and append to the list named data.
+    reverse = lambda s: s[::-1]    # reverse string s... Hello -> olleH
     data = []
     for d in data2:
         if d.count(';') != num:
@@ -499,10 +464,13 @@ def gatherBOMs(filename):
         elif file_extension == '.xlsx' or file_extension == '.xls':
             df = pd.read_excel(v, na_values=[' '])
         if not missing_columns('sl', df, k):
-            sldfsdic.update(multilevelbom(df, k))      
-    df = pd.read_clipboard(engine='python', na_values=[' '])
-    if not missing_columns('sl', df, 'BOMfromClipboard', printerror=False):
-        sldfsdic.update(multilevelbom(df, 'TOPLEVEL'))       
+            sldfsdic.update(multilevelbom(df, k))
+    try:     
+        df = pd.read_clipboard(engine='python', na_values=[' '])
+        if not missing_columns('sl', df, 'BOMfromClipboard', printerror=False):
+            sldfsdic.update(multilevelbom(df, 'TOPLEVEL')) 
+    except:
+        pass
     dirname = os.path.dirname(filename[0])
     if dirname and not os.path.exists(dirname):
         print('directory not found: ', dirname)
@@ -576,7 +544,7 @@ def missing_columns(bomtype, df, pn, printerror=True):
         return False
 
 
-def combine_tables(swdic, sldic):
+def combine_tables(swdic, sldic, d=False):
     ''' Match SolidWorks assembly nos. to those from SyteLine and then merge
     their BOMs to create a BOM check.  For any SolidWorks assemblies for which
     no SyteLine BOM was found, put those in a separate dictionary for output.
@@ -593,6 +561,9 @@ def combine_tables(swdic, sldic):
         Dictinary of SyteLine BOMs.  Dictionary keys are strings and they 
         are of assembly part numbers.  Dictionary values are pandas DataFrame 
         objects which are BOMs for those assemblies.
+        
+    d : bool
+        A boolean to pass along to the sw function.
 
     Returns
     =======
@@ -608,13 +579,13 @@ def combine_tables(swdic, sldic):
     combined_dic = {}   # sl bom found for given sw bom.  Then merged
     for key, dfsw in swdic.items():
         if key in sldic:
-            combined_dic[key] = sl(sw(dfsw), sldic[key])
+            combined_dic[key] = sl(sw(dfsw, d), sldic[key])
         else:
-            lone_sw_dic[key + '_sw'] = sw(dfsw)
+            lone_sw_dic[key + '_sw'] = sw(dfsw, d)
     return lone_sw_dic, combined_dic
 
 
-def sw(df, a=False):
+def sw(df, d=False):
     '''Take a SolidWorks BOM and restructure it to be like that of a SyteLine
     BOM.  That is, the following is done:
 
@@ -641,8 +612,8 @@ def sw(df, a=False):
         Name of SolidWorks Excel file to process.  If filename = clipboard, the 
         sw bom is taken from the clipboard.
 
-    a : bool
-        use all; that is, disreguard using the drop list.  (See getdroplist()).
+    d : bool
+        If d True, ignore items from droplist.  (See getdroplist()).
         Default: False
     
     Returns
@@ -676,10 +647,10 @@ def sw(df, a=False):
     except:
         df['U'] = 'EA'
     df = df.reindex(['Op', 'WC','Item', 'Q', 'Description', 'U'], axis=1)  # rename and/or remove columns
-    d = {'Q': 'sum', 'Description': 'first', 'U': 'first'}   # funtions to apply to next line
-    df = df.groupby('Item', as_index=False).aggregate(d).reindex(columns=df.columns)
+    dd = {'Q': 'sum', 'Description': 'first', 'U': 'first'}   # funtions to apply to next line
+    df = df.groupby('Item', as_index=False).aggregate(dd).reindex(columns=df.columns)
     
-    if a==False:    
+    if d==True:
         drop2 = []
         for d in drop:  # drop is a global list of pns to exclude from the bom check
             d = '^' + d + '$'
