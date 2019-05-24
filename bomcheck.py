@@ -130,6 +130,13 @@ def bomcheck(fn, d=False):
     if os.path.isdir(fn):
         fn = os.path.join(fn, '*')
         
+    if fn.startswith('[') and fn.endswith(']'):
+        fn = eval(fn)
+        
+    if d:
+        print('drop =', drop)
+        print('exceptions =', exceptions)
+        
     dirname, swfiles, pairedfiles = gatherBOMs(fn)
     
     lone_sw, merged_sw2sl = combine_tables(swfiles, pairedfiles, d) # lone_sw & merged_sw2sl are dics
@@ -278,12 +285,15 @@ def getdroplist():
     global drop, exceptions
     usrPrf = os.getenv('USERPROFILE', 'C:/nonexistent')  # on my win computer, USERPROFILE = C:\Users\k_carlton
     userDocDir = os.path.join(usrPrf, 'Documents')
-    paths = [userDocDir, "I:/DVT-BOMCHECK/settings", "/home/ken/projects/project1/", "I:/bomcheck/"]
+    paths = [userDocDir, "/home/ken/projects/project1/"]
     for p in paths:
         if os.path.exists(p) and not p in sys.path:
             sys.path.append(p)
             print('\ndroplist loaded from ' + p + '\n')
             break
+    else:
+        print('At function "getdroplist", a suitable path was not found to\n'
+              'load droplist.py from.')
     try:
         import droplist
         drop = droplist.drop
@@ -734,7 +744,6 @@ def sl(dfsw, dfsl):
                            'Description_sl', 'U_sw', 'U_sl']]
     dfmerged.fillna('', inplace=True)
     dfmerged.set_index('Item', inplace=True)
-    #dfmerged.to_clipboard()
     return dfmerged
 
 
