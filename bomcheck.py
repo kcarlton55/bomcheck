@@ -154,12 +154,6 @@ def bomcheck(fn, d=False):
     except PermissionError:
         print('\nError: unable to write to bomcheck.xlsx')
     
-    if sys.platform[:3] == 'win':  # Open bomcheck.xlsx in Excel
-        try:
-            os.startfile(os.path.join(dirname, 'bomcheck.xlsx'))
-        except:
-            print('Attempt to open bomcheck.xlsx in Excel failed.' )
-
 
 def export2excel(dirname, filename, results2export):
     '''Export to an Excel file the results of all the bom checks that have
@@ -189,17 +183,29 @@ def export2excel(dirname, filename, results2export):
 
      \u2009
     '''
-    d, f = os.path.split(filename)
-    f, e = os.path.splitext(f)
-    if d:
-        dirname = d   # if user specified a directory, use it instead
-    if e and not e[4].lower()=='.xls':
-        print('Output filename extension needs to be .xlsx')
-        print('Program aborted.')
-        sys.exit(0)
-    else:
-        e = '.xlsx'
-    fn = os.path.join(dirname, f+e)
+    def definefn(dirname, filename, i=0):
+        '''If bomcheck.xlsx exists, return bomcheck(1).xlsx.  If that exists,
+        return bomcheck(2).xlsx.  And so forth.'''
+        d, f = os.path.split(filename)
+        f, e = os.path.splitext(f)
+        if d:
+            dirname = d   # if user specified a directory, use it instead
+        if e and not e.lower()=='.xlsx':
+            print('Output filename extension needs to be .xlsx')
+            print('Program aborted.')
+            sys.exit(0)
+        else:
+            e = '.xlsx'        
+        if i == 0:
+            fn = os.path.join(dirname, f+e)
+        else:
+            fn = os.path.join(dirname, f+ '(' + str(i) + ')'+e)         
+        if os.path.exists(fn):
+            return definefn(dirname, filename, i+1)
+        else:
+            return fn
+
+    fn = definefn(dirname, filename)
 
     with pd.ExcelWriter(fn) as writer:
         for r in results2export:
@@ -226,6 +232,12 @@ def export2excel(dirname, filename, results2export):
         writer.save()
     abspath = os.path.abspath(fn)
     print("\nCreated file: " + abspath + '\n')
+    
+    if sys.platform[:3] == 'win':  # Open bomcheck.xlsx in Excel when on Windows platform
+        try:
+            os.startfile(abspath)
+        except:
+            print('Attempt to open bomcheck.xlsx in Excel failed.' )
     
 
 def fixcsv(filename):
