@@ -295,13 +295,15 @@ def getdroplist():
     out : None
     '''
     global drop, exceptions
-    usrPrf = os.getenv('USERPROFILE', 'C:/nonexistent')  # on my win computer, USERPROFILE = C:\Users\k_carlton
-    userDocDir = os.path.join(usrPrf, 'Documents')
+    usrPrf = os.getenv('USERPROFILE')  # on my win computer, USERPROFILE = C:\Users\k_carlton
+    if usrPrf:    
+        userDocDir = os.path.join(usrPrf, 'Documents')
+    else:
+        userDocDir = "C:/"
     paths = [userDocDir, "/home/ken/projects/project1/"]
     for p in paths:
         if os.path.exists(p) and not p in sys.path:
             sys.path.append(p)
-            print('\ndroplist loaded from ' + p + '\n')
             break
     else:
         print('At function "getdroplist", a suitable path was not found to\n'
