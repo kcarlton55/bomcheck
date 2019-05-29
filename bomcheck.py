@@ -27,7 +27,7 @@ the location where the file is looked for.
 """
 
 
-__version__ = '1.0.4'
+__version__ = '1.0.5'
 __author__ = 'Kenneth Carlton'
 import glob, argparse, sys, warnings
 import pandas as pd
@@ -683,8 +683,11 @@ def sw(df, d=False):
         for e in exceptions:  # excpetion is also a globa list
             e = '^' + e + '$'
             exceptions2.append(e.replace('*', '[A-Za-z0-9-]*'))
-        if drop2:
+        if drop2 and exceptions2:
             filtr3 = df['Item'].str.contains('|'.join(drop2)) & ~df['Item'].str.contains('|'.join(exceptions2))
+            df.drop(df[filtr3].index, inplace=True)  # drop frow SW BOM pns in "drop" list.
+        elif drop2:
+            filtr3 = df['Item'].str.contains('|'.join(drop2))
             df.drop(df[filtr3].index, inplace=True)  # drop frow SW BOM pns in "drop" list.
     
     df['WC'] = 'PICK'
