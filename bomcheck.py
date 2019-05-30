@@ -737,8 +737,14 @@ def sl(dfsw, dfsl):
     # It causes the bomcheck program confusion and the program crashes.
     if 'Item' in dfsl.columns and 'Material' in dfsl.columns:
         dfsl.drop(['Item'], axis=1, inplace=True)
-    dfsl.rename(columns={'Material':'Item', 'Quantity':'Q', 'Material Description':'Description',
-                         'Qty':'Q', 'Qty Per': 'Q', 'U/M':'U', 'UM':'U'}, inplace=True)
+    dfsl.rename(columns={'Material':'Item', 'Quantity':'Q', 
+                         'Material Description':'Description', 'Qty':'Q', 'Qty Per': 'Q',
+                         'U/M':'U', 'UM':'U', 'Obsolete Date': 'Obsolete'}, inplace=True)
+
+    if 'Obsolete' in dfsl.columns:
+        dfsl.fillna(value={'Obsolete':''} , inplace=True)
+        dfsl = dfsl[~(dfsl['Obsolete'] != '')] 
+        
     dfmerged = pd.merge(dfsw, dfsl, on='Item', how='outer', suffixes=('_sw', '_sl'), indicator=True)
     dfmerged.sort_values(by=['Item'], inplace=True)
     filtrI = dfmerged['_merge'].str.contains('both')  # this filter determines if pn in both SW and SL
