@@ -726,7 +726,6 @@ def sl(dfsw, dfsl):
 
     \u2009
     '''
-
     if not str(type(dfsw))[-11:-2] == 'DataFrame':
         print('Program halted.  A fault with SolidWorks DataFrame occurred.')
         sys.exit()
@@ -737,20 +736,22 @@ def sl(dfsw, dfsl):
     # It causes the bomcheck program confusion and the program crashes.
     if 'Item' in dfsl.columns and 'Material' in dfsl.columns:
         dfsl.drop(['Item'], axis=1, inplace=True)
+    if 'Description' in dfsl.columns and 'Material Description' in dfsl.columns:
+        dfsl.drop(['Description'], axis=1, inplace=True)
     dfsl.rename(columns={'Material':'Item', 'Quantity':'Q', 
                          'Material Description':'Description', 'Qty':'Q', 'Qty Per': 'Q',
                          'U/M':'U', 'UM':'U', 'Obsolete Date': 'Obsolete'}, inplace=True)
 
     if 'Obsolete' in dfsl.columns:
-        dfsl.fillna(value={'Obsolete':''} , inplace=True)
-        dfsl = dfsl[~(dfsl['Obsolete'] != '')] 
+        filtr4 = dfsl['Obsolete'].notnull()
+        dfsl.drop(dfsl[filtr4].index, inplace=True)    
         
     dfmerged = pd.merge(dfsw, dfsl, on='Item', how='outer', suffixes=('_sw', '_sl'), indicator=True)
     dfmerged.sort_values(by=['Item'], inplace=True)
     filtrI = dfmerged['_merge'].str.contains('both')  # this filter determines if pn in both SW and SL
     filtrQ = abs(dfmerged['Q_sw'] - dfmerged['Q_sl']) < .005  # a filter is a list of True/False values
-    filtrM = dfmerged['Description_sw'].str.split()==dfmerged['Description_sl'].str.split()
-    filtrU = dfmerged['U_sw']==dfmerged['U_sl']
+    filtrM = dfmerged['Description_sw'].str.split() == dfmerged['Description_sl'].str.split()
+    filtrU = dfmerged['U_sw'].str.strip() == dfmerged['U_sl'].str.strip()
     chkmark = '-' # '\u02DC' # The UTF-8 character code for a check mark character (was \u2713)
     err = 'X'     # X character (was \u2716)
     
