@@ -241,9 +241,12 @@ def export2excel(dirname, filename, results2export):
     
 
 def fixcsv(filename):
-    '''fixcsv if called when a sw csv file is used.  Commas are on rare 
-    occasions used within a part's description.  This comma causes the program 
-    to crash.  (See the testcsv() function).  
+    '''fixcsv is called upon when a SW csv file is employed.  Why?  SW csv
+    files use a comma (,) as a delimiter.  Commas, on rare  occasions, are used
+    within a part's description.  This extra comma(s) causes the program to 
+    crash. To alleviate the problem, this program switches the comma (,) 
+    delimited format to a semicolon (;) delimited, but leaves any commas in
+    place within the part's DESCRIPTION field.
     
     Parmeters
     =========
@@ -255,30 +258,30 @@ def fixcsv(filename):
     =======
     
     out : list
-        A list of all the lines in filename, except that the commas (,) in each
-        line, except those that are within of the pn descriptions, are
-        converted to semicolons (;).
+        A list of all the lines (rows) in filename.  Commas in each line are 
+        changed to semicolons.  However any commas in the DESCRIPTION field
+        stay commas.
     '''
     with open(filename, encoding="ISO-8859-1") as f:
         data1 = f.readlines()
-    num = data1[0].count(',')  # no. of commas in first line of filename      
-    data2 = list(map(lambda x: x.replace(',', ';') , data1)) # replace all commas with semicolons
-    # The last two columns in a SW BOM are always "Descrition" and "Part Number".
-    # Reverse each item (each string) of data2 and "replace" (which works from 
-    # the start of a string to the end) the semicolons with commas up to 
-    # postion i. Then replace the comma between pn and descrip back to a 
-    # semicolon.  Finally reverse the string and append to the list named data.
-    reverse = lambda s: s[::-1]    # reverse string s... Hello -> olleH
+    # n1 = number of commas in 2nd line of filename (i.e. where column header
+    #      names located).  This is the no. of commas that should be in each row.
+    n1 = data1[1].count(',')
+    n2 = data1[1].upper().find('DESCRIPTION')  # locaton of the word DESCRIPTION within the row.
+    n3 = data1[1][:n2].count(',')  # number of commas before the word DESCRIPTION 
+    data2 = list(map(lambda x: x.replace(',', ';') , data1)) # replace ALL commas with semicolons
     data = []
-    for d in data2:
-        if d.count(';') != num:
-            i = d.count(';') - num + 1
-            reversed_str = reverse(d).replace(';', ',', i)
-            reversed_str = reversed_str.replace(',', ';', 1)
-            data.append(reverse(reversed_str))
+    for row in data2:
+        n4 = row.count(';')
+        if n4 != n1:
+            # n5 = location of 1st ; character within the DESCRIPTION field 
+            #      that should be a , character
+            n5 = row.replace(';', '?', n3).find(';')
+            # replace those ; chars that should be , chars in the DESCRIPTION field:
+            data.append(row[:n5] + row[n5:].replace(';', ',', (n4-n1))) # n4-n1: no. commas needed
         else:
-            data.append(d)
-    return data  # a list of lines from filename with semicolons as separators
+            data.append(row)
+    return data
          
 
 def getdroplist():
@@ -465,7 +468,7 @@ def gatherBOMs(filename):
     swdfsdic = {}
     for k, v in swfilesdic.items():
         _, file_extension = os.path.splitext(v)
-        if file_extension == '.csv':
+        if file_extension.lower() == '.csv':
             data = fixcsv(v)
             temp = tempfile.TemporaryFile(mode='w+t')
             for d in data:
@@ -475,17 +478,17 @@ def gatherBOMs(filename):
                                    encoding='iso8859_1', engine='python',
                                    dtype = {'ITEM NO.': 'str'})
             temp.close()
-        elif file_extension == '.xlsx' or file_extension == '.xls':
+        elif file_extension.lower() == '.xlsx' or file_extension.lower() == '.xls':
             df = pd.read_excel(v, na_values=[' '], skiprows=1)
         if not missing_columns('sw', df, k):
             swdfsdic.update(multilevelbom(df, k))
     sldfsdic = {}
     for k, v in slfilesdic.items(): 
         _, file_extension = os.path.splitext(v)
-        if file_extension == '.csv':
+        if file_extension.lower() == '.csv':
             df = pd.read_csv(v, na_values=[' '], engine='python',
                              encoding='utf-16', sep='\t')
-        elif file_extension == '.xlsx' or file_extension == '.xls':
+        elif file_extension.lower() == '.xlsx' or file_extension.lower == '.xls':
             df = pd.read_excel(v, na_values=[' '])
         if not missing_columns('sl', df, k):
             sldfsdic.update(multilevelbom(df, k))
@@ -654,7 +657,12 @@ def sw(df, d=False):
     >>> sw(r"C:\\dirpath\\name.xlsx")
 
     \u2009
-    '''  
+    '''
+    # if LENGTH value a string, e.g., 32.5" instead of 32.5, convert to a float: 32.5
+    # the 'extract(r"([-+]?\d*\.\d+|\d+)")' pulls out a number from a string
+    if 'LENGTH' in df.columns and df['LENGTH'].dtype == object:
+        df['LENGTH'] = df['LENGTH'].str.extract(r"([-+]?\d*\.\d+|\d+)")
+        df['LENGTH'] = df['LENGTH'].astype(float)
     values = {'QTY':0, 'QTY.':0, 'LENGTH':0, 'DESCRIPTION': 'description missing',
               'PART NUMBER': 'pn missing', 'PARTNUMBER': 'pn missing'} 
     df.fillna(value=values, inplace=True)
@@ -676,11 +684,11 @@ def sw(df, d=False):
     
     if d==True:
         drop2 = []
-        for d in drop:  # drop is a global list of pns to exclude from the bom check
+        for d in drop:  # drop is a global varialbe: pns to exclude from the bom check
             d = '^' + d + '$'
             drop2.append(d.replace('*', '[A-Za-z0-9-]*'))    
         exceptions2 = []
-        for e in exceptions:  # excpetion is also a globa list
+        for e in exceptions:  # exceptions is also a global variable
             e = '^' + e + '$'
             exceptions2.append(e.replace('*', '[A-Za-z0-9-]*'))
         if drop2 and exceptions2:
@@ -744,7 +752,7 @@ def sl(dfsw, dfsl):
 
     if 'Obsolete' in dfsl.columns:
         filtr4 = dfsl['Obsolete'].notnull()
-        dfsl.drop(dfsl[filtr4].index, inplace=True)    
+        dfsl.drop(dfsl[filtr4].index, inplace=True)    # https://stackoverflow.com/questions/13851535/how-to-delete-rows-from-a-pandas-dataframe-based-on-a-conditional-expression
         
     dfmerged = pd.merge(dfsw, dfsl, on='Item', how='outer', suffixes=('_sw', '_sl'), indicator=True)
     dfmerged.sort_values(by=['Item'], inplace=True)
