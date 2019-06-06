@@ -139,11 +139,14 @@ def bomcheck(fn, d=False):
         
     dirname, swfiles, pairedfiles = gatherBOMs(fn)
     
-    lone_sw, merged_sw2sl = combine_tables(swfiles, pairedfiles, d) # lone_sw & merged_sw2sl are dics
+    # lone_sw is a dic.  Keys are assy nos.  Values are DataFrame objects (BOMs)
+    # merged_sw2sl is a dic.  Keys are assys nos.  Values are Dataframe objects
+    # (merged SW and SL BOMs).    
+    lone_sw, merged_sw2sl = combine_tables(swfiles, pairedfiles, d)
     
     title_dfsw = []
     for k, v in lone_sw.items():
-        title_dfsw.append((k, v))
+        title_dfsw.append((k, v))  # Create a list of tuples: [(title, bom)... ]
         
     title_dfmerged = []
     for k, v in merged_sw2sl.items():
@@ -170,10 +173,16 @@ def export2excel(dirname, filename, results2export):
         The name of the Excel file.
 
     results2export : list
-        List of pandas DataFrame objects.   Results are either: 1. Only
-        SolidWorks BOMs, that have been converted to SyteLine format, if no
-        corresponding SyteLine BOM was found to compare it to.  2.  A list
-        showing a comparison between a SolidWorks BOM and a SyteLine BOM.
+        List of tuples.  Each tuple has two items.  The first item is a string
+        and is the title, usually an assembly part number, given to the second
+        item.  The second item is a DataFrame object for a BOM.  The list of 
+        tuples are:
+        
+        1. Only SolidWorks BOMs, that have been converted to SyteLine format, 
+        if no corresponding SyteLine BOM was found to compare it to; and/or
+        
+        2.  A list showing a comparison between a SolidWorks BOM and a SyteLine
+        BOM.
 
     Returns
     =======
@@ -245,8 +254,9 @@ def fixcsv(filename):
     files use a comma (,) as a delimiter.  Commas, on rare  occasions, are used
     within a part's description.  This extra comma(s) causes the program to 
     crash. To alleviate the problem, this program switches the comma (,) 
-    delimited format to a semicolon (;) delimited, but leaves any commas in
-    place within the part's DESCRIPTION field.
+    delimited format to a dollar sign ($) as a delimiter, but leaves any commas
+    in place within the part's DESCRIPTION field.  A $ character is used
+    besause it is nowhere used in a part's description.
     
     Parmeters
     =========
@@ -269,16 +279,16 @@ def fixcsv(filename):
     n1 = data1[1].count(',')
     n2 = data1[1].upper().find('DESCRIPTION')  # locaton of the word DESCRIPTION within the row.
     n3 = data1[1][:n2].count(',')  # number of commas before the word DESCRIPTION 
-    data2 = list(map(lambda x: x.replace(',', ';') , data1)) # replace ALL commas with semicolons
+    data2 = list(map(lambda x: x.replace(',', '$') , data1)) # replace ALL commas with $
     data = []
     for row in data2:
-        n4 = row.count(';')
+        n4 = row.count('$')
         if n4 != n1:
             # n5 = location of 1st ; character within the DESCRIPTION field 
             #      that should be a , character
-            n5 = row.replace(';', '?', n3).find(';')
+            n5 = row.replace('$', '?', n3).find('$')
             # replace those ; chars that should be , chars in the DESCRIPTION field:
-            data.append(row[:n5] + row[n5:].replace(';', ',', (n4-n1))) # n4-n1: no. commas needed
+            data.append(row[:n5] + row[n5:].replace('$', ',', (n4-n1))) # n4-n1: no. commas needed
         else:
             data.append(row)
     return data
@@ -474,7 +484,7 @@ def gatherBOMs(filename):
             for d in data:
                 temp.write(d)
             temp.seek(0)
-            df = pd.read_csv(temp, na_values=[' '], skiprows=1, sep=';',
+            df = pd.read_csv(temp, na_values=[' '], skiprows=1, sep='$',
                                    encoding='iso8859_1', engine='python',
                                    dtype = {'ITEM NO.': 'str'})
             temp.close()
