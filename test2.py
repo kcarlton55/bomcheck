@@ -6,6 +6,47 @@ Created on Tue Jun  4 21:31:00 2019
 @author: ken
 """
 
+def main():
+    '''This fuction allows this bomcheck.py program to be run from the command
+    line.  It is started automatically (via the "if __name__=='__main__'"
+    command at the bottom of this file) when bomecheck.py is run from the
+    command line.
+
+    Examples
+    ========
+
+    $ python bomcheck.py "078551*"
+
+    $ python bomcheck.py "C:\\pathtomyfile\\6890-*"
+
+    $ python bomcheck.py "*"
+
+    $ python bomcheck.py --help
+
+    \u2009
+    '''
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                        description='Program to compare SolidWorks BOMs to SyteLine BOMs')
+    parser.add_argument('filename', help='Name of file containing a BOM.  Name ' +
+                        'must end with _sw.xlsx, _sl.xlsx. _sw.csv, or ' +
+                        '_sl.csv.  Enclose filename in quotes!  An asterisk, *, ' +
+                        'caputures multiple files.  Examples: "6890-*", "*".  ' +
+                        'Or if filename is a directory path, all _sw and _sl files ' +
+                        'will be gathered from that directory.  ' +
+                        '_sl files without a corresponding _sw file are ignored.')
+    parser.add_argument('-d', '--drop', action='store_true', default=False,
+                        help='Ignore pns listed in the file droplist.py')
+    parser.add_argument('-c', '--concatenate', action='store_false', default=True,
+                        help='Ignore pns listed in the file droplist.py')
+    parser.add_argument('--version', action='version', version=__version__,
+                        help="Show program's version number and exit")        
+    if len(sys.argv)==1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+    args = parser.parse_args()  
+    bomcheck(args.filename, args.drop, args.concatenate) 
+
+
 def bomcheck(fn, d=False, c=True):
     '''Do BOM checks on a group of Excel files containing BOMs.  Filenames must
     end with _sw.xlsx or _sl.xlsx.  Leading part of file names must match.  For
@@ -74,14 +115,8 @@ def bomcheck(fn, d=False, c=True):
     for k, v in merged_sw2sl.items():
         title_dfmerged.append((k, v))  
         
-#############################################
     if c==True:
     	title_dfsw, title_dfmerged = concat(title_dfsw, title_dfmerged) 
-        
-    print('aaa')
-    print(title_dfmerged)    
-
-#############################################  
    
     try:    
         export2excel(dirname, 'bomcheck', title_dfsw + title_dfmerged)
@@ -129,6 +164,8 @@ def concat(title_dfsw, title_dfmerged):
     dfmergedGrpBy = False
     dfswDFrames = []
     dfmergedDFrames = []
+    swresults = []
+    mrgresults = []
     for t in title_dfsw:
         t[1]['assy'] = t[0]
         dfswDFrames.append(t[1])
@@ -136,18 +173,111 @@ def concat(title_dfsw, title_dfmerged):
         t[1]['assy'] = t[0]
         dfmergedDFrames.append(t[1])
     if dfswDFrames:
-        dfswConcatenated = pd.concat(dfswDFrames)
-        dfswGrpBy = dfswConcatenated.groupby(['assy']).apply()
+        dfswCCat = pd.concat(dfswDFrames).reset_index()
+        swresults.append(('SW BOM', dfswCCat.set_index(['assy', 'Item'])))
     if dfmergedDFrames:
-        dfmergedConcatenated = pd.concat(dfmergedDFrames)  
-        dfmergedGrpBy = dfmergedConcatenated.groupby(['assy']).apply()
-    if dfswGrpBy and not dfmergedGrpBy:
-        return [('SW BOMs', dfswGrpBy)], []
-    elif dfswGrpBy and dfmergedGrpBy:
-        return [('SW BOMs', dfswGrpBy)], [('Merged BOMs', dfmergedGrpBy)]
-    elif dfmergedGrpBy:
-        return [], [('Merged BOMs', dfmergedGrpBy)]
-    else:
-        return [], []
-        
+        dfmergedCCat = pd.concat(dfmergedDFrames).reset_index() 
+        mrgresults.append(('Merged BOMs', dfmergedCCat.set_index(['assy', 'Item'])))
+    return swresults, mrgresults
 
+
+def export2excel(dirname, filename, results2export):
+    '''Export to an Excel file the results of all the bom checks that have
+    been done.
+
+    Parmeters
+    =========
+
+    dirname : string
+        The directory to which the Excel file that this function generates
+        will be sent.
+
+    filename : string
+        The name of the Excel file.
+
+    results2export : list
+        List of tuples.  Each tuple has two items.  The first item is a string
+        and is the title, usually an assembly part number, given to the second
+        item.  The second item is a DataFrame object for a BOM.  The list of 
+        tuples are:
+        
+        1. Only SolidWorks BOMs, that have been converted to SyteLine format, 
+        if no corresponding SyteLine BOM was found to compare it to; and/or
+        
+        2.  A list showing a comparison between a SolidWorks BOM and a SyteLine
+        BOM.
+
+    Returns
+    =======
+
+    out : Excel file (saved to disk)
+        The Excel file shows on multiple sheets the "results2export" list.
+
+     \u2009
+    '''
+    def definefn(dirname, filename, i=0):
+        '''If bomcheck.xlsx exists, return bomcheck(1).xlsx.  If that exists,
+        return bomcheck(2).xlsx.  And so forth.'''
+        d, f = os.path.split(filename)
+        f, e = os.path.splitext(f)
+        if d:
+            dirname = d   # if user specified a directory, use it instead
+        if e and not e.lower()=='.xlsx':
+            print('Output filename extension needs to be .xlsx')
+            print('Program aborted.')
+            sys.exit(0)
+        else:
+            e = '.xlsx'        
+        if i == 0:
+            fn = os.path.join(dirname, f+e)
+        else:
+            fn = os.path.join(dirname, f+ '(' + str(i) + ')'+e)         
+        if os.path.exists(fn):
+            return definefn(dirname, filename, i+1)
+        else:
+            return fn
+
+    fn = definefn(dirname, filename)
+
+    with pd.ExcelWriter(fn) as writer:
+        for r in results2export:
+            sheetname = r[0]
+            df = r[1]
+            df.to_excel(writer, sheet_name=sheetname)
+            worksheet = writer.sheets[sheetname]  # pull worksheet object
+            worksheet.hide_gridlines(2)  # see: https://xlsxwriter.readthedocs.io/page_setup.html
+            autosize_excel_columns(worksheet, df)
+        writer.save()
+    abspath = os.path.abspath(fn)
+    print("\nCreated file: " + abspath + '\n')
+    
+    if sys.platform[:3] == 'win':  # Open bomcheck.xlsx in Excel when on Windows platform
+        try:
+            os.startfile(abspath)
+        except:
+            print('Attempt to open bomcheck.xlsx in Excel failed.' )
+            
+# https://stackoverflow.com/questions/17326973/is-there-a-way-to-auto-adjust-excel-column-widths-with-pandas-excelwriter            
+def autosize_excel_columns(worksheet, df):
+  autosize_excel_columns_df(worksheet, df.index.to_frame())
+  autosize_excel_columns_df(worksheet, df, offset=df.index.nlevels)
+
+def autosize_excel_columns_df(worksheet, df, offset=0):
+  for idx, col in enumerate(df):
+    x = 1  # add a little extra space if not column i, q, d, or u
+    if len(df.columns[idx]) == 1:
+        x = 0
+    series = df[col]
+    max_len = max((
+      series.astype(str).map(len).max(),
+      len(str(series.name))
+    )) + x
+    worksheet.set_column(idx+offset, idx+offset, max_len)
+
+#sheetname=...
+#df.to_excel(writer, sheet_name=sheetname, freeze_panes=(df.columns.nlevels, df.index.nlevels))
+#worksheet = writer.sheets[sheetname]
+#autosize_excel_columns(worksheet, df)
+#writer.save()
+    
+        

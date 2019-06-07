@@ -767,7 +767,7 @@ def sl(dfsw, dfsl):
     dfmerged = pd.merge(dfsw, dfsl, on='Item', how='outer', suffixes=('_sw', '_sl'), indicator=True)
     dfmerged.sort_values(by=['Item'], inplace=True)
     filtrI = dfmerged['_merge'].str.contains('both')  # this filter determines if pn in both SW and SL
-    filtrQ = abs(dfmerged['Q_sw'] - dfmerged['Q_sl']) < .005  # a filter is a list of True/False values
+    filtrQ = abs(dfmerged['Q_sw'] - dfmerged['Q_sl']) < .008  # a filter is a list of True/False values
     filtrM = dfmerged['Description_sw'].str.split() == dfmerged['Description_sl'].str.split()
     filtrU = dfmerged['U_sw'].str.strip() == dfmerged['U_sl'].str.strip()
     chkmark = '-' # '\u02DC' # The UTF-8 character code for a check mark character (was \u2713)
@@ -786,6 +786,12 @@ def sl(dfsw, dfsl):
                            'Description_sl', 'U_sw', 'U_sl']]
     dfmerged.fillna('', inplace=True)
     dfmerged.set_index('Item', inplace=True)
+    #dfmerged['Q_sw'].astype(float).round(2)
+    #dfmerged['Q_sl'].astype(float).round(2)
+    #dfmerged['Q_sw'] = dfmerged['Q_sw'].astype(str)
+    #dfmerged['Q_sw'] = dfmerged['Q_sw'].str.strip()
+    #dfmerged['Q_sl'] = dfmerged['Q_sl'].astype(str)
+    #dfmerged['Q_sl'] = dfmerged['Q_sl'].str.strip()
     return dfmerged
 
 
