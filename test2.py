@@ -38,8 +38,10 @@ def main():
                         help='Ignore pns listed in the file droplist.py')
     parser.add_argument('-c', '--concatenate', action='store_false', default=True,
                         help='Ignore pns listed in the file droplist.py')
-    parser.add_argument('--version', action='version', version=__version__,
-                        help="Show program's version number and exit")        
+    parser.add_argument('-v', '--version', action='version', version=__version__,
+                        help="Show program's version number and exit")      
+    parser.add_argument('-a', '--about', action='version', version=about,
+                        help="Show info about the program.")           
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
         sys.exit(1)
@@ -124,7 +126,17 @@ def bomcheck(fn, d=False, c=True):
         print('\nError: unable to write to bomcheck.xlsx')
         
         
-# https://pandas.pydata.org/pandas-docs/stable/user_guide/merging.html
+def about():
+    print('This program was written by Ken Carlton, 2019')
+    print('kencarlton55@gmail.com')
+    print('Program written for: ')
+    print('    Dekker Vacuum Technologies, Inc.')
+    print('    935 S Woodland Ave')
+    print('    Michigan City, IN 46360')
+    print('Program compares two Bills of Material.  One is from a Microsoft Excel')
+    print('sheet in which is a BOM from SolidWorks.  The other is from a')
+    print('Microsoft Excel sheet in which is a BOM from SyteLine.')
+       
 
 def concat(title_dfsw, title_dfmerged):
     ''' Concatenate all the SW BOMs into one long list, and concatenate all the
@@ -174,7 +186,7 @@ def concat(title_dfsw, title_dfmerged):
         dfmergedDFrames.append(t[1])
     if dfswDFrames:
         dfswCCat = pd.concat(dfswDFrames).reset_index()
-        swresults.append(('SW BOM', dfswCCat.set_index(['assy', 'Item'])))
+        swresults.append(('SW BOM', dfswCCat.set_index(['assy', 'Op'])))
     if dfmergedDFrames:
         dfmergedCCat = pd.concat(dfmergedDFrames).reset_index() 
         mrgresults.append(('Merged BOMs', dfmergedCCat.set_index(['assy', 'Item'])))
@@ -215,6 +227,25 @@ def export2excel(dirname, filename, results2export):
 
      \u2009
     '''
+    def autosize_excel_columns(worksheet, df):
+        ''' Adjust column widith of an Excel worksheet
+        (ref.: # https://stackoverflow.com/questions/17326973/
+            is-there-a-way-to-auto-adjust-excel-column-widths-with-pandas-excelwriter)'''
+        autosize_excel_columns_df(worksheet, df.index.to_frame())
+        autosize_excel_columns_df(worksheet, df, offset=df.index.nlevels)
+    
+    def autosize_excel_columns_df(worksheet, df, offset=0):
+        for idx, col in enumerate(df):
+            x = 1  # add a little extra space if not column i, q, d, or u
+            if len(df.columns[idx]) == 1:
+                x = 0
+            series = df[col]
+            max_len = max((
+                series.astype(str).map(len).max(),
+                len(str(series.name))
+            )) + x
+            worksheet.set_column(idx+offset, idx+offset, max_len)
+    
     def definefn(dirname, filename, i=0):
         '''If bomcheck.xlsx exists, return bomcheck(1).xlsx.  If that exists,
         return bomcheck(2).xlsx.  And so forth.'''
@@ -256,28 +287,5 @@ def export2excel(dirname, filename, results2export):
             os.startfile(abspath)
         except:
             print('Attempt to open bomcheck.xlsx in Excel failed.' )
-            
-# https://stackoverflow.com/questions/17326973/is-there-a-way-to-auto-adjust-excel-column-widths-with-pandas-excelwriter            
-def autosize_excel_columns(worksheet, df):
-  autosize_excel_columns_df(worksheet, df.index.to_frame())
-  autosize_excel_columns_df(worksheet, df, offset=df.index.nlevels)
 
-def autosize_excel_columns_df(worksheet, df, offset=0):
-  for idx, col in enumerate(df):
-    x = 1  # add a little extra space if not column i, q, d, or u
-    if len(df.columns[idx]) == 1:
-        x = 0
-    series = df[col]
-    max_len = max((
-      series.astype(str).map(len).max(),
-      len(str(series.name))
-    )) + x
-    worksheet.set_column(idx+offset, idx+offset, max_len)
-
-#sheetname=...
-#df.to_excel(writer, sheet_name=sheetname, freeze_panes=(df.columns.nlevels, df.index.nlevels))
-#worksheet = writer.sheets[sheetname]
-#autosize_excel_columns(worksheet, df)
-#writer.save()
-    
         
