@@ -250,7 +250,7 @@ def export2excel(dirname, filename, results2export):
      \u2009
     '''
     def autosize_excel_columns(worksheet, df):
-        ''' Adjust column widith of an Excel worksheet
+        ''' Adjust column width of an Excel worksheet
         (ref.: # https://stackoverflow.com/questions/17326973/
             is-there-a-way-to-auto-adjust-excel-column-widths-with-pandas-excelwriter)'''
         autosize_excel_columns_df(worksheet, df.index.to_frame())
@@ -266,6 +266,10 @@ def export2excel(dirname, filename, results2export):
                 series.astype(str).map(len).max(),
                 len(str(series.name))
             )) + x
+            if ((df.columns[idx] == 'Q_sw' or df.columns[idx] == 'Q_sl'
+                 or df.columns[idx] == 'Q') 
+                   and max_len > 13):
+                max_len = 7    # account for Q_sw value being something like 3.1799999999999997 
             worksheet.set_column(idx+offset, idx+offset, max_len)
     
     def definefn(dirname, filename, i=0):
