@@ -28,6 +28,7 @@ import pandas as pd
 import os.path
 import os
 import tempfile
+import re
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
@@ -249,27 +250,39 @@ def export2excel(dirname, filename, results2export):
 
      \u2009
     '''
+    def len2(s):
+        ''' Extract from within a string either a decimal number truncated to two
+        decimal places, or an int value; then return the length of that substring.
+        Why used?  Q_sw, Q_sl, Q, converted to string, are on ocasion something 
+        like 3.1799999999999997.  This leads to wrong length calc using len.'''
+        match = re.search(r"\d*\.\d\d|\d+", s)
+        if match:
+            return len(match.group())
+        else:
+            return 0
+    
     def autosize_excel_columns(worksheet, df):
-        ''' Adjust column width of an Excel worksheet
-        (ref.: # https://stackoverflow.com/questions/17326973/
-            is-there-a-way-to-auto-adjust-excel-column-widths-with-pandas-excelwriter)'''
+        ''' Adjust column width of an Excel worksheet (ref.: https://stackoverflow.com/questions/
+            17326973/is-there-a-way-to-auto-adjust-excel-column-widths-with-pandas-excelwriter)'''
         autosize_excel_columns_df(worksheet, df.index.to_frame())
         autosize_excel_columns_df(worksheet, df, offset=df.index.nlevels)
     
     def autosize_excel_columns_df(worksheet, df, offset=0):
         for idx, col in enumerate(df):
-            x = 1  # add a little extra space if not column i, q, d, or u
-            if len(df.columns[idx]) == 1:
+            x = 1 # add a little extra width to the Excel column
+            if df.columns[idx] in ['i', 'q', 'd', 'u']:
                 x = 0
             series = df[col]
-            max_len = max((
-                series.astype(str).map(len).max(),
-                len(str(series.name))
-            )) + x
-            if ((df.columns[idx] == 'Q_sw' or df.columns[idx] == 'Q_sl'
-                 or df.columns[idx] == 'Q') 
-                   and max_len > 13):
-                max_len = 7    # account for Q_sw value being something like 3.1799999999999997 
+            if df.columns[idx][0] == 'Q':
+                max_len = max((  
+                    series.astype(str).map(len2).max(),
+                    len(str(series.name))
+                )) + x
+            else:                
+                max_len = max((
+                    series.astype(str).map(len).max(),
+                    len(str(series.name))
+                )) + x
             worksheet.set_column(idx+offset, idx+offset, max_len)
     
     def definefn(dirname, filename, i=0):
@@ -776,28 +789,28 @@ def sw(df, d=False):
 
 def sl(dfsw, dfsl):
     '''This function reads in a BOM derived from StyeWorks and then merges it
-    with the BOM from SiteLine.  The merged BOMs allow differences to
+    with the BOM from SiteLine.  The merged BOMs allow differences to be
     easily seen.
 
-    The first set of columns in the output is labeled i, q, d, and u.  Xs at
-    a  row in any of these colums indicate something didn't match up between
-    the SW and SL BOMs.  An X in the i column means the Item (pt no) don't
+    The first set of columns in the output is labeled i, q, d, and u.  Xs at a
+    row in any of these colums indicate something didn't match up between the SW
+    and SL BOMs.  An X in the i column means the SW and SL Items (i.e. pns) didn't
     match.  q means quantity, d means description, u means unit of measure.
 
     Parmeters
     =========
 
     dfsw: : Pandas DataFrame
-        A DataFrame containing a SolidWorks BOM
+        A DataFrame of a SolidWorks BOM
         
     dfsl: : Pandas DataFrame
-        A DataFrame containing a SyteLine BOM
+        A DataFrame of a SyteLine BOM
         
     Returns
     =======
 
     df_merged : Pandas DataFrame
-        df_merged it a DataFrame that shows a side-by-side comparison of a
+        df_merged is a DataFrame that shows a side-by-side comparison of a
         SolidWorks BOM to a SyteLine BOM.
 
     \u2009
@@ -835,10 +848,10 @@ def sl(dfsw, dfsl):
     dfmerged['q'] = filtrQ.apply(lambda x: chkmark if x else err)     # X = Qty differs btwn SW and SL
     dfmerged['d'] = filtrM.apply(lambda x: chkmark if x else err)     # X = Mtl differs btwn SW & SL
     dfmerged['u'] = filtrU.apply(lambda x: chkmark if x else err)     # X = U differs btwn SW & SL
-    dfmerged['i'] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged['i'] # duplicate in SL? IQMU-> blank
-    dfmerged['q'] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged['q'] # duplicate in SL? IQMU-> blank
-    dfmerged['d'] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged['d'] # duplicate in SL? IQMU-> blank
-    dfmerged['u'] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged['u'] # duplicate in SL? IQMU-> blank
+    dfmerged['i'] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged['i'] # duplicate in SL? i-> blank
+    dfmerged['q'] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged['q'] # duplicate in SL? q-> blank
+    dfmerged['d'] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged['d'] # duplicate in SL? d-> blank
+    dfmerged['u'] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged['u'] # duplicate in SL? u-> blank
     
     dfmerged = dfmerged[['Item', 'i', 'q', 'd', 'u', 'Q_sw', 'Q_sl', 'Description_sw',
                            'Description_sl', 'U_sw', 'U_sl']]
