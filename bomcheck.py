@@ -21,7 +21,7 @@ howtocompile.md.
 """
 
 
-__version__ = '1.0.5'
+__version__ = '1.0.6'
 __author__ = 'Kenneth Carlton'
 import glob, argparse, sys, warnings
 import pandas as pd
@@ -212,7 +212,7 @@ def concat(title_dfsw, title_dfmerged):
         swresults.append(('SW BOMs', dfswCCat.set_index(['assy', 'Op'])))
     if dfmergedDFrames:
         dfmergedCCat = pd.concat(dfmergedDFrames).reset_index() 
-        mrgresults.append(('Merged BOMs', dfmergedCCat.set_index(['assy', 'Item'])))
+        mrgresults.append(('BOM Check', dfmergedCCat.set_index(['assy', 'Item'])))
     return swresults, mrgresults
 
 
@@ -308,15 +308,26 @@ def export2excel(dirname, filename, results2export):
             return fn
 
     fn = definefn(dirname, filename)
-
+    
+    if os.getenv('USERNAME'):
+        username = os.getenv('USERNAME')  # On MS Windows
+    elif os.getenv('USER'):
+        username = os.getenv('USER')      # On Linux
+    else:
+        username = ''
+    
     with pd.ExcelWriter(fn) as writer:
         for r in results2export:
             sheetname = r[0]
             df = r[1]
             df.to_excel(writer, sheet_name=sheetname)
             worksheet = writer.sheets[sheetname]  # pull worksheet object
-            worksheet.hide_gridlines(2)  # see: https://xlsxwriter.readthedocs.io/page_setup.html
             autosize_excel_columns(worksheet, df)
+            bomheader = '&L' + username + ' &D &T&C&A&RPage &P of &N'
+            worksheet.set_header(bomheader)
+            worksheet.set_landscape()
+            worksheet.fit_to_pages(1, 0) 
+            worksheet.hide_gridlines(2)  # see: https://xlsxwriter.readthedocs.io/page_setup.html                
         writer.save()
     abspath = os.path.abspath(fn)
     print("\nCreated file: " + abspath + '\n')
