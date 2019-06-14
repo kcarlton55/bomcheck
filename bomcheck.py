@@ -29,6 +29,7 @@ import os.path
 import os
 import tempfile
 import re
+import datetime
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
@@ -310,11 +311,11 @@ def export2excel(dirname, filename, results2export):
     fn = definefn(dirname, filename)
     
     if os.getenv('USERNAME'):
-        username = os.getenv('USERNAME')  # On MS Windows
-    elif os.getenv('USER'):
-        username = os.getenv('USER')      # On Linux
+        username = os.getenv('USERNAME')  # Works on MS Windows
     else:
-        username = ''
+        username = 'unknown'  
+    now = datetime.datetime.now()
+    time = now.strftime("%m-%d-%Y %I:%M %p")
     
     with pd.ExcelWriter(fn) as writer:
         for r in results2export:
@@ -323,8 +324,10 @@ def export2excel(dirname, filename, results2export):
             df.to_excel(writer, sheet_name=sheetname)
             worksheet = writer.sheets[sheetname]  # pull worksheet object
             autosize_excel_columns(worksheet, df)
-            bomheader = '&L' + username + ' &D &T&C&A&RPage &P of &N'
+            bomheader = '&C&A'
+            bomfooter = '&LCreated ' + time + ' by: ' + username + '&RPage &P of &N'
             worksheet.set_header(bomheader)
+            worksheet.set_footer(bomfooter)
             worksheet.set_landscape()
             worksheet.fit_to_pages(1, 0) 
             worksheet.hide_gridlines(2)  # see: https://xlsxwriter.readthedocs.io/page_setup.html                
@@ -765,7 +768,7 @@ def sw(df, d=False):
                        'DESCRIPTION': 'Description', 'QTY': 'Q', 'QTY.': 'Q',}, inplace=True)
     filtr1 = df['Item'].str.startswith('3086')  # filter pipe nipples (i.e. pn starting with 3086)
     try:       # if no LENGTH in the table, an error occurs. "try" causes following lines to be passed over
-        df['LENGTH'] = round((df['Q'] * df['LENGTH'] * ~filtr1) /12.0, 2)  # covert lenghts to feet. ~ = NOT
+        df['LENGTH'] = (df['Q'] * df['LENGTH'] * ~filtr1) /12.0  # covert lenghts to feet. ~ = NOT
         filtr2 = df['LENGTH'] >= 0.00001  # a filter: only items where length greater than 0.0
         df['Q'] = df['Q']*(~filtr2) + df['LENGTH']  # move lengths (in feet) to the Qty column
         df['U'] = filtr2.apply(lambda x: 'FT' if x else 'EA')
@@ -774,6 +777,7 @@ def sw(df, d=False):
     df = df.reindex(['Op', 'WC','Item', 'Q', 'Description', 'U'], axis=1)  # rename and/or remove columns
     dd = {'Q': 'sum', 'Description': 'first', 'U': 'first'}   # funtions to apply to next line
     df = df.groupby('Item', as_index=False).aggregate(dd).reindex(columns=df.columns)
+    df['Q'] = round(df['Q'], 2)
     
     if d==True:
         drop2 = []
@@ -849,7 +853,7 @@ def sl(dfsw, dfsl):
     dfmerged = pd.merge(dfsw, dfsl, on='Item', how='outer', suffixes=('_sw', '_sl'), indicator=True)
     dfmerged.sort_values(by=['Item'], inplace=True)
     filtrI = dfmerged['_merge'].str.contains('both')  # this filter determines if pn in both SW and SL
-    filtrQ = abs(dfmerged['Q_sw'] - dfmerged['Q_sl']) < .011  # If diff in qty greater than this value, show X
+    filtrQ = abs(dfmerged['Q_sw'] - dfmerged['Q_sl']) < .0051  # If diff in qty greater than this value, show X
     filtrM = dfmerged['Description_sw'].str.split() == dfmerged['Description_sl'].str.split()
     filtrU = dfmerged['U_sw'].str.strip() == dfmerged['U_sl'].str.strip()
     chkmark = '-'
