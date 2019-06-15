@@ -41,11 +41,52 @@ def get_version():
     return __version__
 
 
+def getdroplist():
+    ''' Create two global python lists named drop and exceptions.  Make these
+    lists global thus allowing easy access to other functions (specifically to
+    sw).  These lists are derived from the file named droplists.py.  The drop 
+    list contains pns of off-the-shelf parts, like bolts and pipe nipples, that
+    are to be excluded from the bom check.
+    
+    Returns
+    =======
+    
+    out : None
+        If droplists.py not found set drop=['3*-025'] and exceptions=[]
+    '''
+    global drop, exceptions
+    usrPrf = os.getenv('USERPROFILE')  # on my win computer, USERPROFILE = C:\Users\k_carlton
+    if usrPrf:    
+        userDocDir = os.path.join(usrPrf, 'Documents')
+    else:
+        userDocDir = "C:/"
+    paths = [userDocDir, "/home/ken/projects/project1/"]
+    for p in paths:
+        if os.path.exists(p) and not p in sys.path:
+            sys.path.append(p)
+            break
+    else:
+        print('At function "getdroplist", a suitable path was not found to\n'
+              'load droplist.py from.')
+    try:
+        import droplist
+        drop = droplist.drop
+        exceptions = droplist.exceptions
+    except ModuleNotFoundError:
+        drop = ['3*-025']   # If droplist.py not found, use this
+        exceptions= []
+        
+        
+getdroplist()       # create global variables named drop and exceptions
+
+
 def main():
     '''This fuction allows this bomcheck.py program to be run from the command
     line.  It is started automatically (via the "if __name__=='__main__'"
     command at the bottom of this file) when bomecheck.py is run from the
     command line.
+    
+    calls: bomcheck
 
     Examples
     ========
@@ -84,13 +125,18 @@ def main():
 
 
 def bomcheck(fn, d=False, c=False):
-    '''Do BOM checks on a group of Excel files containing BOMs.  Filenames must
-    end with _sw.xlsx, _sl.xlsx, sw.csv, or sl.csv.  Leading part of file names
-    must match.  For example, leading parts of names 0300-2018-797_sw.xlsx and
-    0300-2018-797_sw.xlsx match and a BOM check will be done on them.  If a _sw
-    file found for which not _sl file file found, Transform the _sw file to a 
-    SyteLine like format.  If a _sl file found with no matching _sw file found,
-    the _sl file is ignoreed; that is, it is not used an any computation.
+    ''' This function is the hub of the bomcheck program.  It calls upon other
+    fuctions that act to open Excel files or csv files containing containing 
+    BOMs.  Filenames must end with _sw.xlsx, _sl.xlsx, sw.csv, or sl.csv.  
+    Leading part of file names must match.  For example, leading parts of names
+    0300-2018-797_sw.xlsx and 0300-2018-797_sw.xlsx match and a BOM check will
+    be done on them.  If a _sw file found for which not _sl file file found, 
+    transform the _sw file to a SyteLine like format.  If a _sl file found with
+    no matching _sw file found, the _sl file is ignoreed; that is, it is not 
+    used an any computation.  SW and SL BOMs are then merged thus showing a
+    checked BOM.  Finally results are exported to an MS Excel file.
+    
+    calls: gatherBOMs, combine_tables, concat, export2excel
 
     Parmeters
     =========
@@ -98,8 +144,8 @@ def bomcheck(fn, d=False, c=False):
     fn : string
         filename(s) of Excel files to do a BOM check on.
 
-    v : bool
-        verbose on or off (True or False).  Default: False
+    c : bool
+        concatenate data that is sent to the ouput Excel file.  Default: False
     
     d : bool
         If True, omit items from the droplist for BOM checking.  The drop list
@@ -121,11 +167,11 @@ def bomcheck(fn, d=False, c=False):
 
     >>> bomcheck("C:\\pathtomyfile\\6890-*")
 
-    >>> bomcheck("*")
+    >>> bomcheck("*")   # all files in the current working directory are evaluated
     
     Only a directory name specified.  Implies "*" for that directory:
     
-    >>> bomcheck("C:\\pathtomyfile")  # only a directory name specified.  Implies '*" for that directory:
+    >>> bomcheck("C:\\pathtomyfile")  # only a directory name specified.  Implies "*" for that directory:
 
     \u2009
     '''
@@ -148,11 +194,11 @@ def bomcheck(fn, d=False, c=False):
     
     title_dfsw = []
     for k, v in lone_sw.items():
-        title_dfsw.append((k, v))  # Create a list of tuples: [(title, bom)... ]
+        title_dfsw.append((k, v))  # Create a list of tuples: [(title, swbom)... ]
         
     title_dfmerged = []
     for k, v in merged_sw2sl.items():
-        title_dfmerged.append((k, v))  
+        title_dfmerged.append((k, v))  # Create a list of tuples: [(title, mergedbom)... ]
         
     if c==True:
     	title_dfsw, title_dfmerged = concat(title_dfsw, title_dfmerged) 
@@ -163,184 +209,99 @@ def bomcheck(fn, d=False, c=False):
         print('\nError: unable to write to bomcheck.xlsx')
         
         
-def concat(title_dfsw, title_dfmerged):
-    ''' Concatenate all the SW BOMs into one long list, and concatenate all the
-    merged BOMs into another long list.  Each BOM, before concatenation, has a
-    new column added titled "assy".  Values of "assy" are strings and are the 
-    same for a given BOM.  The string value is the assy no. for the BOM.  After
-    concatenation, Pandas groupby function is employed on the long list 
-    resulting in a nice looking output; the assy no. appears to the left of the 
-    BOM.
-
-    Parameters
-    ==========
-
-    title_dfsw : list
-        A list of tuples, each tuple has two items: a string and a DataFrame.
-        The string is the assy no. for the DataFrame.  The DataFrame is that
-        derived from a SW BOM.
-
-    title_dfmerged : list
-        A list of tuples, each tuple has two items: a string and a DataFrame.
-        The string is the assy no. for the DataFrame.  The DataFrame is that
-        derived from merged SW and SL BOMs.  
-
-    Returns
-    =======
-
-    out : tuple
-        The tuple has two items and is of the form:
-        
-        (('SW BOMs', all-SW-BOMs), ('Merged BOMs', all-merged-BOMs)
-
-        Where the all-SW-BOMs and the all-merged-BOMs are Pandas DataFrame
-        objects.
-    ''' 
-    dfswGrpBy = False
-    dfmergedGrpBy = False
-    dfswDFrames = []
-    dfmergedDFrames = []
-    swresults = []
-    mrgresults = []
-    for t in title_dfsw:
-        t[1]['assy'] = t[0]
-        dfswDFrames.append(t[1])
-    for t in title_dfmerged:
-        t[1]['assy'] = t[0]
-        dfmergedDFrames.append(t[1])
-    if dfswDFrames:
-        dfswCCat = pd.concat(dfswDFrames).reset_index()
-        swresults.append(('SW BOMs', dfswCCat.set_index(['assy', 'Op'])))
-    if dfmergedDFrames:
-        dfmergedCCat = pd.concat(dfmergedDFrames).reset_index() 
-        mrgresults.append(('BOM Check', dfmergedCCat.set_index(['assy', 'Item'])))
-    return swresults, mrgresults
-
-
-def export2excel(dirname, filename, results2export):
-    '''Export to an Excel file the results of all the bom checks that have
-    been done.
-
+def gatherBOMs(filename):
+    ''' Gather all SolidWorks and SyteLine BOMs derived from "filename".
+    "filename" can be a string containing wildcards, e.g. 6890-085555-*, which
+    allows the capture of multiple files; or "filename" can be a list of such 
+    strings.  These BOMs will be converted to Pandas DataFrame objects.
+    
+    Only files prefixed with _sw.xlsx, _sw.csv, _sl.xlsx, or _sl.csv will be
+    chosen.  These files will then be converted to two python dictionaries.  
+    One dictionary will contain SolidWorks BOMs only.  The other will contain
+    only SyteLine BOMs.  The dictionary keys (i.e., "handles" allowing access
+    to each BOM) will be the part numbers of the BOMs.
+    
+    If a filename corresponds to a BOM containing a multiple level BOM, then
+    that BOM will be broken down to subassemblies and will be added to the
+    dictionaries.
+    
+    calls: fixcsv, multilevelbom, missing_columns 
+    
     Parmeters
     =========
 
-    dirname : string
-        The directory to which the Excel file that this function generates
-        will be sent.
-
-    filename : string
-        The name of the Excel file.
-
-    results2export : list
-        List of tuples.  Each tuple has two items.  The first item is a string
-        and is the title, usually an assembly part number, given to the second
-        item.  The second item is a DataFrame object for a BOM.  The list of 
-        tuples are:
+    filename : string or list
         
-        1. Only SolidWorks BOMs, that have been converted to SyteLine format, 
-        if no corresponding SyteLine BOM was found to compare it to; and/or
-        
-        2.  A list showing a comparison between a SolidWorks BOM and a SyteLine
-        BOM.  (i.e., a merged SW/SL BOM)
-
     Returns
     =======
-
-    out : Excel file (saved to disk)
-        The Excel file shows on multiple sheets the "results2export" list.
-
-     \u2009
+    
+    out : tuple
+        The output tuple contains three items.  The first is the directory
+        corresponding the the first file in the filename list.  If this
+        directory is an empty string, then it refers to the current working
+        directory.  The remainder of the tuple items are python dictionararies.
+        The first dictionary contains only SolidWorks BOMs,  The second, 
+        SyteLine BOMs.
     '''
-    def len2(s):
-        ''' Extract from within a string either a decimal number truncated to two
-        decimal places, or an int value; then return the length of that substring.
-        Why used?  Q_sw, Q_sl, Q, converted to string, are on ocasion something 
-        like 3.1799999999999997.  This leads to wrong length calc using len.'''
-        match = re.search(r"\d*\.\d\d|\d+", s)
-        if match:
-            return len(match.group())
-        else:
-            return 0
-    
-    def autosize_excel_columns(worksheet, df):
-        ''' Adjust column width of an Excel worksheet (ref.: https://stackoverflow.com/questions/
-            17326973/is-there-a-way-to-auto-adjust-excel-column-widths-with-pandas-excelwriter)'''
-        autosize_excel_columns_df(worksheet, df.index.to_frame())
-        autosize_excel_columns_df(worksheet, df, offset=df.index.nlevels)
-    
-    def autosize_excel_columns_df(worksheet, df, offset=0):
-        for idx, col in enumerate(df):
-            x = 1 # add a little extra width to the Excel column
-            if df.columns[idx] in ['i', 'q', 'd', 'u']:
-                x = 0
-            series = df[col]
-            if df.columns[idx][0] == 'Q':
-                max_len = max((  
-                    series.astype(str).map(len2).max(),
-                    len(str(series.name))
-                )) + x
-            else:                
-                max_len = max((
-                    series.astype(str).map(len).max(),
-                    len(str(series.name))
-                )) + x
-            worksheet.set_column(idx+offset, idx+offset, max_len)
-    
-    def definefn(dirname, filename, i=0):
-        '''If bomcheck.xlsx exists, return bomcheck(1).xlsx.  If that exists,
-        return bomcheck(2).xlsx.  And so forth.'''
-        d, f = os.path.split(filename)
-        f, e = os.path.splitext(f)
-        if d:
-            dirname = d   # if user specified a directory, use it instead
-        if e and not e.lower()=='.xlsx':
-            print('Output filename extension needs to be .xlsx')
-            print('Program aborted.')
-            sys.exit(0)
-        else:
-            e = '.xlsx'        
-        if i == 0:
-            fn = os.path.join(dirname, f+e)
-        else:
-            fn = os.path.join(dirname, f+ '(' + str(i) + ')'+e)         
-        if os.path.exists(fn):
-            return definefn(dirname, filename, i+1)
-        else:
-            return fn
+    if type(filename) == str:
+        filename = [filename]     
+    swfilesdic = {}
+    slfilesdic = {}
+    for x in filename:
+        dirname = os.path.dirname(x)
+        if dirname and not os.path.exists(dirname):
+             print('directory not found: ', dirname)
+             sys.exit(0)
+        gatherednames = sorted(glob.glob(x))
+        for f in gatherednames:
+            i = f.rfind('_')
+            if f[i:i+4].lower() == '_sw.' or f[i:i+4].lower() == '_sl.':
+                dname, fname = os.path.split(f)
+                k = fname.rfind('_')
+                fntrunc = fname[:k]  # Name of the sw file, excluding path, and excluding _sw.xlsx
+                if f[i:i+4].lower() == '_sw.':
+                    swfilesdic.update({fntrunc: f})
+                elif f[i:i+4].lower() == '_sl.':
+                    slfilesdic.update({fntrunc: f})                 
+    swdfsdic = {}
+    for k, v in swfilesdic.items():
+        _, file_extension = os.path.splitext(v)
+        if file_extension.lower() == '.csv':
+            data = fixcsv(v)
+            temp = tempfile.TemporaryFile(mode='w+t')
+            for d in data:
+                temp.write(d)
+            temp.seek(0)
+            df = pd.read_csv(temp, na_values=[' '], skiprows=1, sep='$',
+                                   encoding='iso8859_1', engine='python',
+                                   dtype = {'ITEM NO.': 'str'})
+            temp.close()
+        elif file_extension.lower() == '.xlsx' or file_extension.lower() == '.xls':
+            df = pd.read_excel(v, na_values=[' '], skiprows=1)
+        if not missing_columns('sw', df, k):
+            swdfsdic.update(multilevelbom(df, k))
+    sldfsdic = {}
+    for k, v in slfilesdic.items(): 
+        _, file_extension = os.path.splitext(v)
+        if file_extension.lower() == '.csv':
+            df = pd.read_csv(v, na_values=[' '], engine='python',
+                             encoding='utf-16', sep='\t')
+        elif file_extension.lower() == '.xlsx' or file_extension.lower == '.xls':
+            df = pd.read_excel(v, na_values=[' '])
+        if not missing_columns('sl', df, k):
+            sldfsdic.update(multilevelbom(df, k))
+    try:     
+        df = pd.read_clipboard(engine='python', na_values=[' '])
+        if not missing_columns('sl', df, 'BOMfromClipboard', printerror=False):
+            sldfsdic.update(multilevelbom(df, 'TOPLEVEL')) 
+    except:
+        pass
+    dirname = os.path.dirname(filename[0])
+    if dirname and not os.path.exists(dirname):
+        print('directory not found: ', dirname)
+        sys.exit(0)
+    return dirname, swdfsdic, sldfsdic
 
-    fn = definefn(dirname, filename)
-    
-    if os.getenv('USERNAME'):
-        username = os.getenv('USERNAME')  # Works on MS Windows
-    else:
-        username = 'unknown'  
-    now = datetime.datetime.now()
-    time = now.strftime("%m-%d-%Y %I:%M %p")
-    
-    with pd.ExcelWriter(fn) as writer:
-        for r in results2export:
-            sheetname = r[0]
-            df = r[1]
-            df.to_excel(writer, sheet_name=sheetname)
-            worksheet = writer.sheets[sheetname]  # pull worksheet object
-            autosize_excel_columns(worksheet, df)
-            bomheader = '&C&A'
-            bomfooter = '&LCreated ' + time + ' by: ' + username + '&RPage &P of &N'
-            worksheet.set_header(bomheader)
-            worksheet.set_footer(bomfooter)
-            worksheet.set_landscape()
-            worksheet.fit_to_pages(1, 0) 
-            worksheet.hide_gridlines(2)  # see: https://xlsxwriter.readthedocs.io/page_setup.html                
-        writer.save()
-    abspath = os.path.abspath(fn)
-    print("\nCreated file: " + abspath + '\n')
-    
-    if sys.platform[:3] == 'win':  # Open bomcheck.xlsx in Excel when on Windows platform
-        try:
-            os.startfile(abspath)
-        except:
-            print('Attempt to open bomcheck.xlsx in Excel failed.' )
-    
 
 def fixcsv(filename):
     '''fixcsv is called upon when a SW csv file is employed.  Why?  SW csv
@@ -385,46 +346,75 @@ def fixcsv(filename):
         else:
             data.append(row)
     return data
-         
 
-def getdroplist():
-    ''' Create two global python lists named drop and exceptions.  Make these
-    lists global thus allowing easy access to other functions (specifically to
-    sw).  These lists are derived from the file named droplists.py.  The drop 
-    list contains pns of off-the-shelf parts, like bolts and pipe nipples, that
-    are to be excluded from the bom check.
+
+def missing_columns(bomtype, df, pn, printerror=True):
+    ''' SolidWorks and SyteLine BOMs require certain essential columns to be
+    present.  This function looks at those BOMs that are within df to see if
+    any required columns are missing.  If found, print to screen.  Finally, 
+    return a dictionary like that input less the faulty BOMs.
     
+    calls: missing_tuple
+
+    Parameters
+    ==========
+
+    bomtype : string
+        "sw" or "sl"
+
+    df : Pandas DataFRame
+        A SW or SL BOM
+
+    pn : string
+        Part number of the BOM   
+
     Returns
     =======
-    
-    out : None
-        If droplists.py not found set drop=['3*-025'] and exceptions=[]
-    '''
-    global drop, exceptions
-    usrPrf = os.getenv('USERPROFILE')  # on my win computer, USERPROFILE = C:\Users\k_carlton
-    if usrPrf:    
-        userDocDir = os.path.join(usrPrf, 'Documents')
-    else:
-        userDocDir = "C:/"
-    paths = [userDocDir, "/home/ken/projects/project1/"]
-    for p in paths:
-        if os.path.exists(p) and not p in sys.path:
-            sys.path.append(p)
-            break
-    else:
-        print('At function "getdroplist", a suitable path was not found to\n'
-              'load droplist.py from.')
-    try:
-        import droplist
-        drop = droplist.drop
-        exceptions = droplist.exceptions
-    except ModuleNotFoundError:
-        drop = ['3*-025']   # If droplist.py not found, use this
-        exceptions= []
-        
-        
-getdroplist()       # create global variables named drop and exceptions
 
+    out : bool
+        True if BOM afoul.  Otherwise False.
+    '''
+    if bomtype == 'sw':
+        required_columns = [('QTY', 'QTY.'), 'DESCRIPTION',
+                            ('PART NUMBER', 'PARTNUMBER')]
+    else: # 'sl bom'
+        required_columns = [('Qty', 'Quantity', 'Qty Per'), 
+                            ('Material Description', 'Description'), 
+                            ('U/M', 'UM'), ('Item', 'Material')]
+    missing = []
+    for r in required_columns:
+        if isinstance(r, str) and r not in df.columns:
+            missing.append(r)
+        elif isinstance(r, tuple) and missing_tuple(r, df.columns):
+            missing.append(' or '.join(missing_tuple(r, df.columns)))
+    if missing and bomtype=='sw' and printerror:
+        print('\nEssential BOM columns missing.  SolidWorks requires a BOM header\n' +
+              'to be in place.  Is this missing?  This BOM will not be processed.\n\n' +
+              '    missing: ' + ' ,'.join(missing) +  '\n' +    
+              '    missing in: ' + pn)
+        return True
+    elif missing and printerror:
+        print('\nEssential BOM columns missing.  This BOM will not be processed.\n' +
+             '    missing: ' + ' ,'.join(missing) +  '\n\n' +    
+             '    missing in: ' + pn)
+        return True
+    elif missing:
+        return True
+    else:
+        return False
+
+
+def missing_tuple(tpl, lst):
+    ''' If none of the items of tpl (tuple) are in lst (list) return
+    tpl.  Else return None
+    '''
+    flag = True
+    for t in tpl:
+        if t in lst:
+            flag = False
+    if flag:
+        return tpl
+    
 
 def multilevelbom(df, top='TOPLEVEL'):
     ''' If the BOM is a multilevel BOM, pull out the components thereof; that
@@ -516,168 +506,12 @@ def multilevelbom(df, top='TOPLEVEL'):
     return dic_assys
 
 
-def gatherBOMs(filename):
-    ''' Gather all SolidWorks and SyteLine BOMs derived from "filename".
-    "filename" can be a string containing wildcards, e.g. 6890-085555-*, which
-    allows the capture of multiple files; or "filename" can be a list of such 
-    strings.  These BOMs will be converted to Pandas DataFrame objects.
-    
-    Only files prefixed with _sw.xlsx, _sw.csv, _sl.xlsx, or _sl.csv will be
-    chosen.  These files will then be converted to two python dictionaries.  
-    One dictionary will contain SolidWorks BOMs only.  The other will contain
-    only SyteLine BOMs.  The dictionary keys (i.e., "handles" allowing access
-    to each BOM) will be the part numbers of the BOMs.
-    
-    If a filename corresponds to a BOM containing a multiple level BOM, then
-    that BOM will be broken down to subassemblies and will be added to the
-    dictionaries.
-    
-    Parmeters
-    =========
-
-    filename : string or list
-        
-    Returns
-    =======
-    
-    out : tuple
-        The output tuple contains three items.  The first is the directory
-        corresponding the the first file in the filename list.  If this
-        directory is an empty string, then it refers to the current working
-        directory.  The remainder of the tuple items are python dictionararies.
-        The first dictionary contains only SolidWorks BOMs,  The second, 
-        SyteLine BOMs.
-    '''
-    if type(filename) == str:
-        filename = [filename]     
-    swfilesdic = {}
-    slfilesdic = {}
-    for x in filename:
-        dirname = os.path.dirname(x)
-        if dirname and not os.path.exists(dirname):
-             print('directory not found: ', dirname)
-             sys.exit(0)
-        gatherednames = sorted(glob.glob(x))
-        for f in gatherednames:
-            i = f.rfind('_')
-            if f[i:i+4].lower() == '_sw.' or f[i:i+4].lower() == '_sl.':
-                dname, fname = os.path.split(f)
-                k = fname.rfind('_')
-                fntrunc = fname[:k]  # Name of the sw file, excluding path, and excluding _sw.xlsx
-                if f[i:i+4].lower() == '_sw.':
-                    swfilesdic.update({fntrunc: f})
-                elif f[i:i+4].lower() == '_sl.':
-                    slfilesdic.update({fntrunc: f})                 
-    swdfsdic = {}
-    for k, v in swfilesdic.items():
-        _, file_extension = os.path.splitext(v)
-        if file_extension.lower() == '.csv':
-            data = fixcsv(v)
-            temp = tempfile.TemporaryFile(mode='w+t')
-            for d in data:
-                temp.write(d)
-            temp.seek(0)
-            df = pd.read_csv(temp, na_values=[' '], skiprows=1, sep='$',
-                                   encoding='iso8859_1', engine='python',
-                                   dtype = {'ITEM NO.': 'str'})
-            temp.close()
-        elif file_extension.lower() == '.xlsx' or file_extension.lower() == '.xls':
-            df = pd.read_excel(v, na_values=[' '], skiprows=1)
-        if not missing_columns('sw', df, k):
-            swdfsdic.update(multilevelbom(df, k))
-    sldfsdic = {}
-    for k, v in slfilesdic.items(): 
-        _, file_extension = os.path.splitext(v)
-        if file_extension.lower() == '.csv':
-            df = pd.read_csv(v, na_values=[' '], engine='python',
-                             encoding='utf-16', sep='\t')
-        elif file_extension.lower() == '.xlsx' or file_extension.lower == '.xls':
-            df = pd.read_excel(v, na_values=[' '])
-        if not missing_columns('sl', df, k):
-            sldfsdic.update(multilevelbom(df, k))
-    try:     
-        df = pd.read_clipboard(engine='python', na_values=[' '])
-        if not missing_columns('sl', df, 'BOMfromClipboard', printerror=False):
-            sldfsdic.update(multilevelbom(df, 'TOPLEVEL')) 
-    except:
-        pass
-    dirname = os.path.dirname(filename[0])
-    if dirname and not os.path.exists(dirname):
-        print('directory not found: ', dirname)
-        sys.exit(0)
-    return dirname, swdfsdic, sldfsdic     
-
-
-def missing_tuple(tpl, lst):
-    ''' If none of the items of tpl (tuple) are in lst (list) return
-    tpl.  Else return None
-    '''
-    flag = True
-    for t in tpl:
-        if t in lst:
-            flag = False
-    if flag:
-        return tpl
-
-
-def missing_columns(bomtype, df, pn, printerror=True):
-    ''' SolidWorks and SyteLine BOMs require certain essential columns to be
-    present.  This function looks at those BOMs that are within df to see if
-    any required columns are missing.  If found, print to screen.  Finally, 
-    return a dictionary like that input less the faulty BOMs.
-
-    Parameters
-    ==========
-
-    bomtype : string
-        "sw" or "sl"
-
-    df : Pandas DataFRame
-        A SW or SL BOM
-
-    pn : string
-        Part number of the BOM   
-
-    Returns
-    =======
-
-    out : bool
-        True if BOM afoul.  Otherwise False.
-    '''
-    if bomtype == 'sw':
-        required_columns = [('QTY', 'QTY.'), 'DESCRIPTION',
-                            ('PART NUMBER', 'PARTNUMBER')]
-    else: # 'sl bom'
-        required_columns = [('Qty', 'Quantity', 'Qty Per'), 
-                            ('Material Description', 'Description'), 
-                            ('U/M', 'UM'), ('Item', 'Material')]
-    missing = []
-    for r in required_columns:
-        if isinstance(r, str) and r not in df.columns:
-            missing.append(r)
-        elif isinstance(r, tuple) and missing_tuple(r, df.columns):
-            missing.append(' or '.join(missing_tuple(r, df.columns)))
-    if missing and bomtype=='sw' and printerror:
-        print('\nEssential BOM columns missing.  SolidWorks requires a BOM header\n' +
-              'to be in place.  Is this missing?  This BOM will not be processed.\n\n' +
-              '    missing: ' + ' ,'.join(missing) +  '\n' +    
-              '    missing in: ' + pn)
-        return True
-    elif missing and printerror:
-        print('\nEssential BOM columns missing.  This BOM will not be processed.\n' +
-             '    missing: ' + ' ,'.join(missing) +  '\n\n' +    
-             '    missing in: ' + pn)
-        return True
-    elif missing:
-        return True
-    else:
-        return False
-
-
 def combine_tables(swdic, sldic, d=False):
     ''' Match SolidWorks assembly nos. to those from SyteLine and then merge
     their BOMs to create a BOM check.  For any SolidWorks BOMs for which no
     SyteLine BOM was found, put those in a separate dictionary for output.
+    
+    calls: sw, sl
 
     Parameters
     ==========
@@ -714,8 +548,8 @@ def combine_tables(swdic, sldic, d=False):
         else:
             lone_sw_dic[key + '_sw'] = sw(dfsw, d)
     return lone_sw_dic, combined_dic
-
-
+        
+        
 def sw(df, d=False):
     '''Take a SolidWorks BOM and restructure it to be like that of a SyteLine
     BOM.  That is, the following is done:
@@ -873,6 +707,186 @@ def sl(dfsw, dfsl):
     dfmerged.fillna('', inplace=True)
     dfmerged.set_index('Item', inplace=True)
     return dfmerged
+
+
+def concat(title_dfsw, title_dfmerged):
+    ''' Concatenate all the SW BOMs into one long list, and concatenate all the
+    merged BOMs into another long list.  Each BOM, before concatenation, has a
+    new column added titled "assy".  Values of "assy" are strings and are the 
+    same for a given BOM.  The string value is the assy no. for the BOM.  After
+    concatenation, Pandas groupby function is employed on the long list 
+    resulting in a nice looking output; the assy no. appears to the left of the 
+    BOM.
+    
+    Parameters
+    ==========
+
+    title_dfsw : list
+        A list of tuples, each tuple has two items: a string and a DataFrame.
+        The string is the assy no. for the DataFrame.  The DataFrame is that
+        derived from a SW BOM.
+
+    title_dfmerged : list
+        A list of tuples, each tuple has two items: a string and a DataFrame.
+        The string is the assy no. for the DataFrame.  The DataFrame is that
+        derived from merged SW and SL BOMs.  
+
+    Returns
+    =======
+
+    out : tuple
+        The tuple has two items and is of the form:
+        
+        (('SW BOMs', all-SW-BOMs), ('Merged BOMs', all-merged-BOMs)
+
+        Where the all-SW-BOMs and the all-merged-BOMs are Pandas DataFrame
+        objects.
+    ''' 
+    dfswDFrames = []
+    dfmergedDFrames = []
+    swresults = []
+    mrgresults = []
+    for t in title_dfsw:
+        t[1]['assy'] = t[0]
+        dfswDFrames.append(t[1])
+    for t in title_dfmerged:
+        t[1]['assy'] = t[0]
+        dfmergedDFrames.append(t[1])
+    if dfswDFrames:
+        dfswCCat = pd.concat(dfswDFrames).reset_index()
+        swresults.append(('SW BOMs', dfswCCat.set_index(['assy', 'Op'])))
+    if dfmergedDFrames:
+        dfmergedCCat = pd.concat(dfmergedDFrames).reset_index() 
+        mrgresults.append(('BOM Check', dfmergedCCat.set_index(['assy', 'Item'])))
+    return swresults, mrgresults
+
+
+def export2excel(dirname, filename, results2export):
+    '''Export to an Excel file the results of all the bom checks that have
+    been done.
+    
+    functions defined internally: len2, autosize_excel_columns,
+        autosize_excel_column_df, 
+
+    Parmeters
+    =========
+
+    dirname : string
+        The directory to which the Excel file that this function generates
+        will be sent.
+
+    filename : string
+        The name of the Excel file.
+
+    results2export : list
+        List of tuples.  Each tuple has two items.  The first item is a string
+        and is the title, usually an assembly part number, given to the second
+        item.  The second item is a DataFrame object for a BOM.  The list of 
+        tuples are:
+        
+        1. Only SolidWorks BOMs, that have been converted to SyteLine format, 
+        if no corresponding SyteLine BOM was found to compare it to; and/or
+        
+        2.  A list showing a comparison between a SolidWorks BOM and a SyteLine
+        BOM.  (i.e., a merged SW/SL BOM)
+
+    Returns
+    =======
+
+    out : Excel file (saved to disk)
+        The Excel file shows on multiple sheets the "results2export" list.
+
+     \u2009
+    '''
+    def len2(s):
+        ''' Extract from within a string either a decimal number truncated to two
+        decimal places, or an int value; then return the length of that substring.
+        Why used?  Q_sw, Q_sl, Q, converted to string, are on ocasion something 
+        like 3.1799999999999997.  This leads to wrong length calc using len.'''
+        match = re.search(r"\d*\.\d\d|\d+", s)
+        if match:
+            return len(match.group())
+        else:
+            return 0
+    
+    def autosize_excel_columns(worksheet, df):
+        ''' Adjust column width of an Excel worksheet (ref.: https://stackoverflow.com/questions/
+            17326973/is-there-a-way-to-auto-adjust-excel-column-widths-with-pandas-excelwriter)'''
+        autosize_excel_columns_df(worksheet, df.index.to_frame())
+        autosize_excel_columns_df(worksheet, df, offset=df.index.nlevels)
+    
+    def autosize_excel_columns_df(worksheet, df, offset=0):
+        for idx, col in enumerate(df):
+            x = 1 # add a little extra width to the Excel column
+            if df.columns[idx] in ['i', 'q', 'd', 'u']:
+                x = 0
+            series = df[col]
+            if df.columns[idx][0] == 'Q':
+                max_len = max((  
+                    series.astype(str).map(len2).max(),
+                    len(str(series.name))
+                )) + x
+            else:                
+                max_len = max((
+                    series.astype(str).map(len).max(),
+                    len(str(series.name))
+                )) + x
+            worksheet.set_column(idx+offset, idx+offset, max_len)
+            
+    def definefn(dirname, filename, i=0):
+        '''If bomcheck.xlsx exists, return bomcheck(1).xlsx.  If that exists,
+        return bomcheck(2).xlsx.  And so forth.'''
+        d, f = os.path.split(filename)
+        f, e = os.path.splitext(f)
+        if d:
+            dirname = d   # if user specified a directory, use it instead
+        if e and not e.lower()=='.xlsx':
+            print('Output filename extension needs to be .xlsx')
+            print('Program aborted.')
+            sys.exit(0)
+        else:
+            e = '.xlsx'        
+        if i == 0:
+            fn = os.path.join(dirname, f+e)
+        else:
+            fn = os.path.join(dirname, f+ '(' + str(i) + ')'+e)         
+        if os.path.exists(fn):
+            return definefn(dirname, filename, i+1)
+        else:
+            return fn
+
+    fn = definefn(dirname, filename)
+    
+    if os.getenv('USERNAME'):
+        username = os.getenv('USERNAME')  # Works on MS Windows
+    else:
+        username = 'unknown'  
+    now = datetime.datetime.now()
+    time = now.strftime("%m-%d-%Y %I:%M %p")
+    
+    with pd.ExcelWriter(fn) as writer:
+        for r in results2export:
+            sheetname = r[0]
+            df = r[1]
+            df.to_excel(writer, sheet_name=sheetname)
+            worksheet = writer.sheets[sheetname]  # pull worksheet object
+            autosize_excel_columns(worksheet, df)
+            bomheader = '&C&A'
+            bomfooter = '&LCreated ' + time + ' by: ' + username + '&RPage &P of &N'
+            worksheet.set_header(bomheader)
+            worksheet.set_footer(bomfooter)
+            worksheet.set_landscape()
+            worksheet.fit_to_pages(1, 0) 
+            worksheet.hide_gridlines(2)  # see: https://xlsxwriter.readthedocs.io/page_setup.html                
+        writer.save()
+    abspath = os.path.abspath(fn)
+    print("\nCreated file: " + abspath + '\n')
+    
+    if sys.platform[:3] == 'win':  # Open bomcheck.xlsx in Excel when on Windows platform
+        try:
+            os.startfile(abspath)
+        except:
+            print('Attempt to open bomcheck.xlsx in Excel failed.' )            
 
 
 if __name__=='__main__':
