@@ -30,6 +30,7 @@ import os
 import tempfile
 import re
 import datetime
+import itertools
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
@@ -213,7 +214,7 @@ def gatherBOMs(filename):
     ''' Gather all SolidWorks and SyteLine BOMs derived from "filename".
     "filename" can be a string containing wildcards, e.g. 6890-085555-*, which
     allows the capture of multiple files; or "filename" can be a list of such 
-    strings.  These BOMs will be converted to Pandas DataFrame objects.
+    strings.  These files (BOMs) will be converted to Pandas DataFrame objects.
     
     Only files prefixed with _sw.xlsx, _sw.csv, _sl.xlsx, or _sl.csv will be
     chosen.  These files will then be converted to two python dictionaries.  
@@ -377,7 +378,7 @@ def missing_columns(bomtype, df, pn, printerror=True):
     if bomtype == 'sw':
         required_columns = [('QTY', 'QTY.'), 'DESCRIPTION',
                             ('PART NUMBER', 'PARTNUMBER')]
-    else: # 'sl bom'
+    else: # 'for sl bom'
         required_columns = [('Qty', 'Quantity', 'Qty Per'), 
                             ('Material Description', 'Description'), 
                             ('U/M', 'UM'), ('Item', 'Material')]
@@ -765,8 +766,8 @@ def export2excel(dirname, filename, results2export):
     '''Export to an Excel file the results of all the bom checks that have
     been done.
     
-    functions defined internally: len2, autosize_excel_columns,
-        autosize_excel_column_df, 
+    calls: len2, autosize_excel_columns, autosize_excel_column_df, definefn
+    (these functions defined internally within the export2exel function)
 
     Parmeters
     =========
@@ -864,6 +865,17 @@ def export2excel(dirname, filename, results2export):
     now = datetime.datetime.now()
     time = now.strftime("%m-%d-%Y %I:%M %p")
     
+    bomheader = '&C&A'        
+    if drop:   # add a tab to Excel called droplist; and show drop & exceptions
+        bomfooter = '&LCreated ' + time + ' by ' + username + '&CPage &P of &N&Rdrop: yes'
+        dfvalues = list(itertools.zip_longest(drop, exceptions, fillvalue=''))
+        df = pd.DataFrame(dfvalues, columns =['drop', 'exceptions'])
+        df['index'] = list(range(len(df.index)))
+        df.set_index('index', inplace=True)
+        results2export.append(('droplist', df))
+    else:
+        bomfooter = '&LCreated ' + time + ' by ' + username + '&CPage &P of &N'
+        
     with pd.ExcelWriter(fn) as writer:
         for r in results2export:
             sheetname = r[0]
@@ -871,13 +883,11 @@ def export2excel(dirname, filename, results2export):
             df.to_excel(writer, sheet_name=sheetname)
             worksheet = writer.sheets[sheetname]  # pull worksheet object
             autosize_excel_columns(worksheet, df)
-            bomheader = '&C&A'
-            bomfooter = '&LCreated ' + time + ' by: ' + username + '&RPage &P of &N'
-            worksheet.set_header(bomheader)
+            worksheet.set_header(bomheader)  # see: https://xlsxwriter.readthedocs.io/page_setup.html
             worksheet.set_footer(bomfooter)
             worksheet.set_landscape()
             worksheet.fit_to_pages(1, 0) 
-            worksheet.hide_gridlines(2)  # see: https://xlsxwriter.readthedocs.io/page_setup.html                
+            worksheet.hide_gridlines(2)                
         writer.save()
     abspath = os.path.abspath(fn)
     print("\nCreated file: " + abspath + '\n')
