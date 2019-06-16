@@ -30,7 +30,6 @@ import os
 import tempfile
 import re
 import datetime
-import itertools
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
@@ -181,8 +180,11 @@ def bomcheck(fn, d=False, c=False):
         
     if fn.startswith('[') and fn.endswith(']'):
         fn = eval(fn)
-        
+    
+    global useDrop
+    useDrop = False    
     if d:
+        useDrop = True
         print('drop =', drop)
         print('exceptions =', exceptions)
         
@@ -191,7 +193,7 @@ def bomcheck(fn, d=False, c=False):
     # lone_sw is a dic.  Keys are assy nos.  Values are DataFrame objects (BOMs)
     # merged_sw2sl is a dic.  Keys are assys nos.  Values are Dataframe objects
     # (merged SW and SL BOMs).    
-    lone_sw, merged_sw2sl = combine_tables(swfiles, pairedfiles, d)
+    lone_sw, merged_sw2sl = combine_tables(swfiles, pairedfiles)
     
     title_dfsw = []
     for k, v in lone_sw.items():
@@ -507,7 +509,7 @@ def multilevelbom(df, top='TOPLEVEL'):
     return dic_assys
 
 
-def combine_tables(swdic, sldic, d=False):
+def combine_tables(swdic, sldic):
     ''' Match SolidWorks assembly nos. to those from SyteLine and then merge
     their BOMs to create a BOM check.  For any SolidWorks BOMs for which no
     SyteLine BOM was found, put those in a separate dictionary for output.
@@ -526,10 +528,6 @@ def combine_tables(swdic, sldic, d=False):
         Dictinary of SyteLine BOMs.  Dictionary keys are strings and they 
         are of assembly part numbers.  Dictionary values are pandas DataFrame 
         objects which are BOMs for those assemblies.
-        
-    d : bool
-        A boolean to pass along to the sw function.  If true, employ the
-        drop list.
 
     Returns
     =======
@@ -545,13 +543,13 @@ def combine_tables(swdic, sldic, d=False):
     combined_dic = {}   # sl bom found for given sw bom.  Then merged
     for key, dfsw in swdic.items():
         if key in sldic:
-            combined_dic[key] = sl(sw(dfsw, d), sldic[key])
+            combined_dic[key] = sl(sw(dfsw), sldic[key])
         else:
-            lone_sw_dic[key + '_sw'] = sw(dfsw, d)
+            lone_sw_dic[key + '_sw'] = sw(dfsw)
     return lone_sw_dic, combined_dic
         
         
-def sw(df, d=False):
+def sw(df):
     '''Take a SolidWorks BOM and restructure it to be like that of a SyteLine
     BOM.  That is, the following is done:
 
@@ -577,10 +575,6 @@ def sw(df, d=False):
     df : Pandas DataFrame
         SolidWorks DataFrame object to process.
 
-    d : bool
-        If d True, ignore items from droplist.  (See getdroplist).
-        Default: False
-    
     Returns
     =======
 
@@ -614,7 +608,7 @@ def sw(df, d=False):
     df = df.groupby('Item', as_index=False).aggregate(dd).reindex(columns=df.columns)
     df['Q'] = round(df['Q'], 2)
     
-    if d==True:
+    if useDrop==True:
         drop2 = []
         for d in drop:  # drop is a global varialbe: pns to exclude from the bom check
             d = '^' + d + '$'
@@ -865,16 +859,13 @@ def export2excel(dirname, filename, results2export):
     now = datetime.datetime.now()
     time = now.strftime("%m-%d-%Y %I:%M %p")
     
-    bomheader = '&C&A'        
-    if drop:   # add a tab to Excel called droplist; and show drop & exceptions
-        bomfooter = '&LCreated ' + time + ' by ' + username + '&CPage &P of &N&Rdrop: yes'
-        dfvalues = list(itertools.zip_longest(drop, exceptions, fillvalue=''))
-        df = pd.DataFrame(dfvalues, columns =['drop', 'exceptions'])
-        df['index'] = list(range(len(df.index)))
-        df.set_index('index', inplace=True)
-        results2export.append(('droplist', df))
-    else:
-        bomfooter = '&LCreated ' + time + ' by ' + username + '&CPage &P of &N'
+    comment = 'This workbook created ' + time + ' by ' + username + '.  '
+    bomfooter = '&LCreated ' + time + ' by ' + username + '&CPage &P of &N'
+    if useDrop:
+        comment = comment + 'The drop list was used to create this check.  '
+        comment = comment + 'drop = ' + str(drop) +  ', exceptions = ' + str(exceptions)
+        bomfooter = bomfooter + '&Rdrop: yes'
+    bomheader = '&C&A'
         
     with pd.ExcelWriter(fn) as writer:
         for r in results2export:
@@ -887,7 +878,8 @@ def export2excel(dirname, filename, results2export):
             worksheet.set_footer(bomfooter)
             worksheet.set_landscape()
             worksheet.fit_to_pages(1, 0) 
-            worksheet.hide_gridlines(2)                
+            worksheet.hide_gridlines(2)     
+            worksheet.write_comment('A1', comment, {'x_scale': 3})              
         writer.save()
     abspath = os.path.abspath(fn)
     print("\nCreated file: " + abspath + '\n')
