@@ -21,7 +21,7 @@ howtocompile.md.
 """
 
 
-__version__ = '1.0.6'
+__version__ = '1.0.7'
 __author__ = 'Kenneth Carlton'
 import glob, argparse, sys, warnings
 import pandas as pd
@@ -52,9 +52,10 @@ def getdroplist():
     =======
     
     out : None
-        If droplists.py not found set drop=['3*-025'] and exceptions=[]
+        If droplists.py not found, set drop=['3*-025'] and exceptions=[]
     '''
-    global drop, exceptions
+    global drop, exceptions, useDrop
+    useDrop = False    
     usrPrf = os.getenv('USERPROFILE')  # on my win computer, USERPROFILE = C:\Users\k_carlton
     if usrPrf:    
         userDocDir = os.path.join(usrPrf, 'Documents')
@@ -75,16 +76,12 @@ def getdroplist():
     except ModuleNotFoundError:
         drop = ['3*-025']   # If droplist.py not found, use this
         exceptions= []
-        
-        
-getdroplist()       # create global variables named drop and exceptions
 
 
 def main():
     '''This fuction allows this bomcheck.py program to be run from the command
     line.  It is started automatically (via the "if __name__=='__main__'"
-    command at the bottom of this file) when bomecheck.py is run from the
-    command line.
+    command at the bottom of this file) when bomecheck.py is run.
     
     calls: bomcheck
 
@@ -126,9 +123,9 @@ def main():
 
 def bomcheck(fn, d=False, c=False):
     ''' This function is the hub of the bomcheck program.  It calls upon other
-    fuctions that act to open Excel files or csv files containing containing 
-    BOMs.  Filenames must end with _sw.xlsx, _sl.xlsx, sw.csv, or sl.csv.  
-    Leading part of file names must match.  For example, leading parts of names
+    fuctions that act to open Excel files or csv files that contain BOMs.  
+    Filenames must end with _sw.xlsx, _sl.xlsx, _sw.csv, or _sl.csv.  Leading 
+    part of file names must match.  For example, leading parts of names
     0300-2018-797_sw.xlsx and 0300-2018-797_sw.xlsx match and a BOM check will
     be done on them.  If a _sw file found for which not _sl file file found, 
     transform the _sw file to a SyteLine like format.  If a _sl file found with
@@ -148,17 +145,17 @@ def bomcheck(fn, d=False, c=False):
         concatenate data that is sent to the ouput Excel file.  Default: False
     
     d : bool
-        If True, omit items from the droplist for BOM checking.  The drop list
+        If True, omit items from the drop list for BOM checking.  The drop list
         is a list of part nos. to disreguard for the bom check.  Default: False.
         See the function "getdroplist" for more info.
 
     Returns
     =======
 
-    out : Excel file (saved to disk)
-        The Excel file show the outputs from the lists title_dfsw and 
-        title_dfmerged.  Each object is shown on its own individual Excel
-        worksheet.
+    out : None
+        The finale of the bomcheck program is to export results to an Excel
+        file.  In the file will be BOMs for which no matching SyteLine BOMs
+        was found, and/or merged SW and SL BOMs that are the BOM check.
 
     Examples
     ========
@@ -181,10 +178,8 @@ def bomcheck(fn, d=False, c=False):
     if fn.startswith('[') and fn.endswith(']'):
         fn = eval(fn)
     
-    global useDrop
-    useDrop = False    
     if d:
-        useDrop = True
+        useDrop = True  # useDrop: a global variable established in getdroplist
         print('drop =', drop)
         print('exceptions =', exceptions)
         
@@ -219,7 +214,7 @@ def gatherBOMs(filename):
     strings.  These files (BOMs) will be converted to Pandas DataFrame objects.
     
     Only files prefixed with _sw.xlsx, _sw.csv, _sl.xlsx, or _sl.csv will be
-    chosen.  These files will then be converted to two python dictionaries.  
+    chosen.  These files will then be converted into two python dictionaries.  
     One dictionary will contain SolidWorks BOMs only.  The other will contain
     only SyteLine BOMs.  The dictionary keys (i.e., "handles" allowing access
     to each BOM) will be the part numbers of the BOMs.
@@ -308,11 +303,11 @@ def gatherBOMs(filename):
 
 def fixcsv(filename):
     '''fixcsv is called upon when a SW csv file is employed.  Why?  SW csv
-    files use a comma (,) as a delimiter.  Commas, on rare  occasions, are used
+    files use a comma as a delimiter.  Commas, on rare  occasions, are used
     within a part's description.  This extra comma(s) causes the program to 
     crash. To alleviate the problem, this function switches the comma (,) 
-    delimited format to a dollar sign ($) as a delimiter, but leaves any commas
-    in place within the part's DESCRIPTION field.  A $ character is used
+    delimited format to a dollar sign ($) delimited format, but leaves any
+    commas in place within the part's DESCRIPTION field.  A $ character is used
     because it is nowhere used in a part's description.
     
     Parmeters
@@ -325,9 +320,9 @@ def fixcsv(filename):
     =======
     
     out : list
-        A list of all the lines (rows) in filename.  Commas in each line are 
-        changed to semicolons.  However any commas in the DESCRIPTION field
-        stay commas.
+        A list of all the lines (rows) in filename is returned.  Commas in each
+        line are changed to dollar signs except for any commas in the 
+        DESCRIPTION field.
     '''
     with open(filename, encoding="ISO-8859-1") as f:
         data1 = f.readlines()
@@ -354,8 +349,7 @@ def fixcsv(filename):
 def missing_columns(bomtype, df, pn, printerror=True):
     ''' SolidWorks and SyteLine BOMs require certain essential columns to be
     present.  This function looks at those BOMs that are within df to see if
-    any required columns are missing.  If found, print to screen.  Finally, 
-    return a dictionary like that input less the faulty BOMs.
+    any required columns are missing.  If found, print to screen. 
     
     calls: missing_tuple
 
@@ -408,7 +402,7 @@ def missing_columns(bomtype, df, pn, printerror=True):
 
 
 def missing_tuple(tpl, lst):
-    ''' If none of the items of tpl (tuple) are in lst (list) return
+    ''' If none of the items of tpl (a tuple) are in lst (a list) return
     tpl.  Else return None
     '''
     flag = True
@@ -420,9 +414,10 @@ def missing_tuple(tpl, lst):
     
 
 def multilevelbom(df, top='TOPLEVEL'):
-    ''' If the BOM is a multilevel BOM, pull out the components thereof; that
-    is, pull out the main assembly and the subassemblies thereof.  These 
-    assys/subassys are  placed in a python dictionary and returned.
+    ''' If the BOM is a multilevel BOM, pull out the BOMs thereof; that is, 
+    pull out the main assembly and the subassemblies thereof.  These 
+    assys/subassys are placed in a python dictionary and returned.  If df is
+    a single level BOM, a dictionary with one item is returned.
 
     Parmeters
     =========
@@ -431,13 +426,13 @@ def multilevelbom(df, top='TOPLEVEL'):
         The DataFrame is that of a SolidWorks or SyteLine BOM.
         
     top : string
-        If df is derived from a file such as 082009_sw.xlsx, "top" should be
-        assigned for "082009" since the top level part number is not given in 
-        the Excel file and therefore can't be derived from the file.  This is
-        also true for a single level Syteline BOM.  On the other hand a 
-        mulilevel SyteLine BOM, which has a column named "Level", has the top
-        level pn contained within (assigned at "Level" 0).  In this case use 
-        the default "TOPLEVEL".
+        If df is derived from an _sw file, e.g. 082009_sw.csv, top should be
+        assigned the assy no., e.g. 082009, because the top level part number 
+        cannot be derived from the file.  It isn't there.  This is also true
+        for a single level Syteline BOM.  On the other hand a  mulilevel 
+        SyteLine BOM, which has a column named "Level", has the top level pn 
+        contained within (assigned at "Level" 0).  In this case use the default
+        "TOPLEVEL".
         
     Returns
     =======
@@ -522,12 +517,12 @@ def combine_tables(swdic, sldic):
     swdic : dictionary
         Dictinary of SolidWorks BOMs.  Dictionary keys are strings and they 
         are of assembly part numbers.  Dictionary values are pandas DataFrame 
-        objects which are BOMs for those assemblies.
+        objects which are BOMs for those assembly pns.
 
     sldic : dictionary
         Dictinary of SyteLine BOMs.  Dictionary keys are strings and they 
         are of assembly part numbers.  Dictionary values are pandas DataFrame 
-        objects which are BOMs for those assemblies.
+        objects which are BOMs for those assembly pns.
 
     Returns
     =======
@@ -558,14 +553,14 @@ def sw(df):
     - If the part is a pipe or beam and it is listed multiple times in the BOM,
       the BOM is updated so that the part is shown only once.  The length is 
       converted to the sum of the lengths of the multiple parts.
-    - (If d=True) Any pipe fittings that start with "3" and end with "025" are 
-      off-the-shelf parts.  They are removed from the SolidWorks bom.  (As a
-      general rule, off-the-shelf parts are not shown on SyteLine BOMs.)  The
-      list that governs this rule is in a file named drop.py.  Therefore other
-      part nos. may be added to this list if required.  (see getdroplist)
-    - Many times part nos. for pipe nipples show more than once in a SW BOM.
-      If this occurs the BOM is updated so that the nipple part no. shows only 
-      once.  The quantity is updated accordingly for this nipple.
+    - (If useDrop=True) Any pipe fittings that start with "3" and end with 
+      "025" are off-the-shelf parts.  They are removed from the SolidWorks BOM.
+      (As a general rule, off-the-shelf parts are not shown on SyteLine BOMs.)
+      The list that governs this rule is in a file named drop.py.  Therefore
+      other part nos. may be added to this list if required.  (see getdroplist)
+    - Many times part nos. for pipe nipples, pipes, and structural steel show 
+      more than once in a SW BOM.  If this occurs the BOM is updated so that 
+      that part shows only  once.  The quantity is updated accordingly..
     - Column titles are changed to match those of SyteLine, thus allowing
       merging to a SyteLing BOM.
 
@@ -632,14 +627,15 @@ def sw(df):
 
 
 def sl(dfsw, dfsl):
-    '''This function reads in a BOM derived from StyeWorks and then merges it
-    with the BOM from SiteLine.  The merged BOMs allow differences to be
-    easily seen.
+    '''This function takes in a SW BOM and SL BOM and then merges them.  This
+    merged BOM shows the BOM check which allows differences between the SW and
+    SL BOMs to be easily seen.
 
-    The first set of columns in the output is labeled i, q, d, and u.  Xs at a
-    row in any of these colums indicate something didn't match up between the SW
-    and SL BOMs.  An X in the i column means the SW and SL Items (i.e. pns) didn't
-    match.  q means quantity, d means description, u means unit of measure.
+    A set of columns in the output are labeled i, q, d, and u.  Xs at a row in
+    any of these columns indicate something didn't match up between the SW
+    and SL BOMs.  An X in the i column means the SW and SL Items (i.e. pns) 
+    don't match.  q means quantity, d means description, u means unit of 
+    measure.
 
     Parmeters
     =========
@@ -697,8 +693,8 @@ def sl(dfsw, dfsl):
     dfmerged['d'] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged['d'] # duplicate in SL? d-> blank
     dfmerged['u'] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged['u'] # duplicate in SL? u-> blank
     
-    dfmerged = dfmerged[['Item', 'i', 'q', 'd', 'u', 'Q_sw', 'Q_sl', 'Description_sw',
-                           'Description_sl', 'U_sw', 'U_sl']]
+    dfmerged = dfmerged[['Item', 'i', 'q', 'd', 'u', 'Q_sw', 'Q_sl', 
+                         'Description_sw', 'Description_sl', 'U_sw', 'U_sl']]
     dfmerged.fillna('', inplace=True)
     dfmerged.set_index('Item', inplace=True)
     return dfmerged
@@ -708,10 +704,10 @@ def concat(title_dfsw, title_dfmerged):
     ''' Concatenate all the SW BOMs into one long list, and concatenate all the
     merged BOMs into another long list.  Each BOM, before concatenation, has a
     new column added titled "assy".  Values of "assy" are strings and are the 
-    same for a given BOM.  The string value is the assy no. for the BOM.  After
-    concatenation, Pandas groupby function is employed on the long list 
-    resulting in a nice looking output; the assy no. appears to the left of the 
-    BOM.
+    same value for a given BOM.  The string value is the assy no. for that BOM. 
+    After concatenation, Pandas groupby function is employed on the long list 
+    resulting in a nice looking output where the assy no. appears to the left
+    of the BOM.
     
     Parameters
     ==========
@@ -730,12 +726,15 @@ def concat(title_dfsw, title_dfmerged):
     =======
 
     out : tuple
-        The tuple has two items and is of the form:
+        The output is a tuple comprised of two items, out[0] and out[1].  
         
-        (('SW BOMs', all-SW-BOMs), ('Merged BOMs', all-merged-BOMs)
-
-        Where the all-SW-BOMs and the all-merged-BOMs are Pandas DataFrame
-        objects.
+        out[0] is a  tuple of length 2.  out[0][0] is the string: 'SW BOMS'.  
+        out[0,1]  is a DataFrame object and is the concatenated list of all the 
+        SW BOMs (any without matching SL BOMs).
+        
+        out[1] is a tuple of length 2.  out[1][0] is the string 'Merged BOMs'.
+        out[1][1] is a DataFrame object and is the concatenated list of all the
+        merged SW/SL BOMs.
     ''' 
     dfswDFrames = []
     dfmergedDFrames = []
@@ -757,11 +756,10 @@ def concat(title_dfsw, title_dfmerged):
 
 
 def export2excel(dirname, filename, results2export):
-    '''Export to an Excel file the results of all the bom checks that have
-    been done.
+    '''Export to an Excel file the results of all the bom checks.
     
-    calls: len2, autosize_excel_columns, autosize_excel_column_df, definefn
-    (these functions defined internally within the export2exel function)
+    calls: len2, autosize_excel_columns, autosize_excel_column_df, definefn... 
+    (these functions are defined internally within the export2exel function)
 
     Parmeters
     =========
@@ -774,22 +772,23 @@ def export2excel(dirname, filename, results2export):
         The name of the Excel file.
 
     results2export : list
-        List of tuples.  Each tuple has two items.  The first item is a string
-        and is the title, usually an assembly part number, given to the second
-        item.  The second item is a DataFrame object for a BOM.  The list of 
-        tuples are:
+        List of tuples.  The number of tuples in the list varies according to 
+        the number of BOMs analyzed, and if bomcheck's concatenate option was
+        invoked or not.  Each tuple has two items.  The  first item of a tuple
+        is a string and is the name assigned to the tab of the Excel worksheet.
+        It is typically an assembly part number.  The second  item is a 
+        DataFrame object for a BOM.  The list of tuples consists of:
         
-        1. Only SolidWorks BOMs, that have been converted to SyteLine format, 
-        if no corresponding SyteLine BOM was found to compare it to; and/or
+        1. SolidWorks BOMs that have been converted to SyteLine format.  SW 
+        BOMs will only occur if no corresponding SL BOM was found.
         
-        2.  A list showing a comparison between a SolidWorks BOM and a SyteLine
-        BOM.  (i.e., a merged SW/SL BOM)
+        2. Merged SW/SL BOMs.
 
     Returns
     =======
 
-    out : Excel file (saved to disk)
-        The Excel file shows on multiple sheets the "results2export" list.
+    out : None
+        An Excel file will result named bomcheck.xlsx.
 
      \u2009
     '''
@@ -829,8 +828,8 @@ def export2excel(dirname, filename, results2export):
             worksheet.set_column(idx+offset, idx+offset, max_len)
             
     def definefn(dirname, filename, i=0):
-        '''If bomcheck.xlsx exists, return bomcheck(1).xlsx.  If that exists,
-        return bomcheck(2).xlsx.  And so forth.'''
+        ''' If bomcheck.xlsx slready exists, return bomcheck(1).xlsx.  If that
+        exists, return bomcheck(2).xlsx...  and so forth.'''
         d, f = os.path.split(filename)
         f, e = os.path.splitext(f)
         if d:
@@ -890,6 +889,8 @@ def export2excel(dirname, filename, results2export):
         except:
             print('Attempt to open bomcheck.xlsx in Excel failed.' )            
 
+# before program begins, create global variables useDrop, drop, and exceptions
+getdroplist()      
 
 if __name__=='__main__':
     main()                   # comment out this line for testing
@@ -897,10 +898,3 @@ if __name__=='__main__':
 
 
 
-
-
-
-
-        
-
-    
