@@ -197,9 +197,9 @@ def bomcheck(fn, d=False, c=False):
     title_dfmerged = []
     for k, v in merged_sw2sl.items():
         title_dfmerged.append((k, v))  # Create a list of tuples: [(title, mergedbom)... ]
-        
+   
     if c==True:
-    	title_dfsw, title_dfmerged = concat(title_dfsw, title_dfmerged) 
+    	title_dfsw, title_dfmerged = concat(title_dfsw, title_dfmerged)
    
     try:    
         export2excel(dirname, 'bomcheck', title_dfsw + title_dfmerged)
@@ -701,40 +701,43 @@ def sl(dfsw, dfsl):
 
 
 def concat(title_dfsw, title_dfmerged):
-    ''' Concatenate all the SW BOMs into one long list, and concatenate all the
-    merged BOMs into another long list.  Each BOM, before concatenation, has a
-    new column added titled "assy".  Values of "assy" are strings and are the 
-    same value for a given BOM.  The string value is the assy no. for that BOM. 
-    After concatenation, Pandas groupby function is employed on the long list 
-    resulting in a nice looking output where the assy no. appears to the left
-    of the BOM.
+    ''' Concatenate all the SW BOMs into one long list (if there are any SW
+    BOMs without a matching SL BOM being found), and concatenate all the merged
+    SW/SL BOMs into another long list.  
+    
+    Each BOM, before concatenation, will get a new column added: assy.  Values
+    for assy will all be the same for a given BOM: the pn (a string) of the BOM.
+    BOMs are then concatenated.  Finally Pandas set_index function will applied
+    to the assy column resulting in the ouput being categorized by the assy pn.
+
     
     Parameters
     ==========
 
     title_dfsw : list
         A list of tuples, each tuple has two items: a string and a DataFrame.
-        The string is the assy no. for the DataFrame.  The DataFrame is that
+        The string is the assy pn for the DataFrame.  The DataFrame is that
         derived from a SW BOM.
 
     title_dfmerged : list
         A list of tuples, each tuple has two items: a string and a DataFrame.
-        The string is the assy no. for the DataFrame.  The DataFrame is that
-        derived from merged SW and SL BOMs.  
+        The string is the assy pn for the DataFrame.  The DataFrame is that
+        derived from a merged SW/SL BOM.  
 
     Returns
     =======
 
     out : tuple
-        The output is a tuple comprised of two items, out[0] and out[1].  
+        The output is a tuple comprised of two items.  Each item is a list.
+        Each list contains one item: a tuple.  The structure has the form:
+            
+            ``out = ([(string1, DataFrame1)], [(string2, DataFrame2)])``
+            
+        string1 = "SW BOMS".  
+        DataFrame1 = SW BOMs that have been concatenated together.
         
-        out[0] is a  tuple of length 2.  out[0][0] is the string: 'SW BOMS'.  
-        out[0,1]  is a DataFrame object and is the concatenated list of all the 
-        SW BOMs (any without matching SL BOMs).
-        
-        out[1] is a tuple of length 2.  out[1][0] is the string 'Merged BOMs'.
-        out[1][1] is a DataFrame object and is the concatenated list of all the
-        merged SW/SL BOMs.
+        string2 = "Merged BOMs".  DataFrame2 = Merged SW/SL BOMs that have been
+        concatenated together.
     ''' 
     dfswDFrames = []
     dfmergedDFrames = []
@@ -756,7 +759,7 @@ def concat(title_dfsw, title_dfmerged):
 
 
 def export2excel(dirname, filename, results2export):
-    '''Export to an Excel file the results of all the bom checks.
+    '''Export to an Excel file the results of all the BOM checks.
     
     calls: len2, autosize_excel_columns, autosize_excel_column_df, definefn... 
     (these functions are defined internally within the export2exel function)
@@ -776,8 +779,8 @@ def export2excel(dirname, filename, results2export):
         the number of BOMs analyzed, and if bomcheck's concatenate option was
         invoked or not.  Each tuple has two items.  The  first item of a tuple
         is a string and is the name assigned to the tab of the Excel worksheet.
-        It is typically an assembly part number.  The second  item is a 
-        DataFrame object for a BOM.  The list of tuples consists of:
+        It is typically an assembly part number.  The second  item is a BOM
+        (a DataFrame object).  The list of tuples consists of:
         
         1. SolidWorks BOMs that have been converted to SyteLine format.  SW 
         BOMs will only occur if no corresponding SL BOM was found.
