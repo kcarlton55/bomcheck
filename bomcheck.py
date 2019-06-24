@@ -41,12 +41,12 @@ def get_version():
     return __version__
 
 
-def getdroplist():
-    ''' Create two global python lists named drop and exceptions.  Make these
-    lists global thus allowing easy access to other functions (specifically to
-    sw).  These lists are derived from the file named droplists.py.  The drop 
-    list contains pns of off-the-shelf parts, like bolts and pipe nipples, that
-    are to be excluded from the bom check.
+def setglobals():
+    ''' Create global variables.  Two are python lists named drop and 
+    exceptions.  These lists are derived from the file named droplists.py.
+    The drop list contains pns of off-the-shelf parts, like bolts and pipe
+    nipples, that are to be excluded from the bom check.  Other globals:
+    useDrop.
     
     Returns
     =======
@@ -67,7 +67,7 @@ def getdroplist():
             sys.path.append(p)
             break
     else:
-        print('At function "getdroplist", a suitable path was not found to\n'
+        print('At function "setglobals", a suitable path was not found to\n'
               'load droplist.py from.')
     try:
         import droplist
@@ -110,18 +110,20 @@ def main():
                         '_sl files without a corresponding _sw file are ignored.')
     parser.add_argument('-d', '--drop', action='store_true', default=False,
                         help='Ignore 3*-025 pns, i.e. do not use in the bom check')
-    parser.add_argument('-c', '--concatenate', action='store_true', default=False,
-                        help='Concatenate the output into one long list of BOMs ')
+    parser.add_argument('-o', '--ownworksheet', action='store_true', default=False,
+                        help='Each checked BOM to its own worksheet')
+    parser.add_argument('-f', '--flat', action='store_true', default=False,
+                        help="Don't parse according to BOM pn")
     parser.add_argument('-v', '--version', action='version', version=__version__,
                         help="Show program's version number and exit")            
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
         sys.exit(1)
     args = parser.parse_args()  
-    bomcheck(args.filename, args.drop, args.concatenate) 
+    bomcheck(args.filename, args.drop, args.flat, args.ownworksheet) 
 
 
-def bomcheck(fn, d=False, c=False):
+def bomcheck(fn, d=False, f=False, o=False):
     ''' This function is the hub of the bomcheck program.  It calls upon other
     fuctions that act to open Excel files or csv files that contain BOMs.  
     Filenames must end with _sw.xlsx, _sl.xlsx, _sw.csv, or _sl.csv.  Leading 
@@ -147,7 +149,7 @@ def bomcheck(fn, d=False, c=False):
     d : bool
         If True, omit items from the drop list for BOM checking.  The drop list
         is a list of part nos. to disreguard for the bom check.  Default: False.
-        See the function "getdroplist" for more info.
+        See the function "setglobals" for more info.
 
     Returns
     =======
@@ -179,7 +181,7 @@ def bomcheck(fn, d=False, c=False):
         fn = eval(fn)
     
     if d:
-        useDrop = True  # useDrop: a global variable established in getdroplist
+        useDrop = True  # useDrop: a global variable established in setglobals
         print('drop =', drop)
         print('exceptions =', exceptions)
         
@@ -197,10 +199,20 @@ def bomcheck(fn, d=False, c=False):
     title_dfmerged = []
     for k, v in merged_sw2sl.items():
         title_dfmerged.append((k, v))  # Create a list of tuples: [(title, mergedbom)... ]
-   
-    if c==True:
+        
+    if f == True:
+        title_dfsw, title_dfmerged = concat(title_dfsw, title_dfmerged)
+        if title_dfsw:
+            title_dfsw[0][1].reset_index(inplace=True)
+            title_dfsw[0][1].set_index("Item", inplace=True)
+            title_dfsw[0][1].sort_index(inplace=True)
+        if title_dfmerged:
+            title_dfmerged[0][1].reset_index(inplace=True)
+            title_dfmerged[0][1].set_index("Item", inplace=True)
+            title_dfmerged[0][1].sort_index(inplace=True)
+    elif o == False:
     	title_dfsw, title_dfmerged = concat(title_dfsw, title_dfmerged)
-   
+        
     try:    
         export2excel(dirname, 'bomcheck', title_dfsw + title_dfmerged)
     except PermissionError:
@@ -557,7 +569,7 @@ def sw(df):
       "025" are off-the-shelf parts.  They are removed from the SolidWorks BOM.
       (As a general rule, off-the-shelf parts are not shown on SyteLine BOMs.)
       The list that governs this rule is in a file named drop.py.  Therefore
-      other part nos. may be added to this list if required.  (see getdroplist)
+      other part nos. may be added to this list if required.  (see setglobals)
     - Many times part nos. for pipe nipples, pipes, and structural steel show 
       more than once in a SW BOM.  If this occurs the BOM is updated so that 
       that part shows only  once.  The quantity is updated accordingly..
@@ -893,7 +905,7 @@ def export2excel(dirname, filename, results2export):
             print('Attempt to open bomcheck.xlsx in Excel failed.' )            
 
 # before program begins, create global variables useDrop, drop, and exceptions
-getdroplist()      
+setglobals()      
 
 if __name__=='__main__':
     main()                   # comment out this line for testing
