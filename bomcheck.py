@@ -41,7 +41,7 @@ def get_version():
     return __version__
 
 
-def setglobals():
+def set_globals():
     ''' Create global variables.  Two are python lists named drop and 
     exceptions.  These lists are derived from the file named droplists.py.
     The drop list contains pns of off-the-shelf parts, like bolts and pipe
@@ -67,7 +67,7 @@ def setglobals():
             sys.path.append(p)
             break
     else:
-        print('At function "setglobals", a suitable path was not found to\n'
+        print('At function "set_globals", a suitable path was not found to\n'
               'load droplist.py from.')
     try:
         import droplist
@@ -110,10 +110,10 @@ def main():
                         '_sl files without a corresponding _sw file are ignored.')
     parser.add_argument('-d', '--drop', action='store_true', default=False,
                         help='Ignore 3*-025 pns, i.e. do not use in the bom check')
-    parser.add_argument('-o', '--ownworksheet', action='store_true', default=False,
-                        help='Each checked BOM to its own worksheet')
+    parser.add_argument('-s', '--sheet', action='store_true', default=False,
+                        help='Output sent to individual worksheets')
     parser.add_argument('-f', '--flat', action='store_true', default=False,
-                        help="Don't parse according to BOM pn")
+                        help="Output arranged according to pns")
     parser.add_argument('-v', '--version', action='version', version=__version__,
                         help="Show program's version number and exit")            
     if len(sys.argv)==1:
@@ -123,7 +123,7 @@ def main():
     bomcheck(args.filename, args.drop, args.flat, args.ownworksheet) 
 
 
-def bomcheck(fn, d=False, f=False, o=False):
+def bomcheck(fn, d=False, f=False, s=False):
     ''' This function is the hub of the bomcheck program.  It calls upon other
     fuctions that act to open Excel files or csv files that contain BOMs.  
     Filenames must end with _sw.xlsx, _sl.xlsx, _sw.csv, or _sl.csv.  Leading 
@@ -149,7 +149,7 @@ def bomcheck(fn, d=False, f=False, o=False):
     d : bool
         If True, omit items from the drop list for BOM checking.  The drop list
         is a list of part nos. to disreguard for the bom check.  Default: False.
-        See the function "setglobals" for more info.
+        See the function "set_globals" for more info.
 
     Returns
     =======
@@ -174,14 +174,15 @@ def bomcheck(fn, d=False, f=False, o=False):
 
     \u2009
     '''
+    global useDrop
     if os.path.isdir(fn):
         fn = os.path.join(fn, '*')
         
     if fn.startswith('[') and fn.endswith(']'):
         fn = eval(fn)
-    
+
     if d:
-        useDrop = True  # useDrop: a global variable established in setglobals
+        useDrop = True  # useDrop: a global variable established in set_globals
         print('drop =', drop)
         print('exceptions =', exceptions)
         
@@ -199,19 +200,12 @@ def bomcheck(fn, d=False, f=False, o=False):
     title_dfmerged = []
     for k, v in merged_sw2sl.items():
         title_dfmerged.append((k, v))  # Create a list of tuples: [(title, mergedbom)... ]
-        
+      
     if f == True:
-        title_dfsw, title_dfmerged = concat(title_dfsw, title_dfmerged)
-        if title_dfsw:
-            title_dfsw[0][1].reset_index(inplace=True)
-            title_dfsw[0][1].set_index("Item", inplace=True)
-            title_dfsw[0][1].sort_index(inplace=True)
-        if title_dfmerged:
-            title_dfmerged[0][1].reset_index(inplace=True)
-            title_dfmerged[0][1].set_index("Item", inplace=True)
-            title_dfmerged[0][1].sort_index(inplace=True)
-    elif o == False:
-    	title_dfsw, title_dfmerged = concat(title_dfsw, title_dfmerged)
+        title_dfsw, title_dfmerged = concat(title_dfsw, title_dfmerged, 'Item', 'assy')
+        title_dfmerged[0][1].sort_index(inplace=True)
+    elif s == False:
+    	title_dfsw, title_dfmerged = concat(title_dfsw, title_dfmerged, 'assy', 'Item')
         
     try:    
         export2excel(dirname, 'bomcheck', title_dfsw + title_dfmerged)
@@ -569,7 +563,7 @@ def sw(df):
       "025" are off-the-shelf parts.  They are removed from the SolidWorks BOM.
       (As a general rule, off-the-shelf parts are not shown on SyteLine BOMs.)
       The list that governs this rule is in a file named drop.py.  Therefore
-      other part nos. may be added to this list if required.  (see setglobals)
+      other part nos. may be added to this list if required.  (see set_globals)
     - Many times part nos. for pipe nipples, pipes, and structural steel show 
       more than once in a SW BOM.  If this occurs the BOM is updated so that 
       that part shows only  once.  The quantity is updated accordingly..
@@ -614,7 +608,7 @@ def sw(df):
     dd = {'Q': 'sum', 'Description': 'first', 'U': 'first'}   # funtions to apply to next line
     df = df.groupby('Item', as_index=False).aggregate(dd).reindex(columns=df.columns)
     df['Q'] = round(df['Q'], 2)
-    
+
     if useDrop==True:
         drop2 = []
         for d in drop:  # drop is a global varialbe: pns to exclude from the bom check
@@ -712,7 +706,7 @@ def sl(dfsw, dfsl):
     return dfmerged
 
 
-def concat(title_dfsw, title_dfmerged):
+def concat(title_dfsw, title_dfmerged, index1, index2):
     ''' Concatenate all the SW BOMs into one long list (if there are any SW
     BOMs without a matching SL BOM being found), and concatenate all the merged
     SW/SL BOMs into another long list.  
@@ -766,7 +760,7 @@ def concat(title_dfsw, title_dfmerged):
         swresults.append(('SW BOMs', dfswCCat.set_index(['assy', 'Op'])))
     if dfmergedDFrames:
         dfmergedCCat = pd.concat(dfmergedDFrames).reset_index() 
-        mrgresults.append(('BOM Check', dfmergedCCat.set_index(['assy', 'Item'])))
+        mrgresults.append(('BOM Check', dfmergedCCat.set_index([index1, index2])))
     return swresults, mrgresults
 
 
@@ -905,7 +899,7 @@ def export2excel(dirname, filename, results2export):
             print('Attempt to open bomcheck.xlsx in Excel failed.' )            
 
 # before program begins, create global variables useDrop, drop, and exceptions
-setglobals()      
+set_globals()      
 
 if __name__=='__main__':
     main()                   # comment out this line for testing
