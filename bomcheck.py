@@ -10,9 +10,9 @@ other from SyteLine (SL).  The structure of the BOMs (headings, structure,
 etc.) are very unique to our company.  Therefore this program, unaltered, will
 fail to function at another company. 
 
-Run from the command line like this: python bomcheck.py '*'
+Run this program from the command line like this: python bomcheck.py '*'
 
-Run without any arguments shows help info about the program: python bomcheck.py
+Without any arguments help info is shown: python bomcheck.py
 
 Run from a python console terminal like this: bomcheck('*')
 
@@ -110,20 +110,18 @@ def main():
                         '_sl files without a corresponding _sw file are ignored.')
     parser.add_argument('-d', '--drop', action='store_true', default=False,
                         help='Ignore 3*-025 pns, i.e. do not use in the bom check')
-    parser.add_argument('-s', '--sheet', action='store_true', default=False,
+    parser.add_argument('-c', '--concatoff', action='store_true', default=False,
                         help='Output sent to individual worksheets')
-    parser.add_argument('-f', '--flat', action='store_true', default=False,
-                        help="Output arranged according to pns")
     parser.add_argument('-v', '--version', action='version', version=__version__,
                         help="Show program's version number and exit")            
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
         sys.exit(1)
     args = parser.parse_args()  
-    bomcheck(args.filename, args.drop, args.flat, args.ownworksheet) 
+    bomcheck(args.filename, args.drop, args.concatoff) 
 
 
-def bomcheck(fn, d=False, f=False, s=False):
+def bomcheck(fn, d=False, c=False):
     ''' This function is the hub of the bomcheck program.  It calls upon other
     fuctions that act to open Excel files or csv files that contain BOMs.  
     Filenames must end with _sw.xlsx, _sl.xlsx, _sw.csv, or _sl.csv.  Leading 
@@ -200,11 +198,8 @@ def bomcheck(fn, d=False, f=False, s=False):
     title_dfmerged = []
     for k, v in merged_sw2sl.items():
         title_dfmerged.append((k, v))  # Create a list of tuples: [(title, mergedbom)... ]
-      
-    if f == True:
-        title_dfsw, title_dfmerged = concat(title_dfsw, title_dfmerged, 'Item', 'assy')
-        title_dfmerged[0][1].sort_index(inplace=True)
-    elif s == False:
+    
+    if c == False:
     	title_dfsw, title_dfmerged = concat(title_dfsw, title_dfmerged, 'assy', 'Item')
         
     try:    
