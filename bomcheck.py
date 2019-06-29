@@ -110,8 +110,9 @@ def main():
                         '_sl files without a corresponding _sw file are ignored.')
     parser.add_argument('-d', '--drop', action='store_true', default=False,
                         help='Ignore 3*-025 pns, i.e. do not use in the bom check')
-    parser.add_argument('-c', '--concatoff', action='store_true', default=False,
-                        help='Output sent to individual worksheets')
+    parser.add_argument('-c', '--concat', action='store_true', default=False,
+                        help='concatenate output so that results are combined ' +
+                        'into a single list')
     parser.add_argument('-v', '--version', action='version', version=__version__,
                         help="Show program's version number and exit")            
     if len(sys.argv)==1:
@@ -199,7 +200,7 @@ def bomcheck(fn, d=False, c=False):
     for k, v in merged_sw2sl.items():
         title_dfmerged.append((k, v))  # Create a list of tuples: [(title, mergedbom)... ]
     
-    if c == False:
+    if c == True:
     	title_dfsw, title_dfmerged = concat(title_dfsw, title_dfmerged, 'assy', 'Item')
         
     try:    
