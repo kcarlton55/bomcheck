@@ -119,7 +119,7 @@ def main():
         parser.print_help(sys.stderr)
         sys.exit(1)
     args = parser.parse_args()  
-    bomcheck(args.filename, args.drop, args.concatoff) 
+    bomcheck(args.filename, args.drop, args.sheets) 
 
 
 def bomcheck(fn, d=False, c=False):
@@ -672,12 +672,14 @@ def sl(dfsw, dfsl):
     dfsl.rename(columns={'Material':'Item', 'Quantity':'Q', 
                          'Material Description':'Description', 'Qty':'Q', 'Qty Per': 'Q',
                          'U/M':'U', 'UM':'U', 'Obsolete Date': 'Obsolete'}, inplace=True)
-
-    if 'Obsolete' in dfsl.columns:
+        
+    dfsl['Item'] = dfsl['Item'].str.upper()  # make matching case-insensitive
+    
+    if 'Obsolete' in dfsl.columns:  # Don't use any obsolete pns (even though shown in the SL BOM)
         filtr4 = dfsl['Obsolete'].notnull()
         dfsl.drop(dfsl[filtr4].index, inplace=True)    # https://stackoverflow.com/questions/13851535/how-to-delete-rows-from-a-pandas-dataframe-based-on-a-conditional-expression
         
-    dfmerged = pd.merge(dfsw, dfsl, on='Item', how='outer', suffixes=('_sw', '_sl'), indicator=True)
+    dfmerged = pd.merge(dfsw, dfsl, on='Item', how='outer', suffixes=('_sw', '_sl') ,indicator=True)
     dfmerged.sort_values(by=['Item'], inplace=True)
     filtrI = dfmerged['_merge'].str.contains('both')  # this filter determines if pn in both SW and SL
     filtrQ = abs(dfmerged['Q_sw'] - dfmerged['Q_sl']) < .0051  # If diff in qty greater than this value, show X
