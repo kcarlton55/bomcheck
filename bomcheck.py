@@ -122,7 +122,7 @@ def main():
     bomcheck(args.filename, args.drop, args.sheets) 
 
 
-def bomcheck(fn, d=False, c=False):
+def bomcheck(fn='*', d=False, c=False):
     ''' This function is the hub of the bomcheck program.  It calls upon other
     fuctions that act to open Excel files or csv files that contain BOMs.  
     Filenames must end with _sw.xlsx, _sl.xlsx, _sw.csv, or _sl.csv.  Leading 
@@ -140,7 +140,8 @@ def bomcheck(fn, d=False, c=False):
     =========
 
     fn : string
-        filename(s) of Excel files to do a BOM check on.
+        filename(s) of Excel files to do a BOM check on.  Default: all _sw/_sl
+        files in the current working directory.
 
     c : bool
         concatenate data that is sent to the ouput Excel file.  Default: False
@@ -673,7 +674,7 @@ def sl(dfsw, dfsl):
                          'Material Description':'Description', 'Qty':'Q', 'Qty Per': 'Q',
                          'U/M':'U', 'UM':'U', 'Obsolete Date': 'Obsolete'}, inplace=True)
         
-    dfsl['Item'] = dfsl['Item'].str.upper()  # make matching case-insensitive
+    dfsl['Item'] = dfsl['Item'].str.upper()  # make the check case-insensitive
     
     if 'Obsolete' in dfsl.columns:  # Don't use any obsolete pns (even though shown in the SL BOM)
         filtr4 = dfsl['Obsolete'].notnull()
