@@ -21,7 +21,7 @@ howtocompile.md.
 """
 
 
-__version__ = '1.0.8'
+__version__ = '1.0.9'
 __author__ = 'Kenneth Carlton'
 import glob, argparse, sys, warnings
 import pandas as pd
