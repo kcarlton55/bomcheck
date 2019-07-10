@@ -862,15 +862,16 @@ def export2excel(dirname, filename, results2export):
     if os.getenv('USERNAME'):
         username = os.getenv('USERNAME')  # Works on MS Windows
     else:
-        username = 'unknown'  
+        username = 'unknown'
     now = datetime.datetime.now()
-    time = now.strftime("%m-%d-%Y %I:%M %p")
+    # time = now.strftime("%m-%d-%Y %I:%M %p")
     
-    comment = 'This workbook created ' + time + ' by ' + username + '.  '
+    comment1 = 'This workbook created ' + time + ' by ' + username + '.  '
+    comment2 = 'The drop list was not employed for this BOM check.  '
     bomfooter = '&LCreated ' + time + ' by ' + username + '&CPage &P of &N'
     if useDrop:
-        comment = comment + 'The drop list was used to create this check.  '
-        comment = comment + 'drop = ' + str(drop) +  ', exceptions = ' + str(exceptions)
+        comment2 = ('The drop list was employed for this BOM check:  '
+                    + 'drop = ' + str(drop) +  ', exceptions = ' + str(exceptions))
         bomfooter = bomfooter + '&Rdrop: yes'
     bomheader = '&C&A'
         
@@ -885,8 +886,12 @@ def export2excel(dirname, filename, results2export):
             worksheet.set_footer(bomfooter)
             worksheet.set_landscape()
             worksheet.fit_to_pages(1, 0) 
-            worksheet.hide_gridlines(2)     
-            worksheet.write_comment('A1', comment, {'x_scale': 3})              
+            worksheet.hide_gridlines(2)          
+        workbook = writer.book
+        workbook.set_properties({'title': 'BOM Check', 'author': username,
+                'subject': 'Compares a SolidWorks BOM to a SyteLine BOM',
+                'company': 'Dekker Vacuum Technologies, Inc.',
+                'comments': comment2})            
         writer.save()
     abspath = os.path.abspath(fn)
     print("\nCreated file: " + abspath + '\n')

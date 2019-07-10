@@ -5,54 +5,52 @@ Created on Wed Feb  6 21:18:58 2019
 
 @author: ken
 
-https://www.youtube.com/watch?v=oMyd0ay2QhI 1
-https://www.youtube.com/watch?v=1o3XGOT2YUs 2
-https://www.youtube.com/watch?v=SXOG5GOsscU 3
-
-# 2
-
-from easygui import *
-
-version = 'Tutorial v.1.0'
-
-options = ["Choice 1: Ice Cream", "Choice 2: Soda Pop", "Choice 3: Pizza", "Cancel"]
-
-button = buttonbox("Choose a button", title=version, choices=options)
-
-if button == 'a': #options[0]:
-    button = "You chose ice cream"
-elif button == options[1]:
-    button = "You chose soda pop"
-elif button == options[2]:
-    button = "You chose pizza"
-else:
-    button = "You didn't chose anything"
-    
-
-msgbox(msg=button, title=version)
-
-
-# 3
-
-from easygui import *
-
-version = "Video Tutorial #3"
-v = ccbox(title=version)
-if v == 1:
-    msgbox(msg='You chose to continue', title=version)
-elif v == 0:
-    msgbox(msg="Exiting...", title=version)
-    
 """
-#4
-from easygui import *
-msg = "Please make a choice"
-title = "Choice Box"
-choices = ["Choice 1: Ice Cream", "Choice 2: Soda Pop", 
-          "Choice 3: Cake", "Choice 4: Ice Cream",
-          "Choice 5: Soda Pop", "Choice 6: Cake"]
-var = choicebox(msg, title, choices)
-print(var)
-print(choices[1])
-if var == choices[1]:
-    msgbox(msg = "You cholse Soda Pop!  Yeah!", title=title)
+
+import sys
+from PyQt5.QtWidgets import (QMainWindow, QAction, qApp, QApplication,
+                             QDesktopWidget)
+from PyQt5.QtGui import QIcon
+
+
+class Bomchk(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        self.resize(250, 150)
+        self.center()
+        self.setWindowTitle('bomcheck')
+        self.setWindowIcon(QIcon('icons/dekker.ico'))
+        
+        menubar = self.menuBar()
+        fileMenu = menubar.addMenu('&File')
+        
+        exitAct = QAction(QIcon('icons/exit.png'), '&Exit', self)        
+        exitAct.setShortcut('Ctrl+Q')
+        exitAct.setStatusTip('Exit application')
+        exitAct.triggered.connect(self.close)
+        fileMenu.addAction(exitAct)
+        
+        #self.statusBar()
+        
+
+        helpMenu = menubar.addMenu('&Help')
+        
+
+  
+        self.show() 
+
+    def center(self):
+        qr = self.frameGeometry()
+        cp = QDesktopWidget().availableGeometry().center()
+        qr.moveCenter(cp)
+        self.move(qr.topLeft())
+
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    bc = Bomchk()
+    sys.exit(app.exec_())
+        
