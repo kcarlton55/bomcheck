@@ -30,6 +30,7 @@ import os
 import tempfile
 import re
 import datetime
+import pytz
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
@@ -54,8 +55,9 @@ def set_globals():
     out : None
         If droplists.py not found, set drop=['3*-025'] and exceptions=[]
     '''
-    global drop, exceptions, useDrop
-    useDrop = False    
+    global drop, exceptions, useDrop, timezone
+    timezone = 'US/Central'  # ensure date reported in output Excel file is correct
+    useDrop = False 
     usrPrf = os.getenv('USERPROFILE')  # on my win computer, USERPROFILE = C:\Users\k_carlton
     if usrPrf:    
         userDocDir = os.path.join(usrPrf, 'Documents')
@@ -260,9 +262,9 @@ def gatherBOMs(filename):
                 dname, fname = os.path.split(f)
                 k = fname.rfind('_')
                 fntrunc = fname[:k]  # Name of the sw file, excluding path, and excluding _sw.xlsx
-                if f[i:i+4].lower() == '_sw.':
+                if f[i:i+4].lower() == '_sw.' and fname[0] != '~': # Ignore names like ~$085637_sw.xlsx
                     swfilesdic.update({fntrunc: f})
-                elif f[i:i+4].lower() == '_sl.':
+                elif f[i:i+4].lower() == '_sl.' and fname[0] != '~':
                     slfilesdic.update({fntrunc: f})                 
     swdfsdic = {}
     for k, v in swfilesdic.items():
@@ -863,8 +865,11 @@ def export2excel(dirname, filename, results2export):
         username = os.getenv('USERNAME')  # Works on MS Windows
     else:
         username = 'unknown'
-    now = datetime.datetime.now()
-    time = now.strftime("%m-%d-%Y %I:%M %p")
+        
+    # ref: https://howchoo.com/g/ywi5m2vkodk/working-with-datetime-objects-and-timezones-in-python    
+    utc_now = pytz.utc.localize(datetime.datetime.utcnow())
+    localtime_now = utc_now.astimezone(pytz.timezone(timezone))
+    time = localtime_now.strftime("%m-%d-%Y %I:%M %p")
     
     comment1 = 'This workbook created ' + time + ' by ' + username + '.  '
     comment2 = 'The drop list was not employed for this BOM check.  '
