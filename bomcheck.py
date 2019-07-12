@@ -124,7 +124,7 @@ def main():
     bomcheck(args.filename, args.drop, args.sheets) 
 
 
-def bomcheck(fn='*', d=False, c=False):
+def bomcheck(fn='*', d=False, c=False,  u = 'unknown'):
     ''' This function is the hub of the bomcheck program.  It calls upon other
     fuctions that act to open Excel files or csv files that contain BOMs.  
     Filenames must end with _sw.xlsx, _sl.xlsx, _sw.csv, or _sl.csv.  Leading 
@@ -152,6 +152,10 @@ def bomcheck(fn='*', d=False, c=False):
         If True, omit items from the drop list for BOM checking.  The drop list
         is a list of part nos. to disreguard for the bom check.  Default: False.
         See the function "set_globals" for more info.
+        
+    u : string
+        Username.  This will be fed to the export2exel function so that a 
+        username will be placed into the Excel file that this program outputs.
 
     Returns
     =======
@@ -207,7 +211,7 @@ def bomcheck(fn='*', d=False, c=False):
     	title_dfsw, title_dfmerged = concat(title_dfsw, title_dfmerged, 'assy', 'Item')
         
     try:    
-        export2excel(dirname, 'bomcheck', title_dfsw + title_dfmerged)
+        export2excel(dirname, 'bomcheck', title_dfsw + title_dfmerged, u)
     except PermissionError:
         print('\nError: unable to write to bomcheck.xlsx')
         
@@ -765,7 +769,7 @@ def concat(title_dfsw, title_dfmerged, index1, index2):
     return swresults, mrgresults
 
 
-def export2excel(dirname, filename, results2export):
+def export2excel(dirname, filename, results2export, uname):
     '''Export to an Excel file the results of all the BOM checks.
     
     calls: len2, autosize_excel_columns, autosize_excel_column_df, definefn... 
@@ -793,6 +797,9 @@ def export2excel(dirname, filename, results2export):
         BOMs will only occur if no corresponding SL BOM was found.
         
         2. Merged SW/SL BOMs.
+        
+    uname : string
+        Username to attach as a property value to the Excel file
 
     Returns
     =======
@@ -861,7 +868,9 @@ def export2excel(dirname, filename, results2export):
 
     fn = definefn(dirname, filename)
     
-    if os.getenv('USERNAME'):
+    if uname != 'unknown':
+        username = uname
+    elif os.getenv('USERNAME'):
         username = os.getenv('USERNAME')  # Works on MS Windows
     else:
         username = 'unknown'
@@ -897,7 +906,7 @@ def export2excel(dirname, filename, results2export):
         workbook.set_properties({'title': 'BOM Check', 'author': username,
                 'subject': 'Compares a SolidWorks BOM to a SyteLine BOM',
                 'company': 'Dekker Vacuum Technologies, Inc.',
-                'comments': comment2})            
+                'comments': comment1 + comment2})            
         writer.save()
     abspath = os.path.abspath(fn)
     print("\nCreated file: " + abspath + '\n')
