@@ -472,11 +472,12 @@ def multilevelbom(df, top='TOPLEVEL'):
     # 3.2, etc. where item 3.1 is a member of subassy 3.
     if 'ITEM NO.' in df.columns:  # is a sw bom
         df['ITEM NO.'] = df['ITEM NO.'].astype('str')
+        df['ITEM NO.'] = df['ITEM NO.'].str.replace('.0', '') # stop 5.0 etc slipping through
         df['Level'] = df['ITEM NO.'].str.count('\.')
     elif 'Level' not in df.columns:  # is a single level sl bom
         df['Level'] = 0
     # Take the the column named "Level" and create a new column: "Level_pn".
-    # Instead of the level at which a part exists with in an assembly, like
+    # Instead of the level at which a part exists within an assembly, like
     # "Level", which contains integers like [0, 1, 2, 2, 1], "Level_pn" contains
     # the parent part no. of the part at a particular level, i.e. 
     # ['TOPLEVEL', '068278', '2648-0300-001', '2648-0300-001', '068278']
