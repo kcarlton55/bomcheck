@@ -21,7 +21,7 @@ howtocompile.md.
 """
 
 
-__version__ = '1.0.9'
+__version__ = '1.0.10'
 __author__ = 'Kenneth Carlton'
 import glob, argparse, sys, warnings
 import pandas as pd
@@ -209,11 +209,13 @@ def bomcheck(fn='*', d=False, c=False,  u = 'unknown'):
     
     if c == False:
     	title_dfsw, title_dfmerged = concat(title_dfsw, title_dfmerged, 'assy', 'Item')
-        
+    
     try:    
         export2excel(dirname, 'bomcheck', title_dfsw + title_dfmerged, u)
     except PermissionError:
         print('\nError: unable to write to bomcheck.xlsx')
+        
+    return title_dfsw, title_dfmerged
         
         
 def gatherBOMs(filename):
