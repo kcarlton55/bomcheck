@@ -159,11 +159,19 @@ def bomcheck(fn='*', d=False, c=False,  u = 'unknown'):
 
     Returns
     =======
-
-    out : None
-        The finale of the bomcheck program is to export results to an Excel
-        file.  In the file will be BOMs for which no matching SyteLine BOMs
-        was found, and/or merged SW and SL BOMs that are the BOM check.
+    
+    out : list  
+        List of tuples.  The number of tuples in the list varies according to 
+        the number of BOMs analyzed, and if bomcheck's c (sheets) option was
+        invoked or not.  Each tuple has two items.  The  first item of a tuple
+        is a string and is the name assigned to the tab of the Excel worksheet.
+        It is typically an assembly part number.  The second  item is a BOM
+        (a DataFrame object).  The list of tuples consists of:
+        
+        1. SolidWorks BOMs that have been converted to SyteLine format.  SW 
+        BOMs will only occur if no corresponding SL BOM was found.
+        
+        2. Merged SW/SL BOMs.
 
     Examples
     ========
@@ -790,7 +798,7 @@ def export2excel(dirname, filename, results2export, uname):
 
     results2export : list
         List of tuples.  The number of tuples in the list varies according to 
-        the number of BOMs analyzed, and if bomcheck's concatenate option was
+        the number of BOMs analyzed, and if bomcheck's c (sheets) option was
         invoked or not.  Each tuple has two items.  The  first item of a tuple
         is a string and is the name assigned to the tab of the Excel worksheet.
         It is typically an assembly part number.  The second  item is a BOM
