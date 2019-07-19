@@ -124,7 +124,7 @@ def main():
     bomcheck(args.filename, args.drop, args.sheets) 
 
 
-def bomcheck(fn='*', d=False, c=False,  u = 'unknown'):
+def bomcheck(fn='*', d=False, c=False,  u = 'unknown', e=True):
     ''' This function is the hub of the bomcheck program.  It calls upon other
     fuctions that act to open Excel files or csv files that contain BOMs.  
     Filenames must end with _sw.xlsx, _sl.xlsx, _sw.csv, or _sl.csv.  Leading 
@@ -156,22 +156,22 @@ def bomcheck(fn='*', d=False, c=False,  u = 'unknown'):
     u : string
         Username.  This will be fed to the export2exel function so that a 
         username will be placed into the Excel file that this program outputs.
+        
+    e : bool
+        Export result data to an Excel file (bomcheck.xlsx).  Default: True
 
     Returns
     =======
     
-    out : list  
-        List of tuples.  The number of tuples in the list varies according to 
-        the number of BOMs analyzed, and if bomcheck's c (sheets) option was
-        invoked or not.  Each tuple has two items.  The  first item of a tuple
-        is a string and is the name assigned to the tab of the Excel worksheet.
-        It is typically an assembly part number.  The second  item is a BOM
-        (a DataFrame object).  The list of tuples consists of:
-        
-        1. SolidWorks BOMs that have been converted to SyteLine format.  SW 
-        BOMs will only occur if no corresponding SL BOM was found.
-        
-        2. Merged SW/SL BOMs.
+    out : tuple
+        If c=0, returns a tuple containing two items:
+            
+            1.  One DataFrame object comprised of SW BOMs for which no
+                matching SL BOMs were found.
+
+            2.  One DataFrame object comprised of merged BOMs.
+
+        And if c=1, returns None
 
     Examples
     ========
@@ -182,9 +182,9 @@ def bomcheck(fn='*', d=False, c=False,  u = 'unknown'):
 
     >>> bomcheck("*")   # all files in the current working directory are evaluated
     
-    Only a directory name specified.  Implies "*" for that directory:
+    If only a directory name specified, implies "*" for that directory:
     
-    >>> bomcheck("C:\\pathtomyfile")  # only a directory name specified.  Implies "*" for that directory:
+    >>> bomcheck("C:\\pathtomyfile")
 
     \u2009
     '''
@@ -218,12 +218,20 @@ def bomcheck(fn='*', d=False, c=False,  u = 'unknown'):
     if c == False:
     	title_dfsw, title_dfmerged = concat(title_dfsw, title_dfmerged, 'assy', 'Item')
     
-    try:    
-        export2excel(dirname, 'bomcheck', title_dfsw + title_dfmerged, u)
-    except PermissionError:
-        print('\nError: unable to write to bomcheck.xlsx')
+    if e:
+        try:    
+            export2excel(dirname, 'bomcheck', title_dfsw + title_dfmerged, u)
+        except PermissionError:
+            print('\nError: unable to write to bomcheck.xlsx')
         
-    return title_dfsw, title_dfmerged
+    if c == False and title_dfsw and title_dfmerged:
+        return title_dfsw[0][1], title_dfmerged[0][1]
+    elif c == False and title_dfsw:
+        return title_dfsw[0][1], None
+    elif c == False and title_dfmerged:
+        return None, title_dfmerged[0][1]
+    else:
+        return None, None
         
         
 def gatherBOMs(filename):
@@ -800,17 +808,27 @@ def export2excel(dirname, filename, results2export, uname):
         List of tuples.  The number of tuples in the list varies according to 
         the number of BOMs analyzed, and if bomcheck's c (sheets) option was
         invoked or not.  Each tuple has two items.  The  first item of a tuple
-        is a string and is the name assigned to the tab of the Excel worksheet.
-        It is typically an assembly part number.  The second  item is a BOM
-        (a DataFrame object).  The list of tuples consists of:
+        is a string and is the name to be assigned to the tab of the Excel
+        worksheet.  It is typically an assembly part number.  The second  item
+        is a BOM (a DataFrame object).  The list of tuples consists of:
         
-        1. SolidWorks BOMs that have been converted to SyteLine format.  SW 
+        *1* SolidWorks BOMs that have been converted to SyteLine format.  SW 
         BOMs will only occur if no corresponding SL BOM was found.
         
-        2. Merged SW/SL BOMs.
+        *2* Merged SW/SL BOMs.
+        
+        That is, if c=1, the form will be:
+
+        - [('2730-2019-544_sw', df1), ('080955', df2), 
+          ('6890-080955-1', df3), ('0300-2019-533', df4), ...]
+
+        and if c=0, the form will be:
+        
+        - [('SW BOMs', dfForSWboms), ('BOM Check', dfForMergedBoms)]
+        
         
     uname : string
-        Username to attach as a property value to the Excel file
+        Username to attach to the footer of the Excel file.
 
     Returns
     =======
