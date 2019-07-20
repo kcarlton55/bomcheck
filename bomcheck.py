@@ -47,7 +47,7 @@ def set_globals():
     exceptions.  These lists are derived from the file named droplists.py.
     The drop list contains pns of off-the-shelf parts, like bolts and pipe
     nipples, that are to be excluded from the bom check.  Other globals:
-    useDrop.
+    useDrop, timezone.
     
     Returns
     =======
@@ -56,7 +56,7 @@ def set_globals():
         If droplists.py not found, set drop=['3*-025'] and exceptions=[]
     '''
     global drop, exceptions, useDrop, timezone
-    timezone = 'US/Central'  # ensure date reported in output Excel file is correct
+    timezone = 'US/Central'  # ensure time reported in bomcheck.xlsx is correct
     useDrop = False 
     usrPrf = os.getenv('USERPROFILE')  # on my win computer, USERPROFILE = C:\Users\k_carlton
     if usrPrf:    
@@ -125,16 +125,31 @@ def main():
 
 
 def bomcheck(fn='*', d=False, c=False,  u = 'unknown', e=True):
-    ''' This function is the hub of the bomcheck program.  It calls upon other
-    fuctions that act to open Excel files or csv files that contain BOMs.  
-    Filenames must end with _sw.xlsx, _sl.xlsx, _sw.csv, or _sl.csv.  Leading 
-    part of file names must match.  For example, leading parts of names
-    0300-2018-797_sw.xlsx and 0300-2018-797_sw.xlsx match and a BOM check will
-    be done on them.  If a _sw file found for which not _sl file file found, 
-    transform the _sw file to a SyteLine like format.  If a _sl file found with
-    no matching _sw file found, the _sl file is ignoreed; that is, it is not 
-    used an any computation.  SW and SL BOMs are then merged thus showing a
-    checked BOM.  Finally results are exported to an MS Excel file.
+    ''' This is the primary function of the bomcheck program and acts as a hub
+    for the bomcheck program.  First to occur, Excel/csv files that contain 
+    BOMs are opened.  Filenames containing BOMs must end with _sw.xlsx, 
+    _sl.xlsx, _sw.csv, or _sl.csv.  Otherwise the files are ignored.  For a 
+    comparison between a SolidWorks (SW) BOM and a  SyteLine (SL) BOM to occur,
+    filenames must be the same up until the underscore (_) character within 
+    the filename (of _sw/_sl).  E.g., 086677_sw.xlsx and 086677_sl.xlsx match.  
+    An xlsx file will compare with a csv file.
+    
+    An exception to having to match file names is if a BOM contains a 
+    multilevel BOM.  In this case a top assembly pn is present and 
+    subassemblies thereof, all in one BOM.  The multilevelbom function (which 
+    see for more info) handles this by extracting subassembly BOMs for later 
+    comparison.
+    
+    Any _sw files found for which no matching _sl file is found will be 
+    converted into a SyteLine like BOM format for output.  If a _sl file is
+    present for which no corresponding _sw file is found, the _sl file is
+    ignored; that is, no output will occur to suggest that it even existed.
+    
+    After BOM merges occur, an Excel file is output containg the results.  The
+    name of the Excel file is bomcheck.xlsx.  The results are the SW files for
+    which no matching SL file was found, and also the merged SW/SL files for 
+    which matches occured.  Finally this function will also return DataFrame 
+    objects of the results.
     
     calls: gatherBOMs, combine_tables, concat, export2excel
 
@@ -142,36 +157,37 @@ def bomcheck(fn='*', d=False, c=False,  u = 'unknown', e=True):
     =========
 
     fn : string
-        filename(s) of Excel files to do a BOM check on.  Default: all _sw/_sl
-        files in the current working directory.
+        filename(s) of Excel files to do a BOM check on.  Default: "*" (all
+        _sw & _sl files in the current working directory)
 
     c : bool
-        concatenate data that is sent to the ouput Excel file.  Default: False
+        Break up results across multiple sheets within the bomcheck.xlsx file.
+        Default: False
     
     d : bool
-        If True, omit items from the drop list for BOM checking.  The drop list
-        is a list of part nos. to disreguard for the bom check.  Default: False.
-        See the function "set_globals" for more info.
+        If True, disregard pt. nos. in the drop list (defined by the function
+        "set_globals") for the BOM check.  Default: False
         
     u : string
         Username.  This will be fed to the export2exel function so that a 
-        username will be placed into the Excel file that this program outputs.
+        username will be placed into the footer of the bomcheck.xlsx file.
+        Default: 'unknown'
         
     e : bool
-        Export result data to an Excel file (bomcheck.xlsx).  Default: True
+        Export results to an Excel file named bomcheck.xlsx.  Default: True
 
     Returns
     =======
     
     out : tuple
-        If c=0, returns a tuple containing two items:
+        If c=False, returns a tuple containing two items:
             
             1.  One DataFrame object comprised of SW BOMs for which no
                 matching SL BOMs were found.
 
             2.  One DataFrame object comprised of merged BOMs.
 
-        And if c=1, returns None
+        And if c=True, returns None
 
     Examples
     ========
@@ -445,6 +461,14 @@ def multilevelbom(df, top='TOPLEVEL'):
     pull out the main assembly and the subassemblies thereof.  These 
     assys/subassys are placed in a python dictionary and returned.  If df is
     a single level BOM, a dictionary with one item is returned.
+    
+    For this function to pull out subassembly BOMs from a SyteLine BOM, the
+    column named LEVEL must exist in the SyteLine BOM.  It contains intergers
+    indicating the level of a subassemby within the BOM.  (SyteLine generates 
+    these intergers automatically).  For this function to pull out
+    subassemblies from a SolidWorks BOM, the column ITEM NO. must contain
+    values that indicate which values are subassemblies (e.g, the 2.1 and 2.2
+    of 1, 2, 2.1, 2.2, 3, 4)
 
     Parmeters
     =========
@@ -946,7 +970,7 @@ def export2excel(dirname, filename, results2export, uname):
         except:
             print('Attempt to open bomcheck.xlsx in Excel failed.' )            
 
-# before program begins, create global variables useDrop, drop, and exceptions
+# before program begins, create global variables useDrop, drop, exceptions, etc.
 set_globals()      
 
 if __name__=='__main__':
