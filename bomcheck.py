@@ -21,7 +21,7 @@ howtocompile.md.
 """
 
 
-__version__ = '1.0.10'
+__version__ = '1.0.11'
 __author__ = 'Kenneth Carlton'
 import glob, argparse, sys, warnings
 import pandas as pd
@@ -805,10 +805,10 @@ def concat(title_dfsw, title_dfmerged, index1, index2):
         dfmergedDFrames.append(t[1])
     if dfswDFrames:
         dfswCCat = pd.concat(dfswDFrames).reset_index()
-        swresults.append(('SW BOMs', dfswCCat.set_index(['assy', 'Op'])))
+        swresults.append(('SW BOMs', dfswCCat.set_index(['assy', 'Op']).sort_index(axis=0)))
     if dfmergedDFrames:
-        dfmergedCCat = pd.concat(dfmergedDFrames).reset_index() 
-        mrgresults.append(('BOM Check', dfmergedCCat.set_index([index1, index2])))
+        dfmergedCCat = pd.concat(dfmergedDFrames).reset_index()
+        mrgresults.append(('BOM Check', dfmergedCCat.set_index([index1, index2]).sort_index(axis=0)))
     return swresults, mrgresults
 
 
