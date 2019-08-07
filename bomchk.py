@@ -9,8 +9,9 @@ Created on Wed Feb  6 21:18:58 2019
 
 import sys
 from PyQt5.QtWidgets import (QMainWindow, QAction, qApp, QApplication,
-                             QDesktopWidget)
-from PyQt5.QtGui import QIcon
+                             QDesktopWidget, QCheckBox, QLabel)
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QIcon, QPixmap
 
 
 class Bomchk(QMainWindow):
@@ -19,38 +20,46 @@ class Bomchk(QMainWindow):
         self.initUI()
 
     def initUI(self):
-        self.resize(250, 150)
-        self.center()
-        self.setWindowTitle('bomcheck')
+        global useDrop
+        self.setGeometry(300, 300, 300, 220)
+        self.setWindowTitle('Dekker BOM Check')
         self.setWindowIcon(QIcon('icons/dekker.ico'))
-        
+
         menubar = self.menuBar()
         fileMenu = menubar.addMenu('&File')
-        
-        exitAct = QAction(QIcon('icons/exit.png'), '&Exit', self)        
+
+        exitAct = QAction(QIcon('icons/exit.png'), '&Exit', self)
         exitAct.setShortcut('Ctrl+Q')
         exitAct.setStatusTip('Exit application')
         exitAct.triggered.connect(self.close)
         fileMenu.addAction(exitAct)
-        
-        #self.statusBar()
-        
 
-        helpMenu = menubar.addMenu('&Help')
-        
+        cb = QCheckBox('Use Drop', self)
+        cb.move(10, 30)
+        cb.stateChanged.connect(self.changeUseDrop)
 
-  
-        self.show() 
+        label = QLabel(self)
+        pixmap = QPixmap('icons/dragndrop.png') #https://pythonspot.com/pyqt5-image/
+        label.setPixmap(pixmap)
+        self.resize(pixmap.width(), pixmap.height())
 
-    def center(self):
-        qr = self.frameGeometry()
-        cp = QDesktopWidget().availableGeometry().center()
-        qr.moveCenter(cp)
-        self.move(qr.topLeft())
+
+
+
+        #helpMenu = menubar.addMenu('&Help')
+        #self.setAcceptDrops(True)
+
+        self.statusBar()
+        self.show()
+
+    def changeUseDrop(self, state):
+        if state == Qt.Checked:
+            useDrop = True
+        else:
+            useDrop = False
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     bc = Bomchk()
     sys.exit(app.exec_())
-        
