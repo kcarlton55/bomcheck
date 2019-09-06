@@ -47,7 +47,7 @@ def set_globals():
     exceptions.  These lists are derived from the file named droplists.py.
     The drop list contains pns of off-the-shelf parts, like bolts and pipe
     nipples, that are to be excluded from the bom check.  Other globals:
-    useDrop, timezone.
+    useDrop, timezone, excelTitle.
 
     Returns
     =======
@@ -55,7 +55,8 @@ def set_globals():
     out : None
         If droplists.py not found, set drop=['3*-025'] and exceptions=[]
     '''
-    global drop, exceptions, useDrop, timezone
+    global drop, exceptions, useDrop, timezone, excelTitle
+    excelTitle = []
     timezone = 'US/Central'  # ensure time reported in bomcheck.xlsx is correct
     useDrop = False
     usrPrf = os.getenv('USERPROFILE')  # on my win computer, USERPROFILE = C:\Users\k_carlton
@@ -503,14 +504,14 @@ def multilevelbom(df, top='TOPLEVEL'):
         All BOMs are pandas DataFrame objects.
     '''
     # Find the column name that contains the pns.  This column name varies
-    # depending on whether it came from SW or SL, and varies based upon which
-    # section of the program generated the BOM.
+    # depending on whether it came from SW or SL, and ,if from SL, from where
+    # in SL the the BOM come from.
     for pncolname in ['Item', 'Material', 'PARTNUMBER', 'PART NUMBER']:
         if pncolname in df.columns:
             ptno = pncolname
-    df[ptno] = df[ptno].str.strip() # make sure pt nos. are "clean"
+    df[ptno] = df[ptno].astype('str').str.strip() # make sure pt nos. are "clean"
     df[ptno].replace('', 'pn missing', inplace=True)
-    values = {'QTY':0, 'QTY.':0, 'Qty':0, 'Quantity':0, 'LENGTH':0,
+    values = {'QTY':0, 'QTY.':0, 'Qty':0, 'Quantity':0, 'LENGTH':0, 'L':0,
               'DESCRIPTION': 'description missing',
               'Material Description': 'description missing',
               'PART NUMBER': 'pn missing', 'PARTNUMBER': 'pn missing',
@@ -518,7 +519,7 @@ def multilevelbom(df, top='TOPLEVEL'):
     df.fillna(value=values, inplace=True)
     if 'Level' in df.columns:  # if present, is a SL BOM.  Make sure top='TOPLEVEL'
         top = 'TOPLEVEL'
-    # if BOM is from SW, generate a column named Level based on the column
+    # if BOM is from SW, generate a column named Level based on the column named
     # ITEM NO.  This column constains values like 1, 2, 3, 3.1, 3.1.1, 3.1.2,
     # 3.2, etc. where item 3.1 is a member of subassy 3.
     if 'ITEM NO.' in df.columns:  # is a sw bom
@@ -541,6 +542,8 @@ def multilevelbom(df, top='TOPLEVEL'):
             level_pn.append(top)
             if top != "TOPLEVEL":
                 assys.append(top)
+            elif 'Description' in df.columns and lvl == 0:
+                excelTitle.append((row[ptno], row['Description'])) # info for a global variable
         elif row['Level'] > lvl:
             if p in assys:
                 poplist.append('repeat')
@@ -639,18 +642,14 @@ def sw(df):
 
     \u2009
     '''
+    df.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item', 'L': 'LENGTH',
+                       'DESCRIPTION': 'Description', 'QTY': 'Q', 'QTY.': 'Q',}, inplace=True)
     # if LENGTH value a string, e.g., 32.5" instead of 32.5, convert to a float: 32.5
     # the 'extract(r"([-+]?\d*\.\d+|\d+)")' pulls out a number from a string
     if 'LENGTH' in df.columns and df['LENGTH'].dtype == object:
         df['LENGTH'] = df['LENGTH'].str.extract(r"([-+]?\d*\.\d+|\d+)")
         df['LENGTH'] = df['LENGTH'].astype(float)
-    values = {'QTY':0, 'QTY.':0, 'LENGTH':0, 'DESCRIPTION': 'description missing',
-              'PART NUMBER': 'pn missing', 'PARTNUMBER': 'pn missing'}
-    df.fillna(value=values, inplace=True)
-    # obsolete: df['DESCRIPTION'].replace(0, '!! No SW description provided !!', inplace=True)
-    df['DESCRIPTION'] = df['DESCRIPTION'].apply(lambda x: x.replace('\n', ''))  # get rid of "new line" character
-    df.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item', 'L': 'LENGTH',
-                       'DESCRIPTION': 'Description', 'QTY': 'Q', 'QTY.': 'Q',}, inplace=True)
+    df['Description'] = df['Description'].apply(lambda x: x.replace('\n', ''))  # get rid of "new line" character
     filtr1 = df['Item'].str.startswith('3086')  # filter pipe nipples (i.e. pn starting with 3086)
     try:       # if no LENGTH in the table, an error occurs. "try" causes following lines to be passed over
         df['LENGTH'] = (df['Q'] * df['LENGTH'] * ~filtr1) /12.0  # covert lenghts to feet. ~ = NOT
@@ -944,7 +943,7 @@ def export2excel(dirname, filename, results2export, uname):
     if uname != 'unknown':
         username = uname
     elif os.getenv('USERNAME'):
-        username = os.getenv('USERNAME')  # Works on MS Windows
+        username = os.getenv('USERNAME')  # Works only on MS Windows
     else:
         username = 'unknown'
 
@@ -960,7 +959,11 @@ def export2excel(dirname, filename, results2export, uname):
         comment2 = ('The drop list was employed for this BOM check:  '
                     + 'drop = ' + str(drop) +  ', exceptions = ' + str(exceptions))
         bomfooter = bomfooter + '&Rdrop: yes'
-    bomheader = '&C&A'
+
+    if excelTitle and len(excelTitle) == 1:
+        bomheader = '&C&A: ' + excelTitle[0][0] + ', ' + excelTitle[0][1]
+    else:
+        bomheader = '&C&A'
 
     with pd.ExcelWriter(fn) as writer:
         for r in results2export:
@@ -981,8 +984,8 @@ def export2excel(dirname, filename, results2export, uname):
                 'company': 'Dekker Vacuum Technologies, Inc.',
                 'comments': comment1 + comment2})
         writer.save()
-    abspath = os.path.abspath(fn)
-    print("\nCreated file: " + abspath + '\n')
+    print("\nCreated file: " + fn + '\n')
+
 
     if sys.platform[:3] == 'win':  # Open bomcheck.xlsx in Excel when on Windows platform
         try:
