@@ -12,7 +12,8 @@ Created on Wed Feb  6 21:18:58 2019
 import sys
 #from PySide2.QtCore import Qt
 from PyQt5.QtWidgets import (QAction, QApplication, QCheckBox, QLabel,
-                             QMainWindow, QTextEdit, QPushButton)
+                             QMainWindow, QTextEdit, QPushButton, QHBoxLayout,
+                             QVBoxLayout)
 from PyQt5.QtGui import QIcon, QPixmap
 
 
@@ -51,10 +52,31 @@ class BChkWindow(QMainWindow):
     def initUI(self):
         global useDrop
 
-        self.textEdit = QTextEdit()
-        self.setCentralWidget(self.textEdit)
+        #self.runButton = QPushButton("Run", self)
+        #self.runButton.clicked.connect(self.runBomcheck)
+        #self.runButton.move(15, 25)
+
+        self.textEdit = QTextEdit(self)
+
+        hbox = QHBoxLayout()
+        hbox.addStretch(1)
+        hbox.addWidget(self.textEdit)
+        #hbox.addWidget(self.runbutton)
+
+        vbox = QVBoxLayout()
+        vbox.addStretch(1)
+        vbox.addLayout(hbox)
+
+        self.setCentralWidget(vbox)
         self.statusBar()
 
+
+# =============================================================================
+#         self.textEdit = QTextEdit()
+#         self.setCentralWidget(self.textEdit)
+#         self.statusBar()
+#
+# =============================================================================
         openFile = QAction(QIcon('/home/ken/projects/project1/icons/open.png'),
                            'Open', self)
         openFile.setShortcut('Ctrl+O')
@@ -66,40 +88,40 @@ class BChkWindow(QMainWindow):
         exitAct.setStatusTip('Exit application')
         exitAct.triggered.connect(self.close)
 
-
         menubar = self.menuBar()
         fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(openFile)
         fileMenu.addAction(exitAct)
 
-        runButton = QPushButton("Run", self)
-        runButton.clicked.connect(self.runBomcheck)
-        runButton.move(15, 25)
 
-        #chkBox = QCheckBox('Use Drop', self)
-        #chkBox.stateChanged.connect(self.changeUseDrop)
-        #chkBox.move(150,25)
 
-        #dragAndDrop = QLabel(self)
-        #pixmap = QPixmap('icons/dragndrop.png') #https://pythonspot.com/pyqt5-image/
-        #dragAndDrop.setPixmap(pixmap)
-        #dragAndDrop.resize(pixmap.width(), pixmap.height())
-        #dragAndDrop.move(15, 65)
-        #dragAndDrop.setAcceptDrops(True)
+# =============================================================================
+#         chkBox = QCheckBox('Use Drop', self)
+#         chkBox.stateChanged.connect(self.changeUseDrop)
+#         chkBox.move(150,25)
+# =============================================================================
+# =============================================================================
+#         dragAndDrop = QLabel(self)
+#         pixmap = QPixmap('icons/dragndrop.png') #https://pythonspot.com/pyqt5-image/
+#         dragAndDrop.setPixmap(pixmap)
+#         dragAndDrop.resize(pixmap.width(), pixmap.height())
+#         dragAndDrop.move(15, 65)
+#         dragAndDrop.setAcceptDrops(True)
+#
+#         dragAndDrop = Dropbox()
+#         dragAndDrop.move(15, 65)
+# =============================================================================
 
-        #dragAndDrop = Dropbox()
-        #dragAndDrop.move(15, 65)
-
-        #helpMenu = menubar.addMenu('&Help')
-        #self.setAcceptDrops(True)
+# =============================================================================
+#         helpMenu = menubar.addMenu('&Help')
+#         self.setAcceptDrops(True)
+# =============================================================================
 
         self.setGeometry(300, 300, 350, 300)
         self.setWindowTitle('Dekker BOM Check')
         self.setWindowIcon(QIcon('icons/dekker.ico'))
         self.show()
 
-        #self.statusBar()
-        #self.show()
 
     #def changeUseDrop(self, state):
     #    if state == Qt.Checked:

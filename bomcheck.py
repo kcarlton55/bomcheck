@@ -3,7 +3,7 @@
 """
 File initial creation on Sun Nov 18 2018
 
-@author: Kenneth Carlton
+@author: Kenneth E. Carlton
 
 This program compares two BOMs: one originating from SolidWorks (SW) and the
 other from SyteLine (SL).  The structure of the BOMs (headings, structure,
@@ -21,8 +21,8 @@ howtocompile.md.
 """
 
 
-__version__ = '1.0.12'
-__author__ = 'Kenneth Carlton'
+__version__ = '1.0.13'
+__author__ = 'Kenneth E. Carlton'
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -335,8 +335,17 @@ def gatherBOMs(filename):
     for k, v in slfilesdic.items():
         _, file_extension = os.path.splitext(v)
         if file_extension.lower() == '.csv':
-            df = pd.read_csv(v, na_values=[' '], engine='python',
-                             encoding='utf-16', sep='\t')
+            try:
+                df = pd.read_csv(v, na_values=[' '], engine='python',
+                                 encoding='utf-16', sep='\t')
+            except UnicodeError:
+                print(f"\nError: This program expects Unicode text encoding from a csv file.  The\n"
+                      f"file {v} does not have this.  The correct way to achieve a\n"
+                      f"functional csv file is:\n\n"
+                      f'    From Excel, save the file as type “Unicode Text (*.txt)”, and then\n'
+                      f'    change the file extension from txt to csv.\n\n'
+                      f"On the other hand you can use an Excel file (.xlsx) instead of a csv file.\n")
+                sys.exit(1)
         elif file_extension.lower() == '.xlsx' or file_extension.lower == '.xls':
             df = pd.read_excel(v, na_values=[' '])
         if not missing_columns('sl', df, k):
@@ -753,7 +762,7 @@ def sl(dfsw, dfsl):
     filtrI = dfmerged['_merge'].str.contains('both')  # this filter determines if pn in both SW and SL
     filtrQ = abs(dfmerged['Q_sw'] - dfmerged['Q_sl']) < .0051  # If diff in qty greater than this value, show X
     filtrM = dfmerged['Description_sw'].str.split() == dfmerged['Description_sl'].str.split()
-    filtrU = dfmerged['U_sw'].str.strip() == dfmerged['U_sl'].str.strip()
+    filtrU = dfmerged['U_sw'].astype('str').str.strip() == dfmerged['U_sl'].astype('str').str.strip()
     chkmark = '-'
     err = 'X'
 
@@ -986,10 +995,9 @@ def export2excel(dirname, filename, results2export, uname):
         writer.save()
     print("\nCreated file: " + fn + '\n')
 
-
     if sys.platform[:3] == 'win':  # Open bomcheck.xlsx in Excel when on Windows platform
         try:
-            os.startfile(abspath)
+            os.startfile(os.path.abspath(fn))
         except:
             print('Attempt to open bomcheck.xlsx in Excel failed.' )
 
