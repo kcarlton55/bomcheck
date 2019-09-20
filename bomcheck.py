@@ -21,7 +21,7 @@ howtocompile.md.
 """
 
 
-__version__ = '1.0.13'
+__version__ = '1.0.15'
 __author__ = 'Kenneth E. Carlton'
 import glob, argparse, sys, warnings
 import pandas as pd
@@ -216,6 +216,8 @@ def bomcheck(fn='*', d=False, c=False,  u = 'unknown', e=True):
         useDrop = True  # useDrop: a global variable established in set_globals
         print('drop =', drop)
         print('exceptions =', exceptions)
+    else:
+        useDrop = False
 
     dirname, swfiles, pairedfiles = gatherBOMs(fn)
 
@@ -339,12 +341,12 @@ def gatherBOMs(filename):
                 df = pd.read_csv(v, na_values=[' '], engine='python',
                                  encoding='utf-16', sep='\t')
             except UnicodeError:
-                print(f"\nError: This program expects Unicode text encoding from a csv file.  The\n"
-                      f"file {v} does not have this.  The correct way to achieve a\n"
-                      f"functional csv file is:\n\n"
-                      f'    From Excel, save the file as type “Unicode Text (*.txt)”, and then\n'
-                      f'    change the file extension from txt to csv.\n\n'
-                      f"On the other hand you can use an Excel file (.xlsx) instead of a csv file.\n")
+                print("\nError: This program expects Unicode text encoding from a csv file.  The\n"
+                      "file " + v + " does not have this.  The correct way to achieve a\n"
+                      "functional csv file is:\n\n"
+                      '    From Excel, save the file as type “Unicode Text (*.txt)”, and then\n'
+                      '    change the file extension from txt to csv.\n\n'
+                      "On the other hand you can use an Excel file (.xlsx) instead of a csv file.\n")
                 sys.exit(1)
         elif file_extension.lower() == '.xlsx' or file_extension.lower == '.xls':
             df = pd.read_excel(v, na_values=[' '])
@@ -973,20 +975,23 @@ def export2excel(dirname, filename, results2export, uname):
         bomheader = '&C&A: ' + excelTitle[0][0] + ', ' + excelTitle[0][1]
     else:
         bomheader = '&C&A'
+        
+
 
     with pd.ExcelWriter(fn) as writer:
         for r in results2export:
             sheetname = r[0]
             df = r[1]
-            df.to_excel(writer, sheet_name=sheetname)
-            worksheet = writer.sheets[sheetname]  # pull worksheet object
-            autosize_excel_columns(worksheet, df)
-            worksheet.set_header(bomheader)  # see: https://xlsxwriter.readthedocs.io/page_setup.html
-            worksheet.set_footer(bomfooter)
-            worksheet.set_landscape()
-            worksheet.fit_to_pages(1, 0)
-            worksheet.hide_gridlines(2)
-            worksheet.write_comment('A1', comment1 + comment2, {'x_scale': 3})
+            if not df.empty:                        #TODO: some test code
+                df.to_excel(writer, sheet_name=sheetname)
+                worksheet = writer.sheets[sheetname]  # pull worksheet object
+                autosize_excel_columns(worksheet, df)
+                worksheet.set_header(bomheader)  # see: https://xlsxwriter.readthedocs.io/page_setup.html
+                worksheet.set_footer(bomfooter)
+                worksheet.set_landscape()
+                worksheet.fit_to_pages(1, 0)
+                worksheet.hide_gridlines(2)
+                worksheet.write_comment('A1', comment1 + comment2, {'x_scale': 3})
         workbook = writer.book
         workbook.set_properties({'title': 'BOM Check', 'author': username,
                 'subject': 'Compares a SolidWorks BOM to a SyteLine BOM',
