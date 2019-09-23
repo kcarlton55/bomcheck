@@ -21,7 +21,7 @@ howtocompile.md.
 """
 
 
-__version__ = '1.0.15'
+__version__ = '1.0.16'
 __author__ = 'Kenneth E. Carlton'
 import glob, argparse, sys, warnings
 import pandas as pd
@@ -125,7 +125,7 @@ def main():
     bomcheck(args.filename, args.drop, args.sheets)
 
 
-def bomcheck(fn='*', d=False, c=False,  u = 'unknown', e=True):
+def bomcheck(fn='*', **kwargs):
     ''' This is the primary function of the bomcheck program and acts as a hub
     for the bomcheck program.  First to occur, Excel/csv files that contain
     BOMs are opened.  Filenames containing BOMs must end with _sw.xlsx,
@@ -157,30 +157,33 @@ def bomcheck(fn='*', d=False, c=False,  u = 'unknown', e=True):
     Parmeters
     =========
 
-    fn : string
+    fn: string
         filename(s) of Excel files to do a BOM check on.  Default: "*" (all
         _sw & _sl files in the current working directory)
+        
+    kwargs: dictionary
+        The dictionary key/value items that this function looks for are:
 
-    c : bool
-        Break up results across multiple sheets within the bomcheck.xlsx file.
-        Default: False
-
-    d : bool
-        If True, disregard pt. nos. in the drop list (defined by the function
-        "set_globals") for the BOM check.  Default: False
-
-    u : string
-        Username.  This will be fed to the export2exel function so that a
-        username will be placed into the footer of the bomcheck.xlsx file.
-        Default: 'unknown'
-
-    e : bool
-        Export results to an Excel file named bomcheck.xlsx.  Default: True
+        c:  bool
+            Break up results across multiple sheets within the bomcheck.xlsx
+            file.  Default: False
+    
+        d: bool
+            If True, disregard pt. nos. in the drop list (defined by the
+            function "set_globals") for the BOM check.  Default: False
+    
+        u: string
+            Username.  This will be fed to the export2exel function so that a
+            username will be placed into the footer of the bomcheck.xlsx file.
+            Default: 'unknown'
+    
+        e: bool
+            Export results to an Excel file named bomcheck.xlsx.  Default: True
 
     Returns
     =======
 
-    out : tuple
+    out: tuple
         If c=False, returns a tuple containing two items:
 
             1.  One DataFrame object comprised of SW BOMs for which no
@@ -211,6 +214,12 @@ def bomcheck(fn='*', d=False, c=False,  u = 'unknown', e=True):
 
     if fn.startswith('[') and fn.endswith(']'):
         fn = eval(fn)
+        
+    d = kwargs.get('d', False)
+    c = kwargs.get('c', False)
+    u = kwargs.get('u', 'unknown')
+    e = kwargs.get('e', True)
+    #if isinstance(d, list)
 
     if d:
         useDrop = True  # useDrop: a global variable established in set_globals
