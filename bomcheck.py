@@ -127,7 +127,7 @@ def main():
     bomcheck(args.filename, vars(args))
 
 
-def bomcheck(fn='*', kwargs={}):
+def bomcheck(fn='*', dic={}, **kwargs):
     ''' This is the primary function of the bomcheck program and acts as a hub
     for the bomcheck program.  First to occur, Excel/csv files that contain
     BOMs are opened.  Filenames containing BOMs must end with _sw.xlsx,
@@ -163,6 +163,12 @@ def bomcheck(fn='*', kwargs={}):
         filename(s) of Excel files to do a BOM check on.  Default: "*" (all
         _sw & _sl files in the current working directory)
         
+    dic: dictionary
+        default: {}, i.e. an empty dictionary.  This variable is used to derive
+        data from the function "main", depending on if that function is 
+        employed or not.  if "main" is employed, it will contain values for 
+        keys named "drop" and "sheets".
+        
     kwargs: dictionary
         The dictionary key/value items that this function looks for are:
 
@@ -173,15 +179,15 @@ def bomcheck(fn='*', kwargs={}):
         d: bool
             If True, disregard pt. nos. in the drop list (defined by the
             function "set_globals") for the BOM check.  Default: False
+            
+        e: bool
+            Export results to an Excel file named bomcheck.xlsx.  Default: True
     
         u: string
             Username.  This will be fed to the export2exel function so that a
             username will be placed into the footer of the bomcheck.xlsx file.
             Default: 'unknown'
     
-        e: bool
-            Export results to an Excel file named bomcheck.xlsx.  Default: True
-
     Returns
     =======
 
@@ -211,9 +217,10 @@ def bomcheck(fn='*', kwargs={}):
     \u2009
     '''
     global useDrop, drop, exceptions
-    fn = kwargs.get('filename', fn)
-    d = kwargs.get('d', False)
-    c = kwargs.get('c', False)
+    d = dic.get('drop', False)
+    d = kwargs.get('d', d)
+    c = dic.get('sheets', False)
+    c = kwargs.get('c', c)
     u = kwargs.get('u', 'unknown')
     e = kwargs.get('e', True)
     if isinstance(d, list):
@@ -221,11 +228,6 @@ def bomcheck(fn='*', kwargs={}):
         useDrop = True  # useDrop: a global variable established in set_globals
         print('drop =', drop)
         print('exceptions =', exceptions)
-    print('aaa')
-    print(d)    #TODO: WIP
-    
-    
-    
     
     if os.path.isdir(fn):
         fn = os.path.join(fn, '*')
@@ -233,12 +235,6 @@ def bomcheck(fn='*', kwargs={}):
     if fn.startswith('[') and fn.endswith(']'):
         fn = eval(fn)
         
-
-
-        
-        
-        
-
     if d:
         useDrop = True  # useDrop: a global variable established in set_globals
         print('drop =', drop)
