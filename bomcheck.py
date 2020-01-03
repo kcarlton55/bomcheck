@@ -122,10 +122,12 @@ def main():
         parser.print_help(sys.stderr)
         sys.exit(1)
     args = parser.parse_args()
-    bomcheck(args.filename, args.drop, args.sheets)
+    
+    #bomcheck(args.filename, args.drop, args.sheets)
+    bomcheck(args.filename, vars(args))
 
 
-def bomcheck(fn='*', **kwargs):
+def bomcheck(fn='*', kwargs={}):
     ''' This is the primary function of the bomcheck program and acts as a hub
     for the bomcheck program.  First to occur, Excel/csv files that contain
     BOMs are opened.  Filenames containing BOMs must end with _sw.xlsx,
@@ -208,18 +210,34 @@ def bomcheck(fn='*', **kwargs):
 
     \u2009
     '''
-    global useDrop
+    global useDrop, drop, exceptions
+    fn = kwargs.get('filename', fn)
+    d = kwargs.get('d', False)
+    c = kwargs.get('c', False)
+    u = kwargs.get('u', 'unknown')
+    e = kwargs.get('e', True)
+    if isinstance(d, list):
+        drop = d
+        useDrop = True  # useDrop: a global variable established in set_globals
+        print('drop =', drop)
+        print('exceptions =', exceptions)
+    print('aaa')
+    print(d)    #TODO: WIP
+    
+    
+    
+    
     if os.path.isdir(fn):
         fn = os.path.join(fn, '*')
 
     if fn.startswith('[') and fn.endswith(']'):
         fn = eval(fn)
         
-    d = kwargs.get('d', False)
-    c = kwargs.get('c', False)
-    u = kwargs.get('u', 'unknown')
-    e = kwargs.get('e', True)
-    #if isinstance(d, list)
+
+
+        
+        
+        
 
     if d:
         useDrop = True  # useDrop: a global variable established in set_globals
@@ -340,6 +358,14 @@ def gatherBOMs(filename):
             temp.close()
         elif file_extension.lower() == '.xlsx' or file_extension.lower() == '.xls':
             df = pd.read_excel(v, na_values=[' '], skiprows=1)
+            colnames = []
+            flag = False
+            for colname in df.columns:  # rid colname of '\n' char if exists
+                colnames.append(colname.replace('\n', ''))
+                if '\n' in colname:
+                    print('In file {}, a line break was found in column header "{}"'
+                      .format(v, colnames[-1]))
+            df.columns = colnames
         if not missing_columns('sw', df, k):
             swdfsdic.update(multilevelbom(df, k))
     sldfsdic = {}
