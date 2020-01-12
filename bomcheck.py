@@ -123,28 +123,25 @@ def main():
         sys.exit(1)
     args = parser.parse_args()
     
-    #bomcheck(args.filename, args.drop, args.sheets)
     bomcheck(args.filename, vars(args))
 
 
 def bomcheck(fn='*', dic={}, **kwargs):
     ''' This is the primary function of the bomcheck program and acts as a hub
-    for the bomcheck program.  First to occur, Excel/csv files that contain
+    for the bomcheck program.  First to occur: Excel/csv files that contain
     BOMs are opened.  Filenames containing BOMs must end with _sw.xlsx,
-    _sl.xlsx, _sw.csv, or _sl.csv.  Otherwise the files are ignored.  For a
+    _sl.xlsx, _sw.csv, or _sl.csv, otherwise the files are ignored.  For a
     comparison between a SolidWorks (SW) BOM and a  SyteLine (SL) BOM to occur,
-    filenames must be the same up until the underscore (_) character within
-    the filename (of _sw/_sl).  E.g., 086677_sw.xlsx and 086677_sl.xlsx match.
-    An xlsx file will compare with a csv file.
-
-    An exception to having to match file names is if a BOM contains a
-    multilevel BOM.  In this case a top assembly pn is present and
-    subassemblies thereof, all in one BOM.  The multilevelbom function (which
-    see for more info) handles this by extracting subassembly BOMs for later
-    comparison.
+    filenames must be the same up until the underscore (_) character of the
+    filename.  E.g., 086677_sw.xlsx and 086677_sl.xlsx match.  By the way, an 
+    _sw.csv file will compare with a _sl.xlsx file, and vice versa.
+    
+    This function will also handle multilevel BOMs from SW and/or SL, in which
+    case subassembly BOMs will automaically be extracted and managed to allow
+    the BOM check to occur.
 
     Any _sw files found for which no matching _sl file is found will be
-    converted into a SyteLine like BOM format for output.  If a _sl file is
+    converted into a SyteLine like BOM format and output.  If a _sl file is
     present for which no corresponding _sw file is found, the _sl file is
     ignored; that is, no output will occur to suggest that it even existed.
 
@@ -159,15 +156,20 @@ def bomcheck(fn='*', dic={}, **kwargs):
     Parmeters
     =========
 
-    fn: string
-        filename(s) of Excel files to do a BOM check on.  Default: "*" (all
-        _sw & _sl files in the current working directory)
+    fn: string or list
+        1.  Filename of Excel or csv files to do a BOM check on.  Default: "*"
+            (all _sw & _sl files in the current working directory).
+        2.  fn can be a directory name, in which case all _sw and _sl files
+            in that directory are analyzed.
+        3.  If a list is given, then it is a list of filenames or directories.
+        4.  An asterisk, *, matches any characters.  E.g. 6890-083544-* will
+            match 6890-083544-1_sw.xlsx, 6890-083544-2_sw.xlsx, etc.
         
     dic: dictionary
-        default: {}, i.e. an empty dictionary.  This variable is used to derive
-        data from the function "main", depending on if that function is 
-        employed or not.  if "main" is employed, it will contain values for 
-        keys named "drop" and "sheets".
+        default: {}, i.e. an empty dictionary.  This variable is only used if
+        the function "main" is used to run the bomcheck program.  If so, keys
+        named "drop" and "sheets" are put into dic, and values 
+        corresponding to these keys.
         
     kwargs: dictionary
         The dictionary key/value items that this function looks for are:
@@ -177,10 +179,10 @@ def bomcheck(fn='*', dic={}, **kwargs):
             file.  Default: False
     
         d: bool
-            If True, disregard pt. nos. in the drop list (defined by the
-            function "set_globals") for the BOM check.  Default: False
+            If True, employ the list named drop which will have been created by
+            the function named "set_globals".  Default: False
             
-        e: bool
+        x: bool
             Export results to an Excel file named bomcheck.xlsx.  Default: True
     
         u: string
@@ -199,7 +201,7 @@ def bomcheck(fn='*', dic={}, **kwargs):
 
             2.  One DataFrame object comprised of merged BOMs.
 
-        And if c=True, returns None
+        And if c=True, returns None (that is, don't bother to return anything)
 
     Examples
     ========
@@ -218,22 +220,24 @@ def bomcheck(fn='*', dic={}, **kwargs):
     '''
     global useDrop, drop, exceptions
     d = dic.get('drop', False)
-    d = kwargs.get('d', d)
     c = dic.get('sheets', False)
+    d = kwargs.get('d', d)
     c = kwargs.get('c', c)
     u = kwargs.get('u', 'unknown')
-    e = kwargs.get('e', True)
-    if isinstance(d, list):
-        drop = d
-        useDrop = True  # useDrop: a global variable established in set_globals
-        print('drop =', drop)
-        print('exceptions =', exceptions)
+    x = kwargs.get('x', True)
     
-    if os.path.isdir(fn):
-        fn = os.path.join(fn, '*')
-
-    if fn.startswith('[') and fn.endswith(']'):
-        fn = eval(fn)
+    if isinstance(fn, str) and fn.startswith('[') and fn.endswith(']'):
+        fn = eval(fn)  # change a sting to a list
+    elif isinstance(fn, str):
+        fn = [fn]
+    
+    _fn = []    # temporary holder
+    for f in fn:
+        if os.path.isdir(f):  # if a dir, e.g. c:/mydir/
+            _fn.append(os.path.join(f, '*'))  # then add astericks, c:/mydir/*
+        else:
+            _fn.append(f)
+    fn = _fn
         
     if d:
         useDrop = True  # useDrop: a global variable established in set_globals
@@ -242,29 +246,29 @@ def bomcheck(fn='*', dic={}, **kwargs):
     else:
         useDrop = False
 
-    dirname, swfiles, pairedfiles = gatherBOMs(fn)
+    dirname, swfiles, slfiles = gatherBOMs(fn)
 
-    # lone_sw is a dic.  Keys are assy nos.  Values are DataFrame objects (BOMs)
-    # merged_sw2sl is a dic.  Keys are assys nos.  Values are Dataframe objects
-    # (merged SW and SL BOMs).
-    lone_sw, merged_sw2sl = combine_tables(swfiles, pairedfiles)
+    # lone_sw is a dic; Keys are assy nos; Values are DataFrame objects (SW 
+    # BOMs only).  merged_sw2sl is a dic; Keys are assys nos; Values are 
+    # Dataframe objects (merged SW and SL BOMs).
+    lone_sw, merged_sw2sl = combine_tables(swfiles, slfiles)
 
-    title_dfsw = []
-    for k, v in lone_sw.items():
-        title_dfsw.append((k, v))  # Create a list of tuples: [(title, swbom)... ]
+    title_dfsw = []                # Create a list of tuples: [(title, swbom)... ]
+    for k, v in lone_sw.items():   # where "title" is is the title of the BOM,
+        title_dfsw.append((k, v))  # usually the part no. of the BOM.
 
-    title_dfmerged = []
+    title_dfmerged = []            # Create a list of tuples: [(title, mergedbom)... ]
     for k, v in merged_sw2sl.items():
-        title_dfmerged.append((k, v))  # Create a list of tuples: [(title, mergedbom)... ]
+        title_dfmerged.append((k, v)) 
 
     if title_dfsw:
         print('\nNo matching SyteLine BOMs found for these SolidWorks files:\n')
         print('\n'.join(list(map(lambda x: '    ' + x[0], title_dfsw))))
 
-    if c == False:
-    	title_dfsw, title_dfmerged = concat(title_dfsw, title_dfmerged, 'assy', 'Item')
+    if c == False:                 # concat is a bomcheck function
+    	title_dfsw, title_dfmerged = concat(title_dfsw, title_dfmerged)
 
-    if e:
+    if x:
         try:
             if title_dfsw or title_dfmerged:
                 export2excel(dirname, 'bomcheck', title_dfsw + title_dfmerged, u)
@@ -275,14 +279,15 @@ def bomcheck(fn='*', dic={}, **kwargs):
         except PermissionError:
             print('\nError: unable to write to bomcheck.xlsx\n')
 
-    if c == False and title_dfsw and title_dfmerged:
-        return title_dfsw[0][1], title_dfmerged[0][1]
-    elif c == False and title_dfsw:
-        return title_dfsw[0][1], None
-    elif c == False and title_dfmerged:
-        return None, title_dfmerged[0][1]
-    else:
-        return None, None
+    if c == False:
+        if title_dfsw and title_dfmerged:
+            return title_dfsw[0][1], title_dfmerged[0][1]
+        elif title_dfsw:
+            return title_dfsw[0][1], None
+        elif title_dfmerged:
+            return None, title_dfmerged[0][1]
+        else:
+            return None, None
 
 
 def gatherBOMs(filename):
@@ -292,13 +297,12 @@ def gatherBOMs(filename):
     strings.  These files (BOMs) will be converted to Pandas DataFrame objects.
 
     Only files prefixed with _sw.xlsx, _sw.csv, _sl.xlsx, or _sl.csv will be
-    chosen.  These files will then be converted into two python dictionaries.
-    One dictionary will contain SolidWorks BOMs only.  The other will contain
-    only SyteLine BOMs.  The dictionary keys (i.e., "handles" allowing access
-    to each BOM) will be the part numbers of the BOMs.
+    chosen; others are discarded.  These files will then be converted into two
+    python dictionaries.  One dictionary will contain SolidWorks BOMs only, and
+    the other will contain only SyteLine BOMs.
 
-    If a filename corresponds to a BOM containing a multiple level BOM, then
-    that BOM will be broken down to subassemblies and will be added to the
+    If a filename has a BOM containing a multiple level BOM, then the 
+    subassembly BOMs will be extracted from that BOM and be added to the 
     dictionaries.
 
     calls: fixcsv, multilevelbom, missing_columns
@@ -307,17 +311,21 @@ def gatherBOMs(filename):
     =========
 
     filename : string or list
+        If a list if given, it is a list of filenames to be analyzed.
 
     Returns
     =======
 
     out : tuple
         The output tuple contains three items.  The first is the directory
-        corresponding the the first file in the filename list.  If this
+        corresponding to the first file in the filename list.  If this
         directory is an empty string, then it refers to the current working
-        directory.  The remainder of the tuple items are python dictionararies.
-        The first dictionary contains only SolidWorks BOMs,  The second,
-        SyteLine BOMs.
+        directory.  The remainder of the tuple items are two python 
+        dictionaries: The first dictionary contains SolidWorks BOMs, and the 
+        second contains SyteLine BOMs.  The keys for these two dictionaries are
+        part nos. of assemblies that derived from the filenames (e.g. 085952 of 
+        085953_sw.xlsx), or they are derived from subassembly part numbers
+        of a multilevel BOM.
     '''
     if type(filename) == str:
         filename = [filename]
@@ -355,7 +363,6 @@ def gatherBOMs(filename):
         elif file_extension.lower() == '.xlsx' or file_extension.lower() == '.xls':
             df = pd.read_excel(v, na_values=[' '], skiprows=1)
             colnames = []
-            flag = False
             for colname in df.columns:  # rid colname of '\n' char if exists
                 colnames.append(colname.replace('\n', ''))
                 if '\n' in colname:
@@ -399,11 +406,11 @@ def gatherBOMs(filename):
 def fixcsv(filename):
     '''fixcsv is called upon when a SW csv file is employed.  Why?  SW csv
     files use a comma as a delimiter.  Commas, on rare  occasions, are used
-    within a part's description.  This extra comma(s) causes the program to
+    within a part's DESCRIPTION.  This extra comma(s) causes the program to
     crash. To alleviate the problem, this function switches the comma (,)
     delimited format to a dollar sign ($) delimited format, but leaves any
     commas in place within the part's DESCRIPTION field.  A $ character is used
-    because it is nowhere used in a part's description.
+    because it is never used in a part's DESCRIPTION.
 
     Parmeters
     =========
@@ -517,10 +524,10 @@ def multilevelbom(df, top='TOPLEVEL'):
     For this function to pull out subassembly BOMs from a SyteLine BOM, the
     column named LEVEL must exist in the SyteLine BOM.  It contains intergers
     indicating the level of a subassemby within the BOM.  (SyteLine generates
-    these intergers automatically).  For this function to pull out
-    subassemblies from a SolidWorks BOM, the column ITEM NO. must contain
-    values that indicate which values are subassemblies (e.g, the 2.1 and 2.2
-    of 1, 2, 2.1, 2.2, 3, 4)
+    these intergers automatically).  On the other hand, for this function to 
+    pull out subassemblies from a SolidWorks BOM, the column ITEM NO. must 
+    contain values that indicate which values are subassemblies (e.g, the 2.1 
+    and 2.2 of 1, 2, 2.1, 2.2, 3, 4)
 
     Parmeters
     =========
@@ -686,13 +693,14 @@ def sw(df):
     '''
     df.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item', 'L': 'LENGTH',
                        'DESCRIPTION': 'Description', 'QTY': 'Q', 'QTY.': 'Q',}, inplace=True)
-    # if LENGTH value a string, e.g., 32.5" instead of 32.5, convert to a float: 32.5
+    # if LENGTH value is a string, e.g., 32.5" (i.e. with an inch mark, ") 
+    # instead of 32.5 (a float), convert to a float: 32.5.
     # the 'extract(r"([-+]?\d*\.\d+|\d+)")' pulls out a number from a string
     if 'LENGTH' in df.columns and df['LENGTH'].dtype == object:
         df['LENGTH'] = df['LENGTH'].str.extract(r"([-+]?\d*\.\d+|\d+)")
         df['LENGTH'] = df['LENGTH'].astype(float)
-    df['Description'] = df['Description'].apply(lambda x: x.replace('\n', ''))  # get rid of "new line" character
-    filtr1 = df['Item'].str.startswith('3086')  # filter pipe nipples (i.e. pn starting with 3086)
+    df['Description'] = df['Description'].apply(lambda x: x.replace('\n', ''))  # get rid of any "new line" characters
+    filtr1 = df['Item'].str.startswith('3086')  # filter pipe nipples (i.e. pns starting with 3086)
     try:       # if no LENGTH in the table, an error occurs. "try" causes following lines to be passed over
         df['LENGTH'] = (df['Q'] * df['LENGTH'] * ~filtr1) /12.0  # covert lenghts to feet. ~ = NOT
         filtr2 = df['LENGTH'] >= 0.00001  # a filter: only items where length greater than 0.0
@@ -764,7 +772,7 @@ def sl(dfsw, dfsl):
     # A BOM can be derived from different locations within SL.  From one location
     # the `Item` is the part number.  From another `Material` is the part number.
     # When `Material` is the part number, a useless 'Item' column is also present.
-    # It causes the bomcheck program confusion and the program crashes.
+    # It causes the bomcheck program confusion and the program crashes.  Thus a fix:
     if 'Item' in dfsl.columns and 'Material' in dfsl.columns:
         dfsl.drop(['Item'], axis=1, inplace=True)
     if 'Description' in dfsl.columns and 'Material Description' in dfsl.columns:
@@ -778,7 +786,7 @@ def sl(dfsw, dfsl):
         dfsl.drop(dfsl[filtr4].index, inplace=True)    # https://stackoverflow.com/questions/13851535/how-to-delete-rows-from-a-pandas-dataframe-based-on-a-conditional-expression
 
     # When pns are input into SyteLine, all the characters of pns should
-    # be upper case.  But on occasion people mistakently use lower case.
+    # be upper case.  But on occasion people have mistakently used lower case.
     # Correct this and report what pns have been in error.
     x = dfsl['Item'].copy()
     dfsl['Item'] = dfsl['Item'].str.upper()  # make characters upper case
@@ -815,7 +823,7 @@ def sl(dfsw, dfsl):
     return dfmerged
 
 
-def concat(title_dfsw, title_dfmerged, index1, index2):
+def concat(title_dfsw, title_dfmerged):
     ''' Concatenate all the SW BOMs into one long list (if there are any SW
     BOMs without a matching SL BOM being found), and concatenate all the merged
     SW/SL BOMs into another long list.
@@ -846,13 +854,15 @@ def concat(title_dfsw, title_dfmerged, index1, index2):
         The output is a tuple comprised of two items.  Each item is a list.
         Each list contains one item: a tuple.  The structure has the form:
 
-            ``out = ([(string1, DataFrame1)], [(string2, DataFrame2)])``
+            ``out = ([("SW BOMS", DataFrame1)], [("BOM Check", DataFrame2)])``
 
-        string1 = "SW BOMS".
+    Where...    
+        "SW BOMS" is the title. (when c=True in the bomcheck function, the
+        title will be an assembly part no.).  
         DataFrame1 = SW BOMs that have been concatenated together.
 
-        string2 = "Merged BOMs".  DataFrame2 = Merged SW/SL BOMs that have been
-        concatenated together.
+        "BOM Check" is another title.  
+        DataFrame2 = Merged SW/SL BOMs that have been concatenated together.
     '''
     dfswDFrames = []
     dfmergedDFrames = []
@@ -869,7 +879,7 @@ def concat(title_dfsw, title_dfmerged, index1, index2):
         swresults.append(('SW BOMs', dfswCCat.set_index(['assy', 'Op']).sort_index(axis=0)))
     if dfmergedDFrames:
         dfmergedCCat = pd.concat(dfmergedDFrames).reset_index()
-        mrgresults.append(('BOM Check', dfmergedCCat.set_index([index1, index2]).sort_index(axis=0)))
+        mrgresults.append(('BOM Check', dfmergedCCat.set_index(['assy', 'Item']).sort_index(axis=0)))
     return swresults, mrgresults
 
 
