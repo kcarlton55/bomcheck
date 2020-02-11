@@ -357,8 +357,8 @@ def gatherBOMs(filename):
                 temp.write(d)
             temp.seek(0)
             df = pd.read_csv(temp, na_values=[' '], skiprows=1, sep='$',
-                                   encoding='iso8859_1', engine='python',
-                                   dtype = {'ITEM NO.': 'str'})
+                             encoding='iso8859_1', engine='python',
+                             dtype = {'ITEM NO.': 'str'})
             temp.close()
         elif file_extension.lower() == '.xlsx' or file_extension.lower() == '.xls':
             df = pd.read_excel(v, na_values=[' '], skiprows=1)
@@ -703,9 +703,10 @@ def sw(df):
     filtr1 = df['Item'].str.startswith('3086')  # filter pipe nipples (i.e. pns starting with 3086)
     try:       # if no LENGTH in the table, an error occurs. "try" causes following lines to be passed over
         df['LENGTH'] = (df['Q'] * df['LENGTH'] * ~filtr1) /12.0  # covert lenghts to feet. ~ = NOT
-        filtr2 = df['LENGTH'] >= 0.00001  # a filter: only items where length greater than 0.0
+        filtr2 = df['LENGTH'] >= 0.00001  # a filter: only items where length greater than 0.0        
+        df['LENGTH'].fillna(0, inplace=True)  # this line added 2/10/20 to correct an occuring error.
         df['Q'] = df['Q']*(~filtr2) + df['LENGTH']  # move lengths (in feet) to the Qty column
-        df['U'] = filtr2.apply(lambda x: 'FT' if x else 'EA')
+        df['U'] = filtr2.apply(lambda x: 'FT' if x else 'EA')     
     except:
         df['U'] = 'EA'
     df = df.reindex(['Op', 'WC','Item', 'Q', 'Description', 'U'], axis=1)  # rename and/or remove columns
