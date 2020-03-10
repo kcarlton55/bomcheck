@@ -548,9 +548,10 @@ def multilevelbom(df, top='TOPLEVEL'):
     =======
 
     out : python dictionary
-        The dictionary has the form {assypn1: BOM1, assypn2: BOM2, ...}.
-        Where assypn is a string object and is the part number of a BOM.
-        All BOMs are pandas DataFrame objects.
+        The dictionary has the form {assypn1: BOM1, assypn2: BOM2, ...},
+        where assypn1, assypn2, ..., are string objects and are the part
+        numbers for BOMs; and BOM1, BOM2, ..., are pandas DataFrame objects
+        that pertain to those part numbers.
     '''
     # Find the column name that contains the pns.  This column name varies
     # depending on whether it came from SW or SL, and ,if from SL, from where
@@ -579,7 +580,7 @@ def multilevelbom(df, top='TOPLEVEL'):
         df['Level'] = 0
     # Take the the column named "Level" and create a new column: "Level_pn".
     # Instead of the level at which a part exists within an assembly, like
-    # "Level", which contains integers like [0, 1, 2, 2, 1], "Level_pn" contains
+    # "Level" which contains integers like [0, 1, 2, 2, 1], "Level_pn" contains
     # the parent part no. of the part at a particular level, i.e.
     # ['TOPLEVEL', '068278', '2648-0300-001', '2648-0300-001', '068278']
     lvl = 0
@@ -610,10 +611,10 @@ def multilevelbom(df, top='TOPLEVEL'):
         lvl = row['Level']
     df['Level_pn'] = level_pn
     # collect all assys/subassys within df and return a dictionary.  keys
-    # of the dictionary are pt. numbers of assys/subassys.
+    # of the dictionary are pt. numbers of assys/subassys.  
     dic_assys = {}
     for k in assys:
-        dic_assys[k] = df[df['Level_pn'] == k]
+        dic_assys[k.upper()] = df[df['Level_pn'] == k]  # "upper()" added 3/9/20
     return dic_assys
 
 
@@ -661,8 +662,10 @@ def sw(df):
     '''Take a SolidWorks BOM and restructure it to be like that of a SyteLine
     BOM.  That is, the following is done:
 
-    - For parts with a length provided (a LENGTH column), the length is
-      converted from inches to feet.  (SyteLine BOMs have lengths in feet)
+    - For parts with a length provided (i.e. has a float or int value in a 
+      column named LENGTH), the length is converted from inches to feet. 
+      (Lengths in SyteLine BOMs always have their units of measure in feet.  On 
+      the other hand units of measure in a SolidWorks' BOMs are always in inches.)
     - If the part is a pipe or beam and it is listed multiple times in the BOM,
       the BOM is updated so that the part is shown only once.  The length is
       converted to the sum of the lengths of the multiple parts.
@@ -672,10 +675,11 @@ def sw(df):
       The list that governs this rule is in a file named drop.py.  Therefore
       other part nos. may be added to this list if required.  (see set_globals)
     - Many times part nos. for pipe nipples, pipes, and structural steel show
-      more than once in a SW BOM.  If this occurs the BOM is updated so that
-      that part shows only  once.  The quantity is updated accordingly..
-    - Column titles are changed to match those of SyteLine, thus allowing
-      merging to a SyteLing BOM.
+      more than once in a SW BOM.  If this occurs then this function update the
+      BOM so that that part shows only  once.  The quantity is updated
+      accordingly..
+    - Column titles are changed to match those of SyteLine and thus allows
+      merging to a SyteLing BOM in a later step.
 
     Parmeters
     =========
