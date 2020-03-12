@@ -350,7 +350,7 @@ def gatherBOMs(filename):
     swdfsdic = {}
     for k, v in swfilesdic.items():
         _, file_extension = os.path.splitext(v)
-        if file_extension.lower() == '.csv':
+        if file_extension.lower() == '.csv' or file_extension.lower() == '.txt':
             data = fixcsv(v)
             temp = tempfile.TemporaryFile(mode='w+t')
             for d in data:
@@ -374,7 +374,7 @@ def gatherBOMs(filename):
     sldfsdic = {}
     for k, v in slfilesdic.items():
         _, file_extension = os.path.splitext(v)
-        if file_extension.lower() == '.csv':
+        if file_extension.lower() == '.csv' or file_extension.lower() == '.txt':
             try:
                 df = pd.read_csv(v, na_values=[' '], engine='python',
                                  encoding='utf-16', sep='\t')
