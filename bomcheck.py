@@ -695,7 +695,7 @@ def sw(df):
 
     \u2009
     '''
-    df.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item', 'L': 'LENGTH',
+    df.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item', 'L': 'LENGTH', 'Length':'LENGTH',
                        'DESCRIPTION': 'Description', 'QTY': 'Q', 'QTY.': 'Q',}, inplace=True)
     # if LENGTH value is a string, e.g., 32.5" (i.e. with an inch mark, ") 
     # instead of 32.5 (a float), convert to a float: 32.5.
