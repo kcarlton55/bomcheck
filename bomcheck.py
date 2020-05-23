@@ -93,7 +93,7 @@ def main():
 
     $ python bomcheck.py "078551*"
 
-    $ python bomcheck.py "C:\\pathtomyfile\\6890-*"
+    $ python bomcheck.py "C:\pathtomyfile\6890-*"
 
     $ python bomcheck.py "*"
 
@@ -158,10 +158,11 @@ def bomcheck(fn='*', dic={}, **kwargs):
 
     fn: string or list
         1.  Filename of Excel or csv files to do a BOM check on.  Default: "*"
-            (all _sw & _sl files in the current working directory).
-        2.  fn can be a directory name, in which case all _sw and _sl files
-            in that directory are analyzed.
-        3.  If a list is given, then it is a list of filenames or directories.
+            (i.e. all _sw & _sl files in the current working directory).
+        2.  fn can be a directory name in which case all _sw and _sl files
+            in that directory and subdirectories thereof are analyzed.
+        3.  If a list is given, then it is a list of filenames and/or 
+            directories.
         4.  An asterisk, *, matches any characters.  E.g. 6890-083544-* will
             match 6890-083544-1_sw.xlsx, 6890-083544-2_sw.xlsx, etc.
         
@@ -206,16 +207,18 @@ def bomcheck(fn='*', dic={}, **kwargs):
     Examples
     ========
 
-    >>> bomcheck("078551*")
+    >>> bomcheck("078551*") # all file names beginning with characters: 078551
 
-    >>> bomcheck("C:\\pathtomyfile\\6890-*")
+    >>> bomcheck("C:\folder\6890*")  # files names starting with 6890
 
-    >>> bomcheck("*")   # all files in the current working directory are evaluated
+    >>> bomcheck("*", d=True)   # all files in the current working directory
 
-    If only a directory name specified, implies "*" for that directory:
-
-    >>> bomcheck("C:\\pathtomyfile")
-
+    >>> bomcheck("C:\folder") # all files in 'folder' and in subdirectories of
+    
+    >>> bomcheck("C:\folder\*") # all files, one level deep
+    
+    >>> bomcheck(["C:\folder1\*", "C:\folder2\*"], d=True, u="John Doe") 
+    
     \u2009
     '''
     global useDrop, drop, exceptions
@@ -233,8 +236,10 @@ def bomcheck(fn='*', dic={}, **kwargs):
     
     _fn = []    # temporary holder
     for f in fn:
-        if os.path.isdir(f):  # if a dir, e.g. c:/mydir/
-            _fn.append(os.path.join(f, '*'))  # then add astericks, c:/mydir/*
+        if os.path.isdir(f):  # if a dir gather all filenames in dirs and subdirs thereof
+            for root, dirs, files in os.walk(f):
+                for filename in files:
+                  _fn.append(os.path.join(root, filename)) 
         else:
             _fn.append(f)
     fn = _fn
@@ -365,9 +370,9 @@ def gatherBOMs(filename):
             colnames = []
             for colname in df.columns:  # rid colname of '\n' char if exists
                 colnames.append(colname.replace('\n', ''))
-                if '\n' in colname:
-                    print('In file {}, a line break was found in column header "{}"'
-                      .format(v, colnames[-1]))
+                #if '\n' in colname:
+                #    print('In file {}, a line break was found in column header "{}"'
+                #      .format(v, colnames[-1]))
             df.columns = colnames
         if not missing_columns('sw', df, k):
             swdfsdic.update(multilevelbom(df, k))
@@ -488,14 +493,14 @@ def missing_columns(bomtype, df, pn, printerror=True):
             missing.append(' or '.join(missing_tuple(r, df.columns)))
     if missing and bomtype=='sw' and printerror:
         print('\nEssential BOM columns missing.  SolidWorks requires a BOM header\n' +
-              'to be in place.  Is this missing?  This BOM will not be processed:\n\n' +
+              'to be in place.  This BOM will not be processed:\n\n' +
               '    missing: ' + ' ,'.join(missing) +  '\n' +
-              '    missing in: ' + pn)
+              '    missing in: ' + pn + '\n')
         return True
     elif missing and printerror:
         print('\nEssential BOM columns missing.  This BOM will not be processed:\n' +
              '    missing: ' + ' ,'.join(missing) +  '\n\n' +
-             '    missing in: ' + pn)
+             '    missing in: ' + pn + '\n')
         return True
     elif missing:
         return True
