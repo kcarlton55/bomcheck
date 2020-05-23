@@ -55,7 +55,8 @@ def set_globals():
     out : None
         If droplists.py not found, set drop=['3*-025'] and exceptions=[]
     '''
-    global drop, exceptions, useDrop, timezone, excelTitle
+    global drop, exceptions, useDrop, timezone, excelTitle, printStrs
+    printStrs = ''
     excelTitle = []
     timezone = 'US/Central'  # ensure time reported in bomcheck.xlsx is correct
     useDrop = False
@@ -70,8 +71,10 @@ def set_globals():
             sys.path.append(p)
             break
     else:
-        print('At function "set_globals", a suitable path was not found to\n'
+        printStr = ('At function "set_globals", a suitable path was not found to\n'
               'load droplist.py from.')
+        printStrs += printStr
+        print(printStr)
     try:
         import droplist
         drop = droplist.drop
@@ -108,9 +111,10 @@ def main():
                         'must end with _sw.xlsx, _sl.xlsx. _sw.csv, or ' +
                         '_sl.csv.  Enclose filename in quotes!  An asterisk, *, ' +
                         'caputures multiple files.  Examples: "6890-*", "*".  ' +
-                        'Or if filename is a directory path, all _sw and _sl files ' +
-                        'will be gathered from that directory.  ' +
-                        '_sl files without a corresponding _sw file are ignored.')
+                        'Or if filename is instead a directory, all _sw and _sl files ' +
+                        'in that directory and subdirectories thereof will be ' +
+                        'gathered.  BOMs gathered from _sl files without ' +
+                        'corresponding SolidWorks BOMs found are ignored.')
     parser.add_argument('-d', '--drop', action='store_true', default=False,
                         help='Ignore 3*-025 pns, i.e. do not use in the bom check')
     parser.add_argument('-c', '--sheets', action='store_true', default=False,
@@ -221,7 +225,7 @@ def bomcheck(fn='*', dic={}, **kwargs):
     
     \u2009
     '''
-    global useDrop, drop, exceptions
+    global useDrop, drop, exceptions, printStrs
     d = dic.get('drop', False)
     c = dic.get('sheets', False)
     d = kwargs.get('d', d)
@@ -246,8 +250,9 @@ def bomcheck(fn='*', dic={}, **kwargs):
         
     if d:
         useDrop = True  # useDrop: a global variable established in set_globals
-        print('drop =', drop)
-        print('exceptions =', exceptions)
+        printStr = '\ndrop = ' + str(drop) + '\nexceptions = ' + str(exceptions)
+        printStrs += printStr
+        print(printStr)
     else:
         useDrop = False
 
@@ -267,8 +272,10 @@ def bomcheck(fn='*', dic={}, **kwargs):
         title_dfmerged.append((k, v)) 
 
     if title_dfsw:
-        print('\nNo matching SyteLine BOMs found for these SolidWorks files:\n')
-        print('\n'.join(list(map(lambda x: '    ' + x[0], title_dfsw))))
+        printStr = '\nNo matching SyteLine BOMs found for these SolidWorks files:\n'
+        printStr += '\n'.join(list(map(lambda x: '    ' + x[0], title_dfsw)))
+        printStrs += printStr
+        print(printStr)
 
     if c == False:                 # concat is a bomcheck function
     	title_dfsw, title_dfmerged = concat(title_dfsw, title_dfmerged)
@@ -278,11 +285,15 @@ def bomcheck(fn='*', dic={}, **kwargs):
             if title_dfsw or title_dfmerged:
                 export2excel(dirname, 'bomcheck', title_dfsw + title_dfmerged, u)
             else:
-                print('\nNo SolidWorks files found to process.  (Lone SyteLine\n' +
-                      'BOMs will be ignored.)  Make sure file names end with\n' +
-                       '_sw.xlsx, _sw.csv, _sl.xlsx, or _sl.csv.\n')
+                printStr = ('\nNo SolidWorks files found to process.  (Lone SyteLine\n' +
+                            'BOMs will be ignored.)  Make sure file names end with\n' +
+                            '_sw.xlsx, _sw.csv, _sl.xlsx, or _sl.csv.\n')
+                printStrs += printStr
+                print(printStr)
         except PermissionError:
-            print('\nError: unable to write to bomcheck.xlsx\n')
+            printStr = '\nError: unable to write to bomcheck.xlsx\n'
+            printStrs += printStr
+            print(printStr)
 
     if c == False:
         if title_dfsw and title_dfmerged:
@@ -332,6 +343,7 @@ def gatherBOMs(filename):
         085953_sw.xlsx), or they are derived from subassembly part numbers
         of a multilevel BOM.
     '''
+    global printStrs
     if type(filename) == str:
         filename = [filename]
     swfilesdic = {}
@@ -339,8 +351,10 @@ def gatherBOMs(filename):
     for x in filename:
         dirname = os.path.dirname(x)
         if dirname and not os.path.exists(dirname):
-             print('directory not found: ', dirname)
-             sys.exit(0)
+            printStr = 'directory not found: ' + dirname
+            printStrs += printStr
+            print(printStr)
+            sys.exit(0)
         gatherednames = sorted(glob.glob(x))
         for f in gatherednames:
             i = f.rfind('_')
@@ -354,47 +368,59 @@ def gatherBOMs(filename):
                     slfilesdic.update({fntrunc: f})
     swdfsdic = {}
     for k, v in swfilesdic.items():
-        _, file_extension = os.path.splitext(v)
-        if file_extension.lower() == '.csv' or file_extension.lower() == '.txt':
-            data = fixcsv(v)
-            temp = tempfile.TemporaryFile(mode='w+t')
-            for d in data:
-                temp.write(d)
-            temp.seek(0)
-            df = pd.read_csv(temp, na_values=[' '], skiprows=1, sep='$',
-                             encoding='iso8859_1', engine='python',
-                             dtype = {'ITEM NO.': 'str'})
-            temp.close()
-        elif file_extension.lower() == '.xlsx' or file_extension.lower() == '.xls':
-            df = pd.read_excel(v, na_values=[' '], skiprows=1)
-            colnames = []
-            for colname in df.columns:  # rid colname of '\n' char if exists
-                colnames.append(colname.replace('\n', ''))
-                #if '\n' in colname:
-                #    print('In file {}, a line break was found in column header "{}"'
-                #      .format(v, colnames[-1]))
-            df.columns = colnames
-        if not missing_columns('sw', df, k):
-            swdfsdic.update(multilevelbom(df, k))
+        try:
+            _, file_extension = os.path.splitext(v)
+            if file_extension.lower() == '.csv' or file_extension.lower() == '.txt':
+                data = fixcsv(v)
+                temp = tempfile.TemporaryFile(mode='w+t')
+                for d in data:
+                    temp.write(d)
+                temp.seek(0)
+                df = pd.read_csv(temp, na_values=[' '], skiprows=1, sep='$',
+                                 encoding='iso8859_1', engine='python',
+                                 dtype = {'ITEM NO.': 'str'})
+                temp.close()
+            elif file_extension.lower() == '.xlsx' or file_extension.lower() == '.xls':
+                df = pd.read_excel(v, na_values=[' '], skiprows=1)
+                colnames = []
+                for colname in df.columns:  # rid colname of '\n' char if exists
+                    colnames.append(colname.replace('\n', ''))
+                    #if '\n' in colname:
+                    #    print('In file {}, a line break was found in column header "{}"'
+                    #      .format(v, colnames[-1]))
+                df.columns = colnames
+            if not missing_columns('sw', df, k):
+                swdfsdic.update(multilevelbom(df, k))
+        except:
+            printStr = '\nError processing file: ' + v + '\nIt has been excluded from the BOM check.'
+            printStrs += printStr
+            print(printStr)
     sldfsdic = {}
     for k, v in slfilesdic.items():
-        _, file_extension = os.path.splitext(v)
-        if file_extension.lower() == '.csv' or file_extension.lower() == '.txt':
-            try:
-                df = pd.read_csv(v, na_values=[' '], engine='python',
-                                 encoding='utf-16', sep='\t')
-            except UnicodeError:
-                print("\nError: This program expects Unicode text encoding from a csv file.  The\n"
-                      "file " + v + " does not have this.  The correct way to achieve a\n"
-                      "functional csv file is:\n\n"
-                      '    From Excel, save the file as type “Unicode Text (*.txt)”, and then\n'
-                      '    change the file extension from txt to csv.\n\n'
-                      "On the other hand you can use an Excel file (.xlsx) instead of a csv file.\n")
-                sys.exit(1)
-        elif file_extension.lower() == '.xlsx' or file_extension.lower == '.xls':
-            df = pd.read_excel(v, na_values=[' '])
-        if not missing_columns('sl', df, k):
-            sldfsdic.update(multilevelbom(df, k))
+        try:
+            _, file_extension = os.path.splitext(v)
+            if file_extension.lower() == '.csv' or file_extension.lower() == '.txt':
+                try:
+                    df = pd.read_csv(v, na_values=[' '], engine='python',
+                                     encoding='utf-16', sep='\t')
+                except UnicodeError:
+                    printStr = ("\nError. Probable cause: This program expects Unicode text encoding from\n"
+                                "a csv file.  The file " + v + " does not have this.  The\n"
+                                "correct way to achieve a functional csv file is:\n\n"
+                                '    From Excel, save the file as type “Unicode Text (*.txt)”, and then\n'
+                                '    change the file extension from txt to csv.\n\n'
+                                "On the other hand you can use an Excel file (.xlsx) instead of a csv file.\n")
+                    printStrs += printStr
+                    print(printStr)
+                    sys.exit(1)
+            elif file_extension.lower() == '.xlsx' or file_extension.lower == '.xls':
+                df = pd.read_excel(v, na_values=[' '])
+            if not missing_columns('sl', df, k):
+                sldfsdic.update(multilevelbom(df, k))
+        except:
+            printStr = '\nError processing file: ' + v + '\nIt has been excluded from the BOM check.'
+            printStrs += printStr
+            print(printStr)
     try:
         df = pd.read_clipboard(engine='python', na_values=[' '])
         if not missing_columns('sl', df, 'BOMfromClipboard', printerror=False):
@@ -403,7 +429,9 @@ def gatherBOMs(filename):
         pass
     dirname = os.path.dirname(filename[0])
     if dirname and not os.path.exists(dirname):
-        print('directory not found: ', dirname)
+        printStr = 'directory not found: ' + dirname
+        printStrs += printStr
+        print(printStr)
         sys.exit(0)
     return dirname, swdfsdic, sldfsdic
 
@@ -478,6 +506,7 @@ def missing_columns(bomtype, df, pn, printerror=True):
     out : bool
         True if BOM afoul.  Otherwise False.
     '''
+    global printStrs
     if bomtype == 'sw':
         required_columns = [('QTY', 'QTY.'), 'DESCRIPTION',
                             ('PART NUMBER', 'PARTNUMBER')]
@@ -492,15 +521,19 @@ def missing_columns(bomtype, df, pn, printerror=True):
         elif isinstance(r, tuple) and missing_tuple(r, df.columns):
             missing.append(' or '.join(missing_tuple(r, df.columns)))
     if missing and bomtype=='sw' and printerror:
-        print('\nEssential BOM columns missing.  SolidWorks requires a BOM header\n' +
+        printStr = ('\nEssential BOM columns missing.  SolidWorks requires a BOM header\n' +
               'to be in place.  This BOM will not be processed:\n\n' +
               '    missing: ' + ' ,'.join(missing) +  '\n' +
-              '    missing in: ' + pn + '\n')
+              '    missing in: ' + pn + '\n') 
+        printStrs += printStr
+        print(printStr)
         return True
     elif missing and printerror:
-        print('\nEssential BOM columns missing.  This BOM will not be processed:\n' +
-             '    missing: ' + ' ,'.join(missing) +  '\n\n' +
-             '    missing in: ' + pn + '\n')
+        printStr = ('\nEssential BOM columns missing.  This BOM will not be processed:\n' +
+                    '    missing: ' + ' ,'.join(missing) +  '\n\n' +
+                    '    missing in: ' + pn + '\n')
+        printStrs += printStr
+        print(printStr)
         return True
     elif missing:
         return True
@@ -775,8 +808,11 @@ def sl(dfsw, dfsl):
 
     \u2009
     '''
+    global printStrs
     if not str(type(dfsw))[-11:-2] == 'DataFrame':
-        print('Program halted.  A fault with SolidWorks DataFrame occurred.')
+        printStr = 'Program halted.  A fault with SolidWorks DataFrame occurred.'
+        printStrs += printStr
+        print(printStr)
         sys.exit()
 
     # A BOM can be derived from different locations within SL.  From one location
@@ -803,10 +839,14 @@ def sl(dfsw, dfsl):
     x_bool =  x != dfsl['Item']
     x_lst = [i for i in list(x*x_bool) if i]
     if x_lst:
-        print("\nLower case part nos. in SyteLine's BOM have been converted " +
-              "to upper case for \nthis BOM check:\n")
+        printStr = ("\nLower case part nos. in SyteLine's BOM have been converted " +
+                    "to upper case for \nthis BOM check:\n")
+        printStrs += printStr
+        print(printStr)
         for y in x_lst:
-            print('    ' + y + '  changed to->  ' + y.upper())
+            printStr = '    ' + y + '  changed to  ' + y.upper()
+            printStrs += printStr
+            print(printStr)
 
     dfmerged = pd.merge(dfsw, dfsl, on='Item', how='outer', suffixes=('_sw', '_sl') ,indicator=True)
     dfmerged.sort_values(by=['Item'], inplace=True)
@@ -943,6 +983,8 @@ def export2excel(dirname, filename, results2export, uname):
 
      \u2009
     '''
+    global printStrs
+    
     def len2(s):
         ''' Extract from within a string either a decimal number truncated to two
         decimal places, or an int value; then return the length of that substring.
@@ -986,8 +1028,9 @@ def export2excel(dirname, filename, results2export, uname):
         if d:
             dirname = d   # if user specified a directory, use it instead
         if e and not e.lower()=='.xlsx':
-            print('Output filename extension needs to be .xlsx')
-            print('Program aborted.')
+            printStr = '(Output filename extension needs to be .xlsx' + '\nProgram aborted.'
+            printStrs += printStr
+            print(printStr)
             sys.exit(0)
         else:
             e = '.xlsx'
@@ -1049,13 +1092,17 @@ def export2excel(dirname, filename, results2export, uname):
                 'company': 'Dekker Vacuum Technologies, Inc.',
                 'comments': comment1 + comment2})
         writer.save()
-    print("\nCreated file: " + fn + '\n')
+    printStr = "\nCreated file: " + fn + '\n'
+    printStrs += printStr
+    print(printStr)
 
     if sys.platform[:3] == 'win':  # Open bomcheck.xlsx in Excel when on Windows platform
         try:
             os.startfile(os.path.abspath(fn))
         except:
-            print('Attempt to open bomcheck.xlsx in Excel failed.' )
+            printStr = 'Attempt to open bomcheck.xlsx in Excel failed.'
+            printStrs += printStr
+            print(printStr)
 
 # before program begins, create global variables useDrop, drop, exceptions, etc.
 set_globals()
