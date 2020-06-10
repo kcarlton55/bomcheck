@@ -250,7 +250,7 @@ def bomcheck(fn='*', dic={}, **kwargs):
         
     if d:
         useDrop = True  # useDrop: a global variable established in set_globals
-        printStr = '\ndrop = ' + str(drop) + '\nexceptions = ' + str(exceptions)
+        printStr = '\ndrop = ' + str(drop) + '\nexceptions = ' + str(exceptions) + '\n'
         printStrs += printStr
         print(printStr)
     else:
@@ -273,7 +273,7 @@ def bomcheck(fn='*', dic={}, **kwargs):
 
     if title_dfsw:
         printStr = '\nNo matching SyteLine BOMs found for these SolidWorks files:\n'
-        printStr += '\n'.join(list(map(lambda x: '    ' + x[0], title_dfsw)))
+        printStr += '\n'.join(list(map(lambda x: '    ' + x[0], title_dfsw))) + '\n'
         printStrs += printStr
         print(printStr)
 
@@ -351,7 +351,7 @@ def gatherBOMs(filename):
     for x in filename:
         dirname = os.path.dirname(x)
         if dirname and not os.path.exists(dirname):
-            printStr = 'directory not found: ' + dirname
+            printStr = '\ndirectory not found: ' + dirname + '\n'
             printStrs += printStr
             print(printStr)
             sys.exit(0)
@@ -367,7 +367,7 @@ def gatherBOMs(filename):
                 elif f[i:i+4].lower() == '_sl.' and fname[0] != '~':
                     slfilesdic.update({fntrunc: f})
     swdfsdic = {}
-    for k, v in swfilesdic.items():
+    for k, v in swfilesdic.items():  # SW files
         try:
             _, file_extension = os.path.splitext(v)
             if file_extension.lower() == '.csv' or file_extension.lower() == '.txt':
@@ -392,11 +392,11 @@ def gatherBOMs(filename):
             if not missing_columns('sw', df, k):
                 swdfsdic.update(multilevelbom(df, k))
         except:
-            printStr = '\nError processing file: ' + v + '\nIt has been excluded from the BOM check.'
+            printStr = '\nError processing file: ' + v + '\nIt has been excluded from the BOM check.\n'
             printStrs += printStr
             print(printStr)
     sldfsdic = {}
-    for k, v in slfilesdic.items():
+    for k, v in slfilesdic.items():   # SL files
         try:
             _, file_extension = os.path.splitext(v)
             if file_extension.lower() == '.csv' or file_extension.lower() == '.txt':
@@ -418,7 +418,7 @@ def gatherBOMs(filename):
             if not missing_columns('sl', df, k):
                 sldfsdic.update(multilevelbom(df, k))
         except:
-            printStr = '\nError processing file: ' + v + '\nIt has been excluded from the BOM check.'
+            printStr = '\nError processing file: ' + v + '\nIt has been excluded from the BOM check.\n'
             printStrs += printStr
             print(printStr)
     try:
@@ -429,7 +429,7 @@ def gatherBOMs(filename):
         pass
     dirname = os.path.dirname(filename[0])
     if dirname and not os.path.exists(dirname):
-        printStr = 'directory not found: ' + dirname
+        printStr = '\ndirectory not found: ' + dirname + '\n'
         printStrs += printStr
         print(printStr)
         sys.exit(0)
@@ -733,7 +733,7 @@ def convertLength(lengths, qtys, filter_, defaultUM='inch'):
     global printStrs
     lengths = lengths.tolist()  # Convert the Pandas series to a list
     qty = qtys.tolist()
-    filter_ = filter_.tolist()
+    filter_ = (~filter_).tolist()
     num = []  # numbers (floats) isolated from any unit of measure
     for x in lengths:
         if isinstance(x, str):
@@ -749,7 +749,7 @@ def convertLength(lengths, qtys, filter_, defaultUM='inch'):
             
     ln2ft = []  # list to contain length values (floats) that have been converted to feet 
     for i, x in enumerate(lengths):
-        if isinstance(x, str) and num[i] > 0  and not filter_[i]:
+        if isinstance(x, str) and num[i] > 0  and filter_[i]:
             if 'in' in x.lower() or '"' in x.lower():
                 ln2ft.append(num[i] * qty[i] * 1/12)
             elif 'f' in x.lower() or "'" in x.lower():
@@ -778,12 +778,12 @@ def convertLength(lengths, qtys, filter_, defaultUM='inch'):
                 ln2ft.append(num[i] * qty[i] * 1000/(25.4*12))
             else:  # defaultUM not defined correctly
                 ln2ft.append(-9999)
-                printStr = ('Error in function "convertLength()" occurred.  The variable\n',
-                          '"defaultUM" was not set correctly.  Please fix.')
+                printStr = ('\nError in function "convertLength()" occurred.  The variable\n',
+                          '"defaultUM" was not set correctly.  Please fix.\n')
                 printStrs += printStr
                 print(printStr)
-        elif (isinstance(x, float) or isinstance(x, int) and num[i] > 0  
-              and not filter_[i]):
+        elif ((isinstance(x, float) or isinstance(x, int)) and num[i] > 0  
+              and filter_[i]):
             if 'in' in defaultUM.lower():
                 ln2ft.append(num[i] * qty[i] * 1/12)
             elif ('ft' in defaultUM.lower() or 'foot' in defaultUM.lower() 
@@ -799,10 +799,10 @@ def convertLength(lengths, qtys, filter_, defaultUM='inch'):
                 ln2ft.append(num[i] * qty[i] * 1000/(25.4*12))
             else:
                 ln2ft.append(-9999)
-                printStr = ('Error in function "convertLength()" occurred.  The variable\n',
-                          '"defaultUM" was not set correctly.  Please fix.')
+                printStr = ('\nError in function "convertLength()" occurred.  The variable\n',
+                          '"defaultUM" was not set correctly.  Please fix.\n')
                 printStrs += printStr
-                print(printStr)            
+                print(printStr)
         else:
             ln2ft.append(0)
     return pd.Series(ln2ft).fillna(0)
@@ -850,15 +850,7 @@ def sw(df):
     global printStrs
     df.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item', 'L': 'LENGTH', 'Length':'LENGTH',
                        'DESCRIPTION': 'Description', 'QTY': 'Q', 'QTY.': 'Q',}, inplace=True)
-    # # if LENGTH value is a string, e.g., 32.5" (i.e. with an inch mark, ") 
-    # # instead of 32.5 (a float), convert to a float: 32.5.
-    # # the 'extract(r"([-+]?\d*\.\d+|\d+)")' pulls out a number from a string 
-    # if 'LENGTH' in df.columns and df['LENGTH'].dtype == object:
-    #    df['LENGTH'] = df['LENGTH'].str.extract(r"([-+]?\d*\.\d+|\d+)")
-    #    df['LENGTH'] = df['LENGTH'].astype(float)
-    df['Description'] = df['Description'].apply(lambda x: x.replace('\n', ''))  # get rid of any "new line" characters
-
-# try this out =========
+    
     if 'LENGTH' in df.columns:
         filtr1 = df['Item'].str.startswith('3086')  # filter pipe nipples (i.e. pns starting with 3086)
         df['LENGTH'] = convertLength(df['LENGTH'], df['Q'], filtr1)
@@ -868,26 +860,31 @@ def sw(df):
         df['U'] = filtr2.apply(lambda x: 'FT' if x else 'EA')
     else:
         df['U'] = 'EA'
-# =======================
 
+    # # if LENGTH value is a string, e.g., 32.5" (i.e. with an inch mark, ") 
+    # # instead of 32.5 (a float), convert to a float: 32.5.
+    # # the 'extract(r"([-+]?\d*\.\d+|\d+)")' pulls out a number from a string 
+       
+# =============================================================================
+#     if 'LENGTH' in df.columns and df['LENGTH'].dtype == object:
+#        df['LENGTH'] = df['LENGTH'].str.extract(r"([-+]?\d*\.\d+|\d+)")
+#        df['LENGTH'] = df['LENGTH'].astype(float)
+#     df['Description'] = df['Description'].apply(lambda x: x.replace('\n', ''))  # get rid of any "new line" characters
+#           
+#      filtr1 = df['Item'].str.startswith('3086')  # filter pipe nipples (i.e. pns starting with 3086)
+#      try:       # if no LENGTH in the table, an error occurs. "try" causes following lines to be passed over
+#          df['LENGTH'] = (df['Q'] * df['LENGTH'] * ~filtr1)  # /12.0  # covert lenghts to feet. ~ = NOT
+#          filtr2 = df['LENGTH'] >= 0.00001  # a filter: only items where length greater than 0.0        
+#          df['LENGTH'].fillna(0, inplace=True)  # this line added 2/10/20 to correct an occuring error.
+#          df['Q'] = df['Q']*(~filtr2) + df['LENGTH']  # move lengths (in feet) to the Qty column
+#          df['U'] = filtr2.apply(lambda x: 'FT' if x else 'EA') 
+#      except KeyError:
+#          df['U'] = 'EA'
+# 
+# =============================================================================
 
-
-
-#    filtr1 = df['Item'].str.startswith('3086')  # filter pipe nipples (i.e. pns starting with 3086)
-#    try:       # if no LENGTH in the table, an error occurs. "try" causes following lines to be passed over
-#        df['LENGTH'] = (df['Q'] * df['LENGTH'] * ~filtr1)  # /12.0  # covert lenghts to feet. ~ = NOT
-#        filtr2 = df['LENGTH'] >= 0.00001  # a filter: only items where length greater than 0.0        
-#        df['LENGTH'].fillna(0, inplace=True)  # this line added 2/10/20 to correct an occuring error.
-#        df['Q'] = df['Q']*(~filtr2) + df['LENGTH']  # move lengths (in feet) to the Qty column
-#        df['U'] = filtr2.apply(lambda x: 'FT' if x else 'EA') 
-#    except KeyError:
-#        df['U'] = 'EA'
-#    except:
-#        printStr = ('A Pandas Series object named df["LENGTH"], derived from a SolidWorks BOM,\n'
-#                    'crashed during an attempt to convert lengths to feet. Lengths were not\n'
-#                    'converted and the units of measure will show as EA.')
-#        printStrs += printStr
-#        print(printStr)
+         
+         
     df = df.reindex(['Op', 'WC','Item', 'Q', 'Description', 'U'], axis=1)  # rename and/or remove columns
     dd = {'Q': 'sum', 'Description': 'first', 'U': 'first'}   # funtions to apply to next line
     df = df.groupby('Item', as_index=False).aggregate(dd).reindex(columns=df.columns)
@@ -947,7 +944,7 @@ def sl(dfsw, dfsl):
     '''
     global printStrs
     if not str(type(dfsw))[-11:-2] == 'DataFrame':
-        printStr = 'Program halted.  A fault with SolidWorks DataFrame occurred.'
+        printStr = '\nProgram halted.  A fault with SolidWorks DataFrame occurred.\n'
         printStrs += printStr
         print(printStr)
         sys.exit()
@@ -981,7 +978,7 @@ def sl(dfsw, dfsl):
         printStrs += printStr
         print(printStr)
         for y in x_lst:
-            printStr = '    ' + y + '  changed to  ' + y.upper()
+            printStr = '    ' + y + '  changed to  ' + y.upper() + '\n'
             printStrs += printStr
             print(printStr)
 
@@ -1166,7 +1163,7 @@ def export2excel(dirname, filename, results2export, uname):
         if d:
             dirname = d   # if user specified a directory, use it instead
         if e and not e.lower()=='.xlsx':
-            printStr = '(Output filename extension needs to be .xlsx' + '\nProgram aborted.'
+            printStr = '\n(Output filename extension needs to be .xlsx' + '\nProgram aborted.\n'
             printStrs += printStr
             print(printStr)
             sys.exit(0)
@@ -1238,7 +1235,7 @@ def export2excel(dirname, filename, results2export, uname):
         try:
             os.startfile(os.path.abspath(fn))
         except:
-            printStr = 'Attempt to open bomcheck.xlsx in Excel failed.'
+            printStr = '\nAttempt to open bomcheck.xlsx in Excel failed.\n'
             printStrs += printStr
             print(printStr)
 
