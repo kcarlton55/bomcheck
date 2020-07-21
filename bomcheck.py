@@ -891,7 +891,7 @@ def sw(df):
     
     if 'LENGTH' in df.columns:
         filtr1 = df['Item'].str.startswith('3086')  # filter pipe nipples (i.e. pns starting with 3086)
-        df['LENGTH'] = convertLength(df['LENGTH'], df['Q'], filtr1)  # convert lengts to feet
+        df['LENGTH'] = convertLength(df['LENGTH'], df['Q'], filtr1)  # convert lengths to feet
         filtr2 = df['LENGTH'] >= 0.00001
         df['LENGTH'].fillna(0, inplace=True)  # this line added 2/10/20 to correct an occuring error.
         df['Q'] = df['Q']*(~filtr2) + df['LENGTH']  # move lengths to the Qty column
