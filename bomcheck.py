@@ -21,7 +21,7 @@ howtocompile.md.
 """
 
 
-__version__ = '1.0.16'
+__version__ = '1.7'
 __author__ = 'Kenneth E. Carlton'
 import glob, argparse, sys, warnings
 import pandas as pd
@@ -734,116 +734,55 @@ def combine_tables(swdic, sldic):
     return lone_sw_dic, combined_dic
 
 
-def convertLength(lengths, qtys, filter_, defaultUM='inch'):
-    '''Take length values with units of measure in inches, feet, yards,
-    millimeters, centimeters, or meters, and then convert those values to feet.
-    
+def createFactors(ser, defaultUM='inch'):
+    ''' Create multiplication factors that will convert values from a
+    SolidWorks LENGTH column to feet.  A value such as "1105 mm" will be
+    converted to 3.625, and with defaultUM set to "inch", a unitless value
+    such as 36.93 will be converted to 3.08.
+
     Parmeters
     =========
+    
+    ser:  Pandas Series
+        The data from the column that contains lengths in a SolidWorks BOM.
 
-    lengths:  Pandas Series object
-        The object contains length values that have been exctracted from a 
-        SolidWorks BOM.  Values can be strings such as "7.55" or strings with a
-        unit of measure value explicitly attached such as "133.5mm", or can be
-        floats or ints.  Valid units of measure are inch, feet, yard, millimeter,
-        centimeter, or meter (or abreviations such as in, ", ft, ', mm, etc.)
-    qtys: Pandas Series object
-        The quantity of each part.  The quantities correspond to the lengths
-        of the parts.  If a quaity exists for a part for which a corresponding
-        length is not present, then the quantity is not used.
-    filter_: Pandas Series object
-        Each member of filter_ is True or False and each True or False
-        corresponds to a value in "lengths".  If True, then don't convert value
-        to feet.  Instead submit an empty string.  (The name "filter" is a 
-        python key word and cannot be used, and thus the appended underscore.)
     defaultUM: str
-        Default unit of measure to use if a unit of measure is not explicity
-        attached to a length value.  Valid values: 'inch', 'feet', 'yard',
+        Unless otherwise specified, length values are taken to have this
+        unit of measure.   Valid units of measure are 'inch', 'feet', 'yard', 
         'millimeter', 'centimeter', or 'meter'.  Default: 'inch'.
     
     Returns
     =======
 
-    out: Panda series   
-        The series contains float values.  Each float value represents
-        a length in feet.
-    '''
-    global printStrs
-    lengths = lengths.tolist()  # Convert the Pandas series to a list
-    qty = qtys.tolist()
-    filter_ = (~filter_).tolist()
-    num = []  # numbers (floats) isolated from any unit of measure
-    for x in lengths:
-        if isinstance(x, str):
-            match = re.search(r"([-+]?\d*\.\d+|\d+)", x)  # extract a no. from str, i.e. 37.5 from 37.5mm
-            if match and float(match.group()) > 0 :
-                num.append(float(match.group()))
+    out: list   
+        multiplcation factors (list of floats)
+    '''    
+    factorpool = (('in', 1/12), ('mm', 1/(25.4*12)), ('milli', 1/(25.4*12)),
+                  ('"', 1/12),  ("'", 1.0),          ('c', 10/(25.4*12)),
+                  ('f', 1.0),   ('y', 3.0),          ('m', 1000/(25.4*12)),
+                  ("’", 1.0),   ('”', 1/12))  
+    # determine defaultFactor
+    defaultFactor = 1/12
+    for k, v in factorpool:
+        if k in defaultUM:
+            defaultFactor = v
+            break     
+    lengths = ser.fillna(0).tolist()  
+    # accumlate factors
+    factors = []
+    for length in lengths:
+        if isinstance(length, str):  # if UM explicitly stated
+            for k, v in factorpool:
+                if k in length:
+                    factors.append(v)
+                    break
             else:
-                num.append(0)
-        elif isinstance(x, float) or isinstance(x, int):
-            num.append(x)
+                factors.append(defaultFactor)
+        elif isinstance(length, float) or isinstance(length, int):
+            factors.append(defaultFactor)
         else:
-            num.append(0)
-            
-    ln2ft = []  # list to contain length values (floats) that have been converted to feet 
-    for i, x in enumerate(lengths):
-        if isinstance(x, str) and num[i] > 0  and filter_[i]:
-            if 'in' in x.lower() or '"' in x.lower():
-                ln2ft.append(num[i] * qty[i] * 1/12)
-            elif 'f' in x.lower() or "'" in x.lower():
-                ln2ft.append(num[i] * qty[i] * 1.0)
-            elif 'yd' in x.lower() or 'yard' in x.lower():
-                ln2ft.append(num[i] * qty[i] * 3.0)
-            elif 'mm' in x.lower() or 'millimet' in x.lower():
-                ln2ft.append(num[i] * qty[i] * 1/(25.4*12))
-            elif 'cm' in x.lower() or 'centimet' in x.lower():
-                ln2ft.append(num[i] * qty[i] * 10/(25.4*12))
-            elif 'm' in x.lower():
-                ln2ft.append(num[i] * qty[i] * 1000/(25.4*12))
-            # x is a string, like "7.55", but with no unit of measure attached
-            elif 'in' in defaultUM.lower():
-                ln2ft.append(num[i] * qty[i] * 1/12)
-            elif ('ft' in defaultUM.lower() or 'foot' in defaultUM.lower() 
-                  or 'feet' in defaultUM.lower()):
-                ln2ft.append(num[i] * qty[i] * 1.0)
-            elif 'yd' in defaultUM.lower() or 'yard' in defaultUM.lower():
-                ln2ft.append(num[i] * qty[i] * 3.0)
-            elif 'mm' in defaultUM.lower() or 'millimet' in defaultUM.lower():
-                ln2ft.append(num[i] * qty[i] * 1/(25.4*12))
-            elif 'cm' in defaultUM.lower() or 'centimet' in defaultUM.lower():
-                ln2ft.append(num[i] * qty[i] * 10/(25.4*12))
-            elif 'm' in defaultUM.lower():
-                ln2ft.append(num[i] * qty[i] * 1000/(25.4*12))
-            else:  # defaultUM not defined correctly
-                ln2ft.append(-9999)
-                printStr = ('\nError in function "convertLength()" occurred.  The variable\n',
-                          '"defaultUM" was not set correctly.  Please fix.\n')
-                printStrs += printStr
-                print(printStr)
-        elif ((isinstance(x, float) or isinstance(x, int)) and num[i] > 0  
-              and filter_[i]):
-            if 'in' in defaultUM.lower():
-                ln2ft.append(num[i] * qty[i] * 1/12)
-            elif ('ft' in defaultUM.lower() or 'foot' in defaultUM.lower() 
-                  or 'feet' in defaultUM.lower()):
-                ln2ft.append(num[i] * qty[i] * 1.0)
-            elif 'yd' in defaultUM.lower() or 'yard' in defaultUM.lower():
-                ln2ft.append(num[i] * qty[i] * 3.0)
-            elif 'mm' in defaultUM.lower() or 'millimet' in defaultUM.lower():
-                ln2ft.append(num[i] * qty[i] * 1/(25.4*12))
-            elif 'cm' in defaultUM.lower() or 'centimet' in defaultUM.lower():
-                ln2ft.append(num[i] * qty[i] * 10/(25.4*12))
-            elif 'm' in defaultUM.lower():
-                ln2ft.append(num[i] * qty[i] * 1000/(25.4*12))
-            else:
-                ln2ft.append(-9999)
-                printStr = ('\nError in function "convertLength()" occurred.  The variable\n',
-                          '"defaultUM" was not set correctly.  Please fix.\n')
-                printStrs += printStr
-                print(printStr)
-        else:
-            ln2ft.append(0)
-    return pd.Series(ln2ft).fillna(0)
+            factors.append(0)  # in this case, is a pipe nipple
+    return factors
 
 
 def sw(df):
@@ -888,12 +827,14 @@ def sw(df):
     global printStrs
     df.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item', 'L': 'LENGTH', 'Length':'LENGTH',
                        'DESCRIPTION': 'Description', 'QTY': 'Q', 'QTY.': 'Q',}, inplace=True)
-    
-    if 'LENGTH' in df.columns:
-        filtr1 = df['Item'].str.startswith('3086')  # filter pipe nipples (i.e. pns starting with 3086)
-        df['LENGTH'] = convertLength(df['LENGTH'], df['Q'], filtr1)  # convert lengths to feet
+
+    if 'LENGTH' in df.columns:  # convert lengths to feet
+        factors = createFactors(df['LENGTH'])
+        qtys = df['Q']
+        lengths = df['LENGTH'].replace('[^\d.]', '', regex=True).astype(float)
+        ignore_these_parts_filter = (~df['Item'].str.startswith('3086')).tolist()
+        df['LENGTH'] = lengths * qtys * factors * ignore_these_parts_filter
         filtr2 = df['LENGTH'] >= 0.00001
-        df['LENGTH'].fillna(0, inplace=True)  # this line added 2/10/20 to correct an occuring error.
         df['Q'] = df['Q']*(~filtr2) + df['LENGTH']  # move lengths to the Qty column
         df['U'] = filtr2.apply(lambda x: 'FT' if x else 'EA')  # set the unit of measure
     else:
@@ -1219,8 +1160,6 @@ def export2excel(dirname, filename, results2export, uname):
     else:
         bomheader = '&C&A'
         
-
-
     with pd.ExcelWriter(fn) as writer:
         for r in results2export:
             sheetname = r[0]
