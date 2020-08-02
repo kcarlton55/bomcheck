@@ -21,7 +21,7 @@ howtocompile.md.
 """
 
 
-__version__ = '1.7'
+__version__ = '1.7.1'
 __author__ = 'Kenneth E. Carlton'
 import glob, argparse, sys, warnings
 import pandas as pd
@@ -48,6 +48,9 @@ def set_globals():
     The drop list contains pns of off-the-shelf parts, like bolts and pipe
     nipples, that are to be excluded from the bom check.  Other globals:
     useDrop, timezone, excelTitle.
+    
+    (set_globals is called upon at the end of this file, just before
+    main is called)
 
     Returns
     =======
@@ -123,7 +126,14 @@ def main():
     parser.add_argument('-v', '--version', action='version', version=__version__,
                         help="Show program's version number and exit")
     parser.add_argument('-f', '--followlinks', action='store_false', default=True,
-                        help='Follow symbolic links when searching for files to process')
+                        help='Follow symbolic links when searching for files to process.  ' +
+                        "  (MS Windows doesn't honor this option.)")
+    parser.add_argument('--um_in',  default='inch', help='The unit of measure ' +
+                        'to apply to lengths in a SolidWorks BOM unless otherwise ' +
+                        'specified', metavar='U/M')
+    parser.add_argument('--um_out', default='feet', help='The unit of measure ' +
+                        'to convert lengths to', metavar='U/M')
+    
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
         sys.exit(1)
@@ -135,17 +145,18 @@ def main():
 def bomcheck(fn, dic={}, **kwargs):
     '''  
     This is the primary function of the bomcheck program and acts as a hub
-    for the bomcheck program.  First to occur: Excel and/or csv files that 
-    contain BOMs are opened.  Filenames containing BOMs must end with _sw.xlsx,
-    _sl.xlsx, _sw.csv, or _sl.csv; otherwise the files are ignored.  For a
-    comparison between a SolidWorks (SW) BOM and a  SyteLine (SL) BOM to occur,
-    filenames must be the same up until the underscore (_) character of the
-    filename.  E.g., 086677_sw.xlsx and 086677_sl.xlsx match.  By the way, an 
-    _sw.csv file will compare with a _sl.xlsx file, and vice versa.
+    for other functions within the bomcheck program.  First to occur: Excel 
+    and/or csv files that contain BOMs are opened.  Filenames containing BOMs 
+    must end with _sw.xlsx,_sl.xlsx, _sw.csv, or _sl.csv; otherwise the files
+    are ignored.  For a comparison between a SolidWorks (SW) BOM and a 
+    SyteLine (SL) BOM to occur, filenames must be the same up until the 
+    underscore (_) character of the filename.  E.g., 086677_sw.xlsx and 
+    086677_sl.xlsx match.  By the way, an _sw.csv file will compare with a
+    _sl.xlsx file, and vice versa.
     
     This function will also handle multilevel BOMs from SW and/or SL.  In which
-    case subassembly BOMs will automatically be extracted and managed to allow
-    the BOM check to occur.
+    case subassembly BOMs will automatically be extracted to allow the BOM 
+    check to occur.
 
     Any _sw files found for which no matching _sl file is found will be
     converted into a SyteLine like BOM format and output to an Excel file.
@@ -154,10 +165,12 @@ def bomcheck(fn, dic={}, **kwargs):
 
     After BOM merges occur, an Excel file is output containing the results. 
     The name of the Excel file is bomcheck.xlsx.  The results are the SW files
-    for which no matching SL file was found, and also for the merged SW/SL.  
-    Finally this function will also return DataFrame objects of the results.
+    for which no matching SL file was found, and also for the merged SW/SL 
+    BOMs.  Finally this function will also return DataFrame objects of the 
+    results.
 
-    calls: gatherBOMs, combine_tables, concat, export2excel, getfnames
+    calls: gatherBOMs_from_fnames, collect_checked_boms, concat_boms, 
+    export2excel, get_fnames
 
     Parmeters
     =========
@@ -235,7 +248,7 @@ def bomcheck(fn, dic={}, **kwargs):
     
     \u2009
     '''
-    global useDrop, drop, exceptions, printStrs
+    global useDrop, drop, exceptions, printStrs, um_in, um_out
     d = dic.get('drop', False)
     c = dic.get('sheets', False)
     d = kwargs.get('d', d)
@@ -243,13 +256,15 @@ def bomcheck(fn, dic={}, **kwargs):
     u = kwargs.get('u', 'unknown')
     x = kwargs.get('x', True)
     f = kwargs.get('f', True)
+    um_in = kwargs.get('um_in', 'inch')
+    um_out = kwargs.get('um_out', 'feet')
     
     if isinstance(fn, str) and fn.startswith('[') and fn.endswith(']'):
         fn = eval(fn)  # change a string to a list
     elif isinstance(fn, str):
         fn = [fn]
 
-    fn = getfnames(fn, followlinks=f)  # get filenames with any extension.   
+    fn = get_fnames(fn, followlinks=f)  # get filenames with any extension.   
         
     if d:
         useDrop = True  # useDrop: a global variable established in set_globals
@@ -259,12 +274,12 @@ def bomcheck(fn, dic={}, **kwargs):
     else:
         useDrop = False
 
-    dirname, swfiles, slfiles = gatherBOMs(fn)
+    dirname, swfiles, slfiles = gatherBOMs_from_fnames(fn)
 
     # lone_sw is a dic; Keys are assy nos; Values are DataFrame objects (SW 
     # BOMs only).  merged_sw2sl is a dic; Keys are assys nos; Values are 
     # Dataframe objects (merged SW and SL BOMs).
-    lone_sw, merged_sw2sl = combine_tables(swfiles, slfiles)
+    lone_sw, merged_sw2sl = collect_checked_boms(swfiles, slfiles)
 
     title_dfsw = []                # Create a list of tuples: [(title, swbom)... ]
     for k, v in lone_sw.items():   # where "title" is is the title of the BOM,
@@ -280,8 +295,8 @@ def bomcheck(fn, dic={}, **kwargs):
         printStrs += printStr
         print(printStr)
 
-    if c == False:                 # concat is a bomcheck function
-    	title_dfsw, title_dfmerged = concat(title_dfsw, title_dfmerged)
+    if c == False:                 # concat_boms is a bomcheck function
+    	title_dfsw, title_dfmerged = concat_boms(title_dfsw, title_dfmerged)
 
     if x:
         try:
@@ -309,7 +324,7 @@ def bomcheck(fn, dic={}, **kwargs):
             return None, None
 
 
-def getfnames(fn, followlinks=True):
+def get_fnames(fn, followlinks=True):
     ''' Interpret fn to get a list of filenames based on fn's value.  
     
     Parameters
@@ -346,7 +361,7 @@ def getfnames(fn, followlinks=True):
     _fn2 = []    # temporary holder
     for f in _fn1:
         if followlinks==True and os.path.islink(f) and os.path.exists(f):
-            _fn2 += getfnames(os.readlink(f))              
+            _fn2 += get_fnames(os.readlink(f))              
         elif os.path.isdir(f):  # if a dir gather all filenames in dirs and subdirs thereof
             for root, dirs, files in os.walk(f, followlinks=followlinks):
                 for filename in files:
@@ -357,7 +372,51 @@ def getfnames(fn, followlinks=True):
     return _fn2
 
 
-def gatherBOMs(filename):
+def make_csv_file_stable(filename):
+    ''' Except for any commas in parts' Description fields, replace all commas
+    in a csv file with a $ character.  Commas will sometimes exist in a
+    Description field, e.g, "TANK, 60GAL".  But commas are intended to be field
+    delimeters, but commas in Description fields are not intended for this.  
+    These excess commas will cause a program crash.  Remedy: let the $ 
+    character be the delimiter instead of the comma.
+        
+    Parmeters
+    =========
+
+    filename: string
+        Name of SolidWorks csv file to process.
+
+    Returns
+    =======
+
+    out: list
+        A list of all the lines (rows) in filename is returned.  Commas in each
+        line are changed to dollar signs except for any commas in the
+        DESCRIPTION field.
+    '''
+    with open(filename, encoding="ISO-8859-1") as f:
+        data1 = f.readlines()
+    # n1 = number of commas in 2nd line of filename (i.e. where column header
+    #      names located).  This is the no. of commas that should be in each row.
+    n1 = data1[1].count(',')
+    n2 = data1[1].upper().find('DESCRIPTION')  # locaton of the word DESCRIPTION within the row.
+    n3 = data1[1][:n2].count(',')  # number of commas before the word DESCRIPTION
+    data2 = list(map(lambda x: x.replace(',', '$') , data1)) # replace ALL commas with $
+    data = []
+    for row in data2:
+        n4 = row.count('$')
+        if n4 != n1:
+            # n5 = location of 1st ; character within the DESCRIPTION field
+            #      that should be a , character
+            n5 = row.replace('$', '?', n3).find('$')
+            # replace those ; chars that should be , chars in the DESCRIPTION field:
+            data.append(row[:n5] + row[n5:].replace('$', ',', (n4-n1))) # n4-n1: no. commas needed
+        else:
+            data.append(row)
+    return data
+
+
+def gatherBOMs_from_fnames(filename):
     ''' Gather all SolidWorks and SyteLine BOMs derived from "filename".
     "filename" can be a string containing wildcards, e.g. 6890-085555-*, which
     allows the capture of multiple files; or "filename" can be a list of such
@@ -372,7 +431,7 @@ def gatherBOMs(filename):
     subassembly BOMs will be extracted from that BOM and be added to the 
     dictionaries.
 
-    calls: fixcsv, multilevelbom, missing_columns
+    calls: make_csv_file_stable, deconstructMultilevelBOM, test_for_missing_columns
 
     Parmeters
     =========
@@ -415,7 +474,7 @@ def gatherBOMs(filename):
         try:
             _, file_extension = os.path.splitext(v)
             if file_extension.lower() == '.csv' or file_extension.lower() == '.txt':
-                data = fixcsv(v)
+                data = make_csv_file_stable(v)
                 temp = tempfile.TemporaryFile(mode='w+t')
                 for d in data:
                     temp.write(d)
@@ -430,8 +489,8 @@ def gatherBOMs(filename):
                 for colname in df.columns:  # rid colname of '\n' char if exists
                     colnames.append(colname.replace('\n', ''))
                 df.columns = colnames
-            if not missing_columns('sw', df, k):
-                swdfsdic.update(multilevelbom(df, k))
+            if not test_for_missing_columns('sw', df, k):
+                swdfsdic.update(deconstructMultilevelBOM(df, k))
         except:
             printStr = '\nError processing file: ' + v + '\nIt has been excluded from the BOM check.\n'
             printStrs += printStr
@@ -456,16 +515,16 @@ def gatherBOMs(filename):
                     sys.exit(1)
             elif file_extension.lower() == '.xlsx' or file_extension.lower == '.xls':
                 df = pd.read_excel(v, na_values=[' '])
-            if not missing_columns('sl', df, k):
-                sldfsdic.update(multilevelbom(df, k))
+            if not test_for_missing_columns('sl', df, k):
+                sldfsdic.update(deconstructMultilevelBOM(df, k))
         except:
             printStr = '\nError processing file: ' + v + '\nIt has been excluded from the BOM check.\n'
             printStrs += printStr
             print(printStr)
     try:
         df = pd.read_clipboard(engine='python', na_values=[' '])
-        if not missing_columns('sl', df, 'BOMfromClipboard', printerror=False):
-            sldfsdic.update(multilevelbom(df, 'TOPLEVEL'))
+        if not test_for_missing_columns('sl', df, 'BOMfromClipboard', printerror=False):
+            sldfsdic.update(deconstructMultilevelBOM(df, 'TOPLEVEL'))
     except:
         pass
     if os.path.islink(dirname):
@@ -473,57 +532,12 @@ def gatherBOMs(filename):
     return dirname, swdfsdic, sldfsdic
 
 
-def fixcsv(filename):
-    '''fixcsv is called upon when a SW csv file is employed.  Why?  SW csv
-    files use a comma as a delimiter.  Commas, on rare  occasions, are used
-    within a part's DESCRIPTION.  This extra comma(s) causes the program to
-    crash. To alleviate the problem, this function switches the comma (,)
-    delimited format to a dollar sign ($) delimited format, but leaves any
-    commas in place within the part's DESCRIPTION field.  A $ character is used
-    because it is never used in a part's DESCRIPTION.
-
-    Parmeters
-    =========
-
-    filename: string
-        Name of SolidWorks csv file to process.
-
-    Returns
-    =======
-
-    out: list
-        A list of all the lines (rows) in filename is returned.  Commas in each
-        line are changed to dollar signs except for any commas in the
-        DESCRIPTION field.
-    '''
-    with open(filename, encoding="ISO-8859-1") as f:
-        data1 = f.readlines()
-    # n1 = number of commas in 2nd line of filename (i.e. where column header
-    #      names located).  This is the no. of commas that should be in each row.
-    n1 = data1[1].count(',')
-    n2 = data1[1].upper().find('DESCRIPTION')  # locaton of the word DESCRIPTION within the row.
-    n3 = data1[1][:n2].count(',')  # number of commas before the word DESCRIPTION
-    data2 = list(map(lambda x: x.replace(',', '$') , data1)) # replace ALL commas with $
-    data = []
-    for row in data2:
-        n4 = row.count('$')
-        if n4 != n1:
-            # n5 = location of 1st ; character within the DESCRIPTION field
-            #      that should be a , character
-            n5 = row.replace('$', '?', n3).find('$')
-            # replace those ; chars that should be , chars in the DESCRIPTION field:
-            data.append(row[:n5] + row[n5:].replace('$', ',', (n4-n1))) # n4-n1: no. commas needed
-        else:
-            data.append(row)
-    return data
-
-
-def missing_columns(bomtype, df, pn, printerror=True):
+def test_for_missing_columns(bomtype, df, pn, printerror=True):
     ''' SolidWorks and SyteLine BOMs require certain essential columns to be
     present.  This function looks at those BOMs that are within df to see if
     any required columns are missing.  If found, print to screen.
 
-    calls: missing_tuple
+    calls: test_alternative_column_names
 
     Parameters
     ==========
@@ -555,8 +569,8 @@ def missing_columns(bomtype, df, pn, printerror=True):
     for r in required_columns:
         if isinstance(r, str) and r not in df.columns:
             missing.append(r)
-        elif isinstance(r, tuple) and missing_tuple(r, df.columns):
-            missing.append(' or '.join(missing_tuple(r, df.columns)))
+        elif isinstance(r, tuple) and test_alternative_column_names(r, df.columns):
+            missing.append(' or '.join(test_alternative_column_names(r, df.columns)))
     if missing and bomtype=='sw' and printerror:
         printStr = ('\nEssential BOM columns missing.  SolidWorks requires a BOM header\n' +
               'to be in place.  This BOM will not be processed:\n\n' +
@@ -578,31 +592,49 @@ def missing_columns(bomtype, df, pn, printerror=True):
         return False
 
 
-def missing_tuple(tpl, lst):
-    ''' If none of the items of tpl (a tuple) are in lst (a list) return
-    tpl.  Else return None
+def test_alternative_column_names(tpl, lst):
+    ''' tpl contains alternative names for a required column in a bom.  If 
+    none of the names in tpl match a name in lst, return tpl so that the
+    user can be notified that one of those alternative names should have been
+    present.  On the other hand, if a match was found, return None.
+    
+    Parameters
+    ==========
+    tpl: tuple
+        Each item of tpl is a string.  Each item is an alternative column name,
+        e.g. ("Qty", "Quantity")
+       
+    lst: list
+        A list of the required columns that a bom must have in order for a bom
+        check to be correctly completed.
+        
+    Returns
+    =======
+    out: tpl|None
+        If no match found, return the same tuple, tpl, that was an input
+        parameter.  Else return None
     '''
     flag = True
     for t in tpl:
         if t in lst:
-            flag = False
+            flag = False  # A required column name was found in the tuple, so good to proceed with bom check
     if flag:
-        return tpl
+        return tpl  # one of the tuple items is a required column.  Report that one or the other is missing
 
 
-def multilevelbom(df, top='TOPLEVEL'):
+def deconstructMultilevelBOM(df, top='TOPLEVEL'):
     ''' If the BOM is a multilevel BOM, pull out the BOMs thereof; that is,
     pull out the main assembly and the subassemblies thereof.  These
     assys/subassys are placed in a python dictionary and returned.  If df is
     a single level BOM, a dictionary with one item is returned.
 
     For this function to pull out subassembly BOMs from a SyteLine BOM, the
-    column named LEVEL must exist in the SyteLine BOM.  It contains intergers
-    indicating the level of a subassemby within the BOM.  (SyteLine generates
-    these intergers automatically).  On the other hand, for this function to 
+    column named Level must exist in the SyteLine BOM.  It contains intergers
+    indicating the level of a subassemby within the BOM.  Only multilevel
+    SyteLine BOMs contain this column.  On the other hand for this function to 
     pull out subassemblies from a SolidWorks BOM, the column ITEM NO. must 
     contain values that indicate which values are subassemblies (e.g, the 2.1 
-    and 2.2 of 1, 2, 2.1, 2.2, 3, 4)
+    and 2.2 of 1, 2, 2.1, 2.2, 3, 4, etc.)
 
     Parmeters
     =========
@@ -611,21 +643,22 @@ def multilevelbom(df, top='TOPLEVEL'):
         The DataFrame is that of a SolidWorks or SyteLine BOM.
 
     top: string
-        If df is derived from an _sw file, e.g. 082009_sw.csv, top should be
-        assigned the assy no., e.g. 082009, because the top level part number
-        cannot be derived from the file.  It isn't there.  This is also true
-        for a single level Syteline BOM.  On the other hand a  mulilevel
-        SyteLine BOM, which has a column named "Level", has the top level pn
-        contained within (assigned at "Level" 0).  In this case use the default
-        "TOPLEVEL".
+        Top level part number.  This number is automatically generated by the
+        bomcheck program in two ways:  1. If df originated from a SolidWorks 
+        BOM or from a single level SyteLine  BOM, then “top” is derived from 
+        the filename; e.g. 091828 from the filename 091828_sw.xlsx.  2. If df
+        originated from a multilevel BOM, then it has a column named “Level”
+        (i.e. the level of subassemblies and parts within subassemblies
+        relative to the main, top, assembly part number).  In this case the
+        part number associated with level "0" is assigned to "top".
 
     Returns
     =======
 
     out: python dictionary
         The dictionary has the form {assypn1: BOM1, assypn2: BOM2, ...},
-        where assypn1, assypn2, ..., are string objects and are the part
-        numbers for BOMs; and BOM1, BOM2, ..., are pandas DataFrame objects
+        where assypn1, assypn2, etc. are string objects and are the part
+        numbers for BOMs; and BOM1, BOM2, etc. are pandas DataFrame objects
         that pertain to those part numbers.
     '''
     p = None
@@ -657,7 +690,7 @@ def multilevelbom(df, top='TOPLEVEL'):
     # Take the the column named "Level" and create a new column: "Level_pn".
     # Instead of the level at which a part exists within an assembly, like
     # "Level" which contains integers like [0, 1, 2, 2, 1], "Level_pn" contains
-    # the parent part no. of the part at a particular level, i.e.
+    # the parent part no. of the part at a particular level, e.g.
     # ['TOPLEVEL', '068278', '2648-0300-001', '2648-0300-001', '068278']
     lvl = 0
     level_pn = []  # storage of pns of parent assy/subassy of the part at rows 0, 1, 2, 3, ...
@@ -694,98 +727,81 @@ def multilevelbom(df, top='TOPLEVEL'):
     return dic_assys
 
 
-def combine_tables(swdic, sldic):
-    ''' Match SolidWorks assembly nos. to those from SyteLine and then merge
-    their BOMs to create a BOM check.  For any SolidWorks BOMs for which no
-    SyteLine BOM was found, put those in a separate dictionary for output.
-
-    calls: sw, sl
-
-    Parameters
-    ==========
-
-    swdic: dictionary
-        Dictinary of SolidWorks BOMs.  Dictionary keys are strings and they
-        are of assembly part numbers.  Dictionary values are pandas DataFrame
-        objects which are BOMs for those assembly pns.
-
-    sldic: dictionary
-        Dictinary of SyteLine BOMs.  Dictionary keys are strings and they
-        are of assembly part numbers.  Dictionary values are pandas DataFrame
-        objects which are BOMs for those assembly pns.
-
-    Returns
-    =======
-
-    out: tuple
-        The output tuple contains two values: 1.  Dictionary containing SolidWorks
-        BOMs for which no matching SyteLine BOM was found.  The BOMs have been
-        converted to a SyteLine like format.  Keys of the dictionary are assembly
-        part numbers.  2.  Dictionary of merged SolidWorks and SyteLine BOMs, thus
-        creating a BOM check.  Keys for the dictionary are assembly part numbers.
-    '''
-    lone_sw_dic = {}  # sw boms with no matching sl bom found
-    combined_dic = {}   # sl bom found for given sw bom.  Then merged
-    for key, dfsw in swdic.items():
-        if key in sldic:
-            combined_dic[key] = sl(sw(dfsw), sldic[key])
-        else:
-            lone_sw_dic[key + '_sw'] = sw(dfsw)
-    return lone_sw_dic, combined_dic
-
-
-def createFactors(ser, defaultUM='inch'):
-    ''' Create multiplication factors that will convert values from a
-    SolidWorks LENGTH column to feet.  A value such as "1105 mm" will be
-    converted to 3.625, and with defaultUM set to "inch", a unitless value
-    such as 36.93 will be converted to 3.08.
+def create_um_factors(ser, um_in='inch', um_out='feet'):
+    ''' From ser derive multiplication factors that will convert length values
+    with a particular unit of measure (um) to um_out.  Some items of ser have a
+    um values appended to it; for example 1105mm.  In this case the factor will
+    be based on that um.  If no um is specified, it's derived from um_in. 
 
     Parmeters
     =========
     
     ser:  Pandas Series
-        The data from the column that contains lengths in a SolidWorks BOM.
+        The data from the column that contains lengths from a SolidWorks BOM.
 
-    defaultUM: str
-        Unless otherwise specified, length values are taken to have this
-        unit of measure.   Valid units of measure are 'inch', 'feet', 'yard', 
-        'millimeter', 'centimeter', or 'meter'.  Default: 'inch'.
+    um_in: str
+        Use this unit of measure to convert from unless otherwised specified.  
+        Valid units of measure: 'inch', 'feet', 'yard', 'millimeter', 
+        'centimeter', 'meter' (or abreviations thereof, e.g. mm).
+        Default: 'inch'.
+
+    um_out: str
+        Convert to this unit of measure.  The same valid units of measure
+        listed above apply.  Default: feet
     
     Returns
     =======
 
     out: list   
-        multiplcation factors (list of floats)
+        multiplcation factors (list of floats)          
     '''    
-    factorpool = (('in', 1/12), ('mm', 1/(25.4*12)), ('milli', 1/(25.4*12)),
-                  ('"', 1/12),  ("'", 1.0),          ('c', 10/(25.4*12)),
-                  ('f', 1.0),   ('y', 3.0),          ('m', 1000/(25.4*12)),
-                  ("’", 1.0),   ('”', 1/12))  
-    # determine defaultFactor
-    defaultFactor = 1/12
+    factorpool = (('in', 1/12),      ('ft', 1.0),      ('mm', 1/(25.4*12)),
+                  ('"', 1/12),       ("'", 1.0),       ('milli', 1/(25.4*12)),
+                  (chr(8221), 1/12), (chr(8217), 1.0), ('cm', 10/(25.4*12)),
+                  ('yard', 3.0),     ('foot', 1.0),    ('centi', 10/(25.4*12)),
+                  ('yd', 3.0),       ('feet', 1.0),    ('m', 1000/(25.4*12)))
+ 
+    # determine um_in_factor
     for k, v in factorpool:
-        if k in defaultUM:
-            defaultFactor = v
-            break     
-    lengths = ser.fillna(0).tolist()  
-    # accumlate factors
-    factors = []
+        if k in um_in.lower():
+            um_in_factor = v
+            break
+    else:
+        um_in_factor = 1/12
+
+    # determine um_out_factor
+    for k, v in factorpool:
+        if k in um_out.lower():
+            um_out_factor = 1/v
+            break
+    else:
+        um_out_factor = 1.0
+   
+    # accumlate factors_in; not accounting for um_out yet
+    lengths = ser.fillna(0).tolist()
+    factors_in = []
     for length in lengths:
-        if isinstance(length, str):  # if UM explicitly stated
+        if isinstance(length, str):  # if UM explicitly stated, e.g. "34.3 MM"
             for k, v in factorpool:
-                if k in length:
-                    factors.append(v)
+                if k in length.lower():
+                    factors_in.append(v)
                     break
             else:
-                factors.append(defaultFactor)
+                factors_in.append(um_in_factor)
         elif isinstance(length, float) or isinstance(length, int):
-            factors.append(defaultFactor)
+            factors_in.append(um_in_factor)
         else:
-            factors.append(0)  # in this case, is a pipe nipple
+            factors_in.append(0)
+    
+    # now to take into account um_out
+    factors = []
+    for i, f in enumerate(factors_in):
+        factors.append(um_out_factor * factors_in[i]) 
+
     return factors
 
 
-def sw(df):
+def convert_sw_bom_to_sl_format(df):
     '''Take a SolidWorks BOM and restructure it to be like that of a SyteLine
     BOM.  That is, the following is done:
 
@@ -829,7 +845,7 @@ def sw(df):
                        'DESCRIPTION': 'Description', 'QTY': 'Q', 'QTY.': 'Q',}, inplace=True)
 
     if 'LENGTH' in df.columns:  # convert lengths to feet
-        factors = createFactors(df['LENGTH'])
+        factors = create_um_factors(df['LENGTH'], um_in=um_in, um_out=um_out)
         qtys = df['Q']
         lengths = df['LENGTH'].replace('[^\d.]', '', regex=True).astype(float)
         ignore_these_parts_filter = (~df['Item'].str.startswith('3086')).tolist()
@@ -868,10 +884,10 @@ def sw(df):
     return df
 
 
-def sl(dfsw, dfsl):
-    '''This function takes in a SW BOM and SL BOM and then merges them.  This
-    merged BOM shows the BOM check which allows differences between the SW and
-    SL BOMs to be easily seen.
+def check_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
+    '''This function takes in one SW BOM and one SL BOM and then merges them.
+    This merged BOM shows the BOM check which allows differences between the
+    SW and SL BOMs to be easily seen.
 
     A set of columns in the output are labeled i, q, d, and u.  Xs at a row in
     any of these columns indicate something didn't match up between the SW
@@ -962,7 +978,47 @@ def sl(dfsw, dfsl):
     return dfmerged
 
 
-def concat(title_dfsw, title_dfmerged):
+def collect_checked_boms(swdic, sldic):
+    ''' Match SolidWorks assembly nos. to those from SyteLine and then merge
+    their BOMs to create a BOM check.  For any SolidWorks BOMs for which no
+    SyteLine BOM was found, put those in a separate dictionary for output.
+
+    calls: convert_sw_bom_to_sl_format, check_a_sw_bom_to_a_sl_bom
+
+    Parameters
+    ==========
+
+    swdic: dictionary
+        Dictinary of SolidWorks BOMs.  Dictionary keys are strings and they
+        are of assembly part numbers.  Dictionary values are pandas DataFrame
+        objects which are BOMs for those assembly pns.
+
+    sldic: dictionary
+        Dictinary of SyteLine BOMs.  Dictionary keys are strings and they
+        are of assembly part numbers.  Dictionary values are pandas DataFrame
+        objects which are BOMs for those assembly pns.
+
+    Returns
+    =======
+
+    out: tuple
+        The output tuple contains two values: 1.  Dictionary containing SolidWorks
+        BOMs for which no matching SyteLine BOM was found.  The BOMs have been
+        converted to a SyteLine like format.  Keys of the dictionary are assembly
+        part numbers.  2.  Dictionary of merged SolidWorks and SyteLine BOMs, thus
+        creating a BOM check.  Keys for the dictionary are assembly part numbers.
+    '''
+    lone_sw_dic = {}  # sw boms with no matching sl bom found
+    combined_dic = {}   # sl bom found for given sw bom.  Then merged
+    for key, dfsw in swdic.items():
+        if key in sldic:
+            combined_dic[key] = check_a_sw_bom_to_a_sl_bom(convert_sw_bom_to_sl_format(dfsw), sldic[key])
+        else:
+            lone_sw_dic[key + '_sw'] = convert_sw_bom_to_sl_format(dfsw)
+    return lone_sw_dic, combined_dic
+
+
+def concat_boms(title_dfsw, title_dfmerged):
     ''' Concatenate all the SW BOMs into one long list (if there are any SW
     BOMs without a matching SL BOM being found), and concatenate all the merged
     SW/SL BOMs into another long list.
