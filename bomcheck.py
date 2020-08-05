@@ -58,7 +58,7 @@ def set_globals():
     out: None
         If droplists.py not found, set drop=['3*-025'] and exceptions=[]
     '''
-    global drop, exceptions, useDrop, timezone, excelTitle, printStrs
+    global drop, exceptions, useDrop, timezone, excelTitle, printStrs, from_um, to_um
     printStrs = ''
     excelTitle = []
     timezone = 'US/Central'  # ensure time reported in bomcheck.xlsx is correct
@@ -128,11 +128,11 @@ def main():
     parser.add_argument('-f', '--followlinks', action='store_false', default=True,
                         help='Follow symbolic links when searching for files to process.  ' +
                         "  (MS Windows doesn't honor this option.)")
-    parser.add_argument('--um_in',  default='inch', help='The unit of measure ' +
+    parser.add_argument('--from_um',  default='inch', help='The unit of measure ' +
                         'to apply to lengths in a SolidWorks BOM unless otherwise ' +
                         'specified', metavar='U/M')
-    parser.add_argument('--um_out', default='feet', help='The unit of measure ' +
-                        'to convert lengths to', metavar='U/M')
+    parser.add_argument('--to_um', default='feet', help='The unit of measure ' +
+                        'to convert SolidWorks lengths to', metavar='U/M')
     
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
@@ -188,11 +188,13 @@ def bomcheck(fn, dic={}, **kwargs):
     dic: dictionary
         default: {}, i.e. an empty dictionary.  This variable is only used if
         the function "main" is used to run the bomcheck program.  If so, keys
-        named "drop" and "sheets" are put into dic, and values 
-        corresponding to these keys.
+        named "drop", "sheets", "from_um", and "to_um" and corresponding
+        values therefo are put into dic.
         
     kwargs: dictionary
-        The dictionary key/value items that this function looks for are:
+        Unlike dic, no values in kwargs are derived from the main function.
+        This variable is used when bomcheck is run from a python console.  The
+        dictionary key/value items that this function looks for are:
 
         c:  bool
             Break up results across multiple sheets within the bomcheck.xlsx
@@ -248,16 +250,18 @@ def bomcheck(fn, dic={}, **kwargs):
     
     \u2009
     '''
-    global useDrop, drop, exceptions, printStrs, um_in, um_out
+    global useDrop, drop, exceptions, printStrs, from_um, to_um
     d = dic.get('drop', False)
     c = dic.get('sheets', False)
+    from_um = (dic.get('from_um', 'inch') if not kwargs.get('from_um')
+              else kwargs.get('from_um'))
+    to_um = (dic.get('to_um', 'feet') if not kwargs.get('to_um')
+              else kwargs.get('to_um'))
     d = kwargs.get('d', d)
     c = kwargs.get('c', c)
     u = kwargs.get('u', 'unknown')
     x = kwargs.get('x', True)
     f = kwargs.get('f', True)
-    um_in = kwargs.get('um_in', 'inch')
-    um_out = kwargs.get('um_out', 'feet')
     
     if isinstance(fn, str) and fn.startswith('[') and fn.endswith(']'):
         fn = eval(fn)  # change a string to a list
@@ -727,11 +731,11 @@ def deconstructMultilevelBOM(df, top='TOPLEVEL'):
     return dic_assys
 
 
-def create_um_factors(ser, um_in='inch', um_out='feet'):
+def create_um_factors(ser, from_um='inch', to_um='feet'):
     ''' From ser derive multiplication factors that will convert length values
-    with a particular unit of measure (um) to um_out.  Some items of ser have a
+    with a particular unit of measure (um) to to_um.  Some items of ser have a
     um values appended to it; for example 1105mm.  In this case the factor will
-    be based on that um.  If no um is specified, it's derived from um_in. 
+    be based on that um.  If no um is specified, it's derived from from_um. 
 
     Parmeters
     =========
@@ -739,13 +743,13 @@ def create_um_factors(ser, um_in='inch', um_out='feet'):
     ser:  Pandas Series
         The data from the column that contains lengths from a SolidWorks BOM.
 
-    um_in: str
+    from_um: str
         Use this unit of measure to convert from unless otherwised specified.  
         Valid units of measure: 'inch', 'feet', 'yard', 'millimeter', 
         'centimeter', 'meter' (or abreviations thereof, e.g. mm).
         Default: 'inch'.
 
-    um_out: str
+    to_um: str
         Convert to this unit of measure.  The same valid units of measure
         listed above apply.  Default: feet
     
@@ -754,50 +758,45 @@ def create_um_factors(ser, um_in='inch', um_out='feet'):
 
     out: list   
         multiplcation factors (list of floats)          
-    '''    
+    '''
     factorpool = (('in', 1/12),      ('ft', 1.0),      ('mm', 1/(25.4*12)),
                   ('"', 1/12),       ("'", 1.0),       ('milli', 1/(25.4*12)),
                   (chr(8221), 1/12), (chr(8217), 1.0), ('cm', 10/(25.4*12)),
                   ('yard', 3.0),     ('foot', 1.0),    ('centi', 10/(25.4*12)),
                   ('yd', 3.0),       ('feet', 1.0),    ('m', 1000/(25.4*12)))
  
-    # determine um_in_factor
+    # determine from_um_factor
     for k, v in factorpool:
-        if k in um_in.lower():
-            um_in_factor = v
+        if k in from_um.lower():
+            from_um_factor = v
             break
     else:
-        um_in_factor = 1/12
+        from_um_factor = 1/12
 
-    # determine um_out_factor
+    # determine to_um_factor
     for k, v in factorpool:
-        if k in um_out.lower():
-            um_out_factor = 1/v
+        if k in to_um.lower():
+            to_um_factor = 1/v
             break
     else:
-        um_out_factor = 1.0
-   
-    # accumlate factors_in; not accounting for um_out yet
+        to_um_factor = 1.0
+
     lengths = ser.fillna(0).tolist()
-    factors_in = []
+    factors = []
     for length in lengths:
         if isinstance(length, str):  # if UM explicitly stated, e.g. "34.3 MM"
-            for k, v in factorpool:
+           for k, v in factorpool:
                 if k in length.lower():
-                    factors_in.append(v)
+                    from_factor = v
                     break
-            else:
-                factors_in.append(um_in_factor)
+           else:
+               from_factor = from_um_factor
         elif isinstance(length, float) or isinstance(length, int):
-            factors_in.append(um_in_factor)
+            from_factor = from_um_factor
         else:
-            factors_in.append(0)
-    
-    # now to take into account um_out
-    factors = []
-    for i, f in enumerate(factors_in):
-        factors.append(um_out_factor * factors_in[i]) 
-
+            from_factor = 0
+        factors.append(from_factor * to_um_factor)
+        
     return factors
 
 
@@ -805,26 +804,26 @@ def convert_sw_bom_to_sl_format(df):
     '''Take a SolidWorks BOM and restructure it to be like that of a SyteLine
     BOM.  That is, the following is done:
 
-    - For parts with a length provided (i.e. has a float or int value in a 
-      column named LENGTH), the length is converted from inches to feet. 
-      (Lengths in SyteLine BOMs always have their units of measure in feet.  On 
-      the other hand units of measure in a SolidWorks' BOMs are always in inches.)
+    - For parts with a length provided, the length is converted from from_um to 
+      to_um (see the function main for a definition of these variables).
+      Typically the unit of measure in a SolidWorks BOM is inches, and in 
+      SyteLine, feet.
     - If the part is a pipe or beam and it is listed multiple times in the BOM,
-      the BOM is updated so that the part is shown only once.  The length is
-      converted to the sum of the lengths of the multiple parts.
-    - (If useDrop=True) Any pipe fittings that start with "3" and end with
-      "025" are off-the-shelf parts.  They are removed from the SolidWorks BOM.
-      (As a general rule, off-the-shelf parts are not shown on SyteLine BOMs.)
-      The list that governs this rule is in a file named drop.py.  Therefore
-      other part nos. may be added to this list if required.  (see set_globals)
-    - Many times part nos. for pipe nipples, pipes, and structural steel show
-      more than once in a SW BOM.  If this occurs then this function update the
-      BOM so that that part shows only  once.  The quantity is updated
-      accordingly..
-    - Column titles are changed to match those of SyteLine and thus allows
-      merging to a SyteLing BOM in a later step.
+      the BOM is updated so that only one listing is shown and the lengths
+      of the removed listings are added to the remaining listing.
+    - Similar to above, parts such as pipe nipples will show up more that
+      once on a BOM.  Remove the excess listings and add the quantities of
+      the removed listings to the remaining listing.
+    - If global variable useDrop is set to True, off the shelf parts, which 
+      are usually pipe fittings, are removed from the SolidWorks BOM.  (As a
+      general rule, off-the-shelf parts are not shown on SyteLine BOMs.)  The 
+      list that  governs this rule is in a file named drop.py.  Other part nos.
+      may be added to this list as required.  (see the function set_globals
+      for more information)
+    - Column titles are changed to match those of SyteLine and thus will allow
+      merging to a SyteLine BOM.
       
-    calls: multfac
+    calls: create_um_factors
 
     Parmeters
     =========
@@ -845,7 +844,7 @@ def convert_sw_bom_to_sl_format(df):
                        'DESCRIPTION': 'Description', 'QTY': 'Q', 'QTY.': 'Q',}, inplace=True)
 
     if 'LENGTH' in df.columns:  # convert lengths to feet
-        factors = create_um_factors(df['LENGTH'], um_in=um_in, um_out=um_out)
+        factors = create_um_factors(df['LENGTH'], from_um=from_um, to_um=to_um)
         qtys = df['Q']
         lengths = df['LENGTH'].replace('[^\d.]', '', regex=True).astype(float)
         ignore_these_parts_filter = (~df['Item'].str.startswith('3086')).tolist()
@@ -877,8 +876,8 @@ def convert_sw_bom_to_sl_format(df):
             filtr3 = df['Item'].str.contains('|'.join(drop2))
             df.drop(df[filtr3].index, inplace=True)  # drop frow SW BOM pns in "drop" list.
 
-    df['WC'] = 'PICK'
-    df['Op'] = str(10)
+    df['WC'] = 'PICK'    # WC is a standard column shown in a SL BOM.
+    df['Op'] = str(10)   # Op is a standard column shown in a SL BOM, usually set to 10  
     df.set_index('Op', inplace=True)
 
     return df
