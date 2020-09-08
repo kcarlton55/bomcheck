@@ -31,6 +31,7 @@ import tempfile
 import re
 import datetime
 import pytz
+import fnmatch
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
@@ -58,16 +59,16 @@ def set_globals():
     out: None
         If droplists.py not found, set drop=['3*-025'] and exceptions=[]
     '''
-    global drop, exceptions, useDrop, timezone, excelTitle, printStrs, from_um, to_um
+    global drop, exceptions, omit, useDrop, timezone, excelTitle, printStrs
+    global from_um, to_um, accuracy, discard_length
     printStrs = ''
     excelTitle = []
-    timezone = 'US/Central'  # ensure time reported in bomcheck.xlsx is correct
     useDrop = False
     usrPrf = os.getenv('USERPROFILE')  # on my win computer, USERPROFILE = C:\Users\k_carlton
     if usrPrf:
-        userDocDir = os.path.join(usrPrf, 'Documents')
+        userDocDir = os.path.join(usrPrf, 'Documents')  # if usrPrf was not None
     else:
-        userDocDir = "C:/"
+        userDocDir = "C:/"  
     paths = [userDocDir, "/home/ken/projects/project1/"]
     for p in paths:
         if os.path.exists(p) and not p in sys.path:
@@ -80,12 +81,15 @@ def set_globals():
         print(printStr)
     try:
         import droplist
-        drop = droplist.drop
-        exceptions = droplist.exceptions
     except ModuleNotFoundError:
-        drop = ['3*-025']   # If droplist.py not found, use this
-        exceptions= []
-
+        def droplist():
+            pass
+    drop = droplist.drop if ('drop' in dir(droplist)) else ['3*-025']
+    exceptions = droplist.exceptions if ('exceptions' in dir(droplist)) else []
+    discard_length = droplist.discard_length if ('discard_length' in dir(droplist)) else ['3086-*']
+    accuracy = droplist.accuracy if ('accuracy' in dir(droplist)) else 2
+    timezone = droplist.timezone if ('timezone' in dir(droplist)) else 'US/Central'
+    
 
 def main():
     '''This fuction allows this bomcheck.py program to be run from the command
@@ -128,11 +132,13 @@ def main():
     parser.add_argument('-f', '--followlinks', action='store_false', default=True,
                         help='Follow symbolic links when searching for files to process.  ' +
                         "  (MS Windows doesn't honor this option.)")
-    parser.add_argument('--from_um',  default='inch', help='The unit of measure ' +
+    parser.add_argument('--from_um',  default='"inch"', help='The unit of measure ' +
                         'to apply to lengths in a SolidWorks BOM unless otherwise ' +
-                        'specified', metavar='U/M')
-    parser.add_argument('--to_um', default='feet', help='The unit of measure ' +
-                        'to convert SolidWorks lengths to', metavar='U/M')
+                        'specified', metavar='value')
+    parser.add_argument('--to_um', default='"feet"', help='The unit of measure ' +
+                        'to convert SolidWorks lengths to', metavar='value')
+    parser.add_argument('-a', '--accuracy', help='decimal place accuracy applied ' +
+                        'to lengths in a SolidWorks BOM', default=2, metavar='value')
     
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
@@ -250,7 +256,7 @@ def bomcheck(fn, dic={}, **kwargs):
     
     \u2009
     '''
-    global useDrop, drop, exceptions, printStrs, from_um, to_um
+    global useDrop, drop, exceptions, printStrs, from_um, to_um, accuracy
     d = dic.get('drop', False)
     c = dic.get('sheets', False)
     from_um = (dic.get('from_um', 'inch') if not kwargs.get('from_um')
@@ -262,6 +268,7 @@ def bomcheck(fn, dic={}, **kwargs):
     u = kwargs.get('u', 'unknown')
     x = kwargs.get('x', True)
     f = kwargs.get('f', True)
+    accuracy = kwargs.get('a', 2)
     
     if isinstance(fn, str) and fn.startswith('[') and fn.endswith(']'):
         fn = eval(fn)  # change a string to a list
@@ -633,12 +640,14 @@ def deconstructMultilevelBOM(df, top='TOPLEVEL'):
     a single level BOM, a dictionary with one item is returned.
 
     For this function to pull out subassembly BOMs from a SyteLine BOM, the
-    column named Level must exist in the SyteLine BOM.  It contains intergers
-    indicating the level of a subassemby within the BOM.  Only multilevel
-    SyteLine BOMs contain this column.  On the other hand for this function to 
-    pull out subassemblies from a SolidWorks BOM, the column ITEM NO. must 
-    contain values that indicate which values are subassemblies (e.g, the 2.1 
-    and 2.2 of 1, 2, 2.1, 2.2, 3, 4, etc.)
+    column named Level must exist in the SyteLine BOM.  It contains integers
+    indicating the level of a subassemby within the BOM; e.g. 1, 2, 3, 2, 3,
+    3, 3, 4, 4, 2.  Only multilevel SyteLine BOMs contain this column.
+    On the other hand for this function to  pull out subassemblies from a
+    SolidWorks BOM, the column ITEM NO. must exist and contain values that
+    indicate which values are subassemblies; e.g, with item numbers like
+    "1, 2, 2.1, 2.2, 3, 4, etc., items 2.1 and 2.2 are  members of the item 
+    number 2 subassembly.
 
     Parmeters
     =========
@@ -800,6 +809,67 @@ def create_um_factors(ser, from_um='inch', to_um='feet'):
     return factors
 
 
+def is_in(find, xcept, series):   # except is a reserved python word so can't use it
+    '''Argument "find" is a list of strings that are glob expressions.  The 
+    Pandas Series "series" will be evaluated to see if any members of find
+    exists as substrings within each member of series.  Glob expressions are
+    strings like '3086-*-025' or *2020*.  '3086-*-025' for example will match 
+    '3086-0050-025' and '3086-0215-025'.
+    
+    The output of the is_in function is a Pandas Series.  Each member of the
+    Series is True or False depending on whether a substring has been found
+    or not.
+        
+    xcept is a list of exceptions to those in the find list.  For example, if
+    '3086-*-025' is in the find list and '3086-3*-025' is in the xcept list,
+    then series members like '3086-0515-025' or '3086-0560-025' will return
+    a True, and '3086-3050-025' or '3086-3060-025' will return a False.
+    
+    For reference, glob expressions are explained at:
+    https://en.wikipedia.org/wiki/Glob_(programming)
+    
+    Parmeters
+    =========
+    
+    find: string or list of strings
+        Items to search for
+        
+    xcept: string or list of strings
+        Exceptions to items to search for
+
+    series:  Pandas Series
+       Series to search
+
+    Returns
+    =======
+
+    out: Pandas Series, dtype: bool
+        Each item is True or False depending on whether a match was found or not
+    '''
+    if not isinstance(find, list):
+        find = [find]
+    if not isinstance(xcept, list) and xcept:
+        xcept = [xcept]
+    elif isinstance(xcept, list):
+        pass
+    else:
+        xcept = []
+    series = series.astype(str).str.strip()  # ensure that all elements are strings & strip whitespace from ends
+    find2 = []
+    for f in find:
+        find2.append('^' + fnmatch.translate(str(f)) + '$')  # reinterpret user input with a regex expression
+    xcept2 = []
+    for x in xcept:  # exceptions is also a global variable
+        xcept2.append('^' +  fnmatch.translate(str(x))  + '$')
+    if find2 and xcept2:
+        filtr = (series.str.contains('|'.join(find2)) &  ~series.str.contains('|'.join(xcept2)))
+    elif find2:
+        filtr = series.str.contains('|'.join(find2))
+    else:
+        filtr = pd.Series([False]*series.size)
+    return filtr
+
+
 def convert_sw_bom_to_sl_format(df):
     '''Take a SolidWorks BOM and restructure it to be like that of a SyteLine
     BOM.  That is, the following is done:
@@ -839,16 +909,15 @@ def convert_sw_bom_to_sl_format(df):
 
     \u2009
     '''
-    global printStrs
     df.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item', 'L': 'LENGTH', 'Length':'LENGTH',
                        'DESCRIPTION': 'Description', 'QTY': 'Q', 'QTY.': 'Q',}, inplace=True)
 
-    if 'LENGTH' in df.columns:  # convert lengths to feet
+    if 'LENGTH' in df.columns:  # convert lengths to other unit of measure, i.e. to_um
         factors = create_um_factors(df['LENGTH'], from_um=from_um, to_um=to_um)
         qtys = df['Q']
-        lengths = df['LENGTH'].replace('[^\d.]', '', regex=True).astype(float)
-        ignore_these_parts_filter = (~df['Item'].str.startswith('3086')).tolist()
-        df['LENGTH'] = lengths * qtys * factors * ignore_these_parts_filter
+        lengths = df['LENGTH'].replace('[^\d.]', '', regex=True).astype(float)               
+        discard_length_filter = ~is_in(discard_length, [], df['Item'])
+        df['LENGTH'] = lengths * qtys * factors * discard_length_filter
         filtr2 = df['LENGTH'] >= 0.00001
         df['Q'] = df['Q']*(~filtr2) + df['LENGTH']  # move lengths to the Qty column
         df['U'] = filtr2.apply(lambda x: 'FT' if x else 'EA')  # set the unit of measure
@@ -858,23 +927,11 @@ def convert_sw_bom_to_sl_format(df):
     df = df.reindex(['Op', 'WC','Item', 'Q', 'Description', 'U'], axis=1)  # rename and/or remove columns
     dd = {'Q': 'sum', 'Description': 'first', 'U': 'first'}   # funtions to apply to next line
     df = df.groupby('Item', as_index=False).aggregate(dd).reindex(columns=df.columns)
-    df['Q'] = round(df['Q'], 2)
+    df['Q'] = round(df['Q'], accuracy)  # accuracy is a global variable
 
     if useDrop==True:
-        drop2 = []
-        for d in drop:  # drop is a global varialbe: pns to exclude from the bom check
-            d = '^' + d + '$'
-            drop2.append(d.replace('*', '[A-Za-z0-9-]*'))
-        exceptions2 = []
-        for e in exceptions:  # exceptions is also a global variable
-            e = '^' + e + '$'
-            exceptions2.append(e.replace('*', '[A-Za-z0-9-]*'))
-        if drop2 and exceptions2:
-            filtr3 = df['Item'].str.contains('|'.join(drop2)) & ~df['Item'].str.contains('|'.join(exceptions2))
-            df.drop(df[filtr3].index, inplace=True)  # drop frow SW BOM pns in "drop" list.
-        elif drop2:
-            filtr3 = df['Item'].str.contains('|'.join(drop2))
-            df.drop(df[filtr3].index, inplace=True)  # drop frow SW BOM pns in "drop" list.
+        filtr3 = is_in(drop, exceptions, df['Item'])
+        df.drop(df[filtr3].index, inplace=True)
 
     df['WC'] = 'PICK'    # WC is a standard column shown in a SL BOM.
     df['Op'] = str(10)   # Op is a standard column shown in a SL BOM, usually set to 10  
@@ -885,7 +942,7 @@ def convert_sw_bom_to_sl_format(df):
 
 def check_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     '''This function takes in one SW BOM and one SL BOM and then merges them.
-    This merged BOM shows the BOM check which allows differences between the
+    This merged BOM shows the BOM check allowing differences between the
     SW and SL BOMs to be easily seen.
 
     A set of columns in the output are labeled i, q, d, and u.  Xs at a row in
