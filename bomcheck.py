@@ -44,11 +44,14 @@ def get_version():
 
 
 def set_globals():
-    ''' Create a global variable named cfg and some other global variable.
+    ''' Create a global variables including the primary one named cfg.
     cfg is a dictionary containing settings used by this program.
     
-    (set_globals is called upon at the end of this file, just before
-    main is called)
+    set_globals() is ran when bomcheck first starts up.
+    
+    set_globals() tries to derive settings from the file named bc_bomcheck.py
+    if it can be located and if values have been established there.
+    Otherwise set_globals() creates its on settings for cfg.
     '''
     global cfg, printStrs, excelTitle
     cfg = {}
@@ -60,7 +63,7 @@ def set_globals():
         userDocDir = os.path.join(usrPrf, 'Documents')  # if usrPrf was not None
     else:
         userDocDir = "C:/"  
-    paths = [userDocDir, "/home/ken/projects/project1/"]
+    paths = [userDocDir, "/home/ken/projects/project1/"]  # the 2nd value if testing at my home
     for p in paths:
         if os.path.exists(p) and not p in sys.path:
             sys.path.append(p)
@@ -73,21 +76,42 @@ def set_globals():
     try:
         import bc_config
     except ModuleNotFoundError:
-        def bc_config():
+        def bc_config():  # do this so that doing "dir(bc_config)" below doesn't fail
             pass
-    # Load the cfg dictionary with values that can be derived from
-    # bc_config.py, else use defaults as defined below.  If bc_config.py was
-    # not able to be imported, then use the defaults defined below. 
-    cfg['accuracy'] = bc_config.accuracy if ('accuracy' in dir(bc_config)) else 2
-    cfg['accuracy'] = int(cfg['accuracy'])
-    cfg['discard_length'] = (bc_config.discard_length 
-                            if ('discard_length' in dir(bc_config)) else ['3086-*'])
-    cfg['drop'] = bc_config.drop if ('drop' in dir(bc_config)) else ['3*-025']
-    cfg['exceptions'] = bc_config.exceptions if ('exceptions' in dir(bc_config)) else []
-    cfg['from_um'] = bc_config.from_um if ('from_um' in dir(bc_config)) else 'inch'
-    cfg['timezone'] = bc_config.timezone if ('timezone' in dir(bc_config)) else 'US/Central'
-    cfg['to_um'] = bc_config.to_um if ('to_um' in dir(bc_config)) else 'feet'
 
+    cfg = {}
+    cfg['col'] = {}
+    def insert_into_cfg(var, default, col=False):
+        ''' Function to insert key/value pairs into the dictionary named cfg.
+        Use values set in the file named bc_config.py if possible.'''
+        if col: 
+            value = bc_config.__dict__[var] if (var in dir(bc_config)) else default
+            cfg['col'].update({var:value})
+        else:                
+           cfg[var] = bc_config.__dict__[var] if (var in dir(bc_config)) else default
+    # default settings for bomcheck
+    list1 = [('accuracy', 2),       ('discard_length', ['3086-*']), 
+             ('drop', ['3*-025']),  ('exceptions', []), 
+             ('from_um', 'inch'),   ('timezone', 'US/Central'),
+             ('to_um', 'feet')]
+    # Give to bomcheck names of columns that it can expect to see in BOMs.  If
+    # one of the names in each group shown in brackets below is not found,
+    # then bomcheck will fail.
+    list2 = [('part_num_sw', ["PARTNUMBER", "PART NUMBER", "Part Number"]),
+             ('part_num_sl', ["Item", "Material"]),
+             ('qty_sw',      ["QTY", "QTY."]), 
+             ('qty_sl',      ["Qty", "Quantity", "Qty Per"]),
+             ('descrip_sw',  ["DESCRIPTION"]),
+             ('descrip_sl',  ["Material Description", "Description"]),
+             ('um_sl',       ["UM", "U/M"]),
+             ('itm_num_sw',  ["ITEM NO."]),
+             ('level_sl',    ["Level"])]
+    for k, v in list1:
+        insert_into_cfg(k, v)
+    cfg['accuracy'] = int(cfg['accuracy'])    
+    for k, v in list2:
+        insert_into_cfg(k, v, col=True)
+                             
     
 def showSettings():
     return cfg
@@ -257,7 +281,7 @@ def bomcheck(fn, dic={}, **kwargs):
     >>> bomcheck(["C:/folder1/*", "C:/folder2/*"], d=True, u="John Doe") 
     
     '''
-    global useDrop, printStrs, cfg
+    global printStrs, cfg
     # Set settings depending on 1. if input was derived from running this 
     # program from the command line (i.e. values from dic), 2. if from 
     # excecuting the bomcheck() function within a python console or called by
@@ -265,16 +289,18 @@ def bomcheck(fn, dic={}, **kwargs):
     # imported from bc_config.py.  Many default values (e.g. cfg['from_um'])
     # were initially establisd by the set_globals() function.
     cfg['from_um'] = (dic.get('from_um') if dic.get('from_um')
-                  else kwargs.get('from_um', cfg['from_um']))  
+                      else kwargs.get('from_um', cfg['from_um']))  
     cfg['to_um'] = (dic.get('to_um') if dic.get('to_um')
-                  else kwargs.get('to_um', cfg['to_um']))
-    d = (dic.get('drop') if dic.get('drop') else kwargs.get('d', False))
+                    else kwargs.get('to_um', cfg['to_um']))
+    cfg['accuracy'] = (dic.get('accuracy') if dic.get('accuracy')
+                       else kwargs.get('a', cfg['accuracy']))
+    cfg['drop'] = (dic.get('drop') if dic.get('drop') 
+                   else kwargs.get('d', False))
     c = (dic.get('sheets') if dic.get('sheets') else kwargs.get('c', False))
     u =  kwargs.get('u', 'unknown')  
     x = kwargs.get('x', True)
     f = kwargs.get('f', False)
-    cfg['accuracy'] = (dic.get('accuracy') if dic.get('accuracy')
-                       else kwargs.get('a', cfg['accuracy']))
+
         
     if isinstance(fn, str) and fn.startswith('[') and fn.endswith(']'):
         fn = eval(fn)  # change a string to a list
@@ -283,13 +309,10 @@ def bomcheck(fn, dic={}, **kwargs):
 
     fn = get_fnames(fn, followlinks=f)  # get filenames with any extension.   
         
-    if d:
-        useDrop = True  # useDrop: a global variable established in set_globals
+    if cfg['drop']:
         printStr = '\ndrop = ' + str(cfg['drop']) + '\nexceptions = ' + str(cfg['exceptions']) + '\n'
         printStrs += printStr
         print(printStr)
-    else:
-        useDrop = False
 
     dirname, swfiles, slfiles = gatherBOMs_from_fnames(fn)
 
@@ -390,12 +413,12 @@ def get_fnames(fn, followlinks=False):
 
 
 def make_csv_file_stable(filename):
-    ''' Except for any commas in parts' Description fields, replace all commas
+    ''' Except for any commas in a parts DESCRIPTION, replace all commas
     in a csv file with a $ character.  Commas will sometimes exist in a
-    Description field, e.g, "TANK, 60GAL".  But commas are intended to be field
-    delimeters, but commas in Description fields are not intended for this.  
-    These excess commas will cause a program crash.  Remedy: let the $ 
-    character be the delimiter instead of the comma.
+    DESCRIPTION field, e.g, "TANK, 60GAL".  But commas are intended to be field
+    delimeters; commas in a DESCRIPTION field are not.  Excess commas in
+    a line from a csv file will cause a program crash.  Remedy: change those 
+    commas meant to be delimiters to a dollor sign character, $.
         
     Parmeters
     =========
@@ -464,11 +487,11 @@ def gatherBOMs_from_fnames(filename):
         corresponding to the first file in the filename list.  If this
         directory is an empty string, then it refers to the current working
         directory.  The remainder of the tuple items are two python 
-        dictionaries: The first dictionary contains SolidWorks BOMs, and the 
+        dictionaries. The first dictionary contains SolidWorks BOMs, and the 
         second contains SyteLine BOMs.  The keys for these two dictionaries 
-        are part nos. of assemblies that derived from the filenames (e.g.
-        085952 of 085953_sw.xlsx), or they are derived from subassembly part 
-        numbers of a multilevel BOM.
+        are part nos. of assemblies derived from the filenames (e.g. 085952 
+        from 085953_sw.xlsx), or derived from subassembly part numbers of a
+        file containing multilevel BOM.
     '''
     dirname = '.'  # to this will assign the name of 1st directory a _sw is found in 
     global printStrs
@@ -507,7 +530,7 @@ def gatherBOMs_from_fnames(filename):
                     colnames.append(colname.replace('\n', ''))
                 df.columns = colnames
             if not test_for_missing_columns('sw', df, k):
-                swdfsdic.update(deconstructMultilevelBOM(df, k))
+                swdfsdic.update(deconstructMultilevelBOM(df, 'sw', k))
         except:
             printStr = '\nError processing file: ' + v + '\nIt has been excluded from the BOM check.\n'
             printStrs += printStr
@@ -533,7 +556,7 @@ def gatherBOMs_from_fnames(filename):
             elif file_extension.lower() == '.xlsx' or file_extension.lower == '.xls':
                 df = pd.read_excel(v, na_values=[' '])
             if not test_for_missing_columns('sl', df, k):
-                sldfsdic.update(deconstructMultilevelBOM(df, k))
+                sldfsdic.update(deconstructMultilevelBOM(df, 'sl', k))
         except:
             printStr = '\nError processing file: ' + v + '\nIt has been excluded from the BOM check.\n'
             printStrs += printStr
@@ -541,7 +564,7 @@ def gatherBOMs_from_fnames(filename):
     try:
         df = pd.read_clipboard(engine='python', na_values=[' '])
         if not test_for_missing_columns('sl', df, 'BOMfromClipboard', printerror=False):
-            sldfsdic.update(deconstructMultilevelBOM(df, 'TOPLEVEL'))
+            sldfsdic.update(deconstructMultilevelBOM(df, 'sl', 'TOPLEVEL'))
     except:
         pass
     if os.path.islink(dirname):
@@ -639,7 +662,7 @@ def test_alternative_column_names(tpl, lst):
         return tpl  # one of the tuple items is a required column.  Report that one or the other is missing
 
 
-def deconstructMultilevelBOM(df, top='TOPLEVEL'):
+def deconstructMultilevelBOM(df, source, top='TOPLEVEL'):
     ''' If the BOM is a multilevel BOM, pull out the BOMs thereof; that is,
     pull out the main assembly and the subassemblies thereof.  These
     assys/subassys are placed in a python dictionary and returned.  If df is
@@ -660,6 +683,10 @@ def deconstructMultilevelBOM(df, top='TOPLEVEL'):
 
     df: Pandas DataFrame
         The DataFrame is that of a SolidWorks or SyteLine BOM.
+        
+    source: string
+        Choices for source are "sw" or "sl".  That is, is the BOM being
+        deconstructed from SolidWorks or SyteLine.
 
     top: string
         Top level part number.  This number is automatically generated by the
@@ -891,7 +918,7 @@ def convert_sw_bom_to_sl_format(df):
     - Similar to above, parts such as pipe nipples will show up more that
       once on a BOM.  Remove the excess listings and add the quantities of
       the removed listings to the remaining listing.
-    - If global variable useDrop is set to True, off the shelf parts, which 
+    - If global variable cfg['drop'] is set to True, off the shelf parts, which 
       are usually pipe fittings, are removed from the SolidWorks BOM.  (As a
       general rule, off-the-shelf parts are not shown on SyteLine BOMs.)  The 
       list that  governs this rule is in a file named drop.py.  Other part nos.
@@ -937,7 +964,7 @@ def convert_sw_bom_to_sl_format(df):
     df = df.groupby('Item', as_index=False).aggregate(dd).reindex(columns=df.columns)
     df['Q'] = round(df['Q'], cfg['accuracy'])
 
-    if useDrop==True:
+    if cfg['drop']==True:
         filtr3 = is_in(cfg['drop'], cfg['exceptions'], df['Item'])
         df.drop(df[filtr3].index, inplace=True)
 
@@ -1270,7 +1297,7 @@ def export2excel(dirname, filename, results2export, uname):
     comment1 = 'This workbook created ' + time + ' by ' + username + '.  '
     comment2 = 'The drop list was not employed for this BOM check.  '
     bomfooter = '&LCreated ' + time + ' by ' + username + '&CPage &P of &N'
-    if useDrop:
+    if cfg['drop']:
         comment2 = ('The drop list was employed for this BOM check:  '
                     + 'drop = ' + str(cfg['drop']) +  ', exceptions = ' + str(cfg['exceptions']))
         bomfooter = bomfooter + '&Rdrop: yes'
