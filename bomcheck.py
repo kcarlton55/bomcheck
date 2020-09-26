@@ -8,9 +8,7 @@ File initial creation on Sun Nov 18 2018
 This program compares two BOMs: one originating from SolidWorks (SW) and the
 other from SyteLine (SL).  The structure of the BOMs (headings, structure,
 etc.) are very unique to my company.  Therefore this program, unaltered, will
-fail to function at another company.  The first step to alter this program
-for your needs is to begin by modifing the set_globals() function and to
-examine the file named bc_config.py. 
+fail to function at another company.  
 
 Run this program from the command line like this: python bomcheck.py '*'
 
