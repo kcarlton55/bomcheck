@@ -7,8 +7,10 @@ File initial creation on Sun Nov 18 2018
 
 This program compares two BOMs: one originating from SolidWorks (SW) and the
 other from SyteLine (SL).  The structure of the BOMs (headings, structure,
-etc.) are very unique to our company.  Therefore this program, unaltered, will
-fail to function at another company.
+etc.) are very unique to my company.  Therefore this program, unaltered, will
+fail to function at another company.  The first step to alter this program
+for your needs is to begin by modifing the set_globals() function and to
+examine the file named bc_config.py. 
 
 Run this program from the command line like this: python bomcheck.py '*'
 
@@ -95,17 +97,15 @@ def set_globals():
              ('from_um', 'inch'),   ('timezone', 'US/Central'),
              ('to_um', 'feet')]
     # Give to bomcheck names of columns that it can expect to see in BOMs.  If
-    # one of the names in each group shown in brackets below is not found,
-    # then bomcheck will fail.
-    list2 = [('part_num_sw', ["PARTNUMBER", "PART NUMBER", "Part Number"]),
-             ('part_num_sl', ["Item", "Material"]),
-             ('qty_sw',      ["QTY", "QTY."]), 
-             ('qty_sl',      ["Qty", "Quantity", "Qty Per"]),
-             ('descrip_sw',  ["DESCRIPTION"]),
-             ('descrip_sl',  ["Material Description", "Description"]),
-             ('um_sl',       ["UM", "U/M"]),
-             ('itm_num_sw',  ["ITEM NO."]),
-             ('level_sl',    ["Level"])]
+    # one of the names, except length names, in each group shown in brackets
+    # below is not found, then bomcheck will fail.
+    list2 = [('part_num',  ["PARTNUMBER", "PART NUMBER", "Part Number", "Item", "Material"]),
+             ('qty',       ["QTY", "QTY.", "Qty", "Quantity", "Qty Per"]),
+             ('descrip',   ["DESCRIPTION", "Material Description", "Description"]),
+             ('um_sl',     ["UM", "U/M"]),     # not required in a SW BOM
+             ('level_sl',  ["Level"]),         # not required in a SW BOM
+             ('itm_sw',    ["ITEM NO."]),      # not required in a SL BOM
+             ('length_sw', ["LENGTH", "Length", "L"])]  # not required in a SL or SW BOM
     for k, v in list1:
         insert_into_cfg(k, v)
     cfg['accuracy'] = int(cfg['accuracy'])    
@@ -503,11 +503,11 @@ def gatherBOMs_from_fnames(filename):
             dname, fname = os.path.split(f)
             k = fname.rfind('_')
             fntrunc = fname[:k]  # Name of the sw file, excluding path, and excluding _sw.xlsx
-            if f[i:i+4].lower() == '_sw.' and fname[0] != '~': # Ignore names like ~$085637_sw.xlsx
+            if f[i:i+4].lower() == '_sw.' and '~' not in fname: # Ignore names like ~$085637_sw.xlsx
                 swfilesdic.update({fntrunc: f})
                 if dirname == '.':
                     dirname = os.path.dirname(os.path.abspath(f)) # use 1st dir where a _sw file is found to put bomcheck.xlsx
-            elif f[i:i+4].lower() == '_sl.' and fname[0] != '~':
+            elif f[i:i+4].lower() == '_sl.' and '~' not in fname:
                 slfilesdic.update({fntrunc: f})    
     swdfsdic = {}  # for collecting SW BOMs to a dic
     for k, v in swfilesdic.items():
@@ -521,7 +521,7 @@ def gatherBOMs_from_fnames(filename):
                 temp.seek(0)
                 df = pd.read_csv(temp, na_values=[' '], skiprows=1, sep='$',
                                  encoding='iso8859_1', engine='python',
-                                 dtype = {'ITEM NO.': 'str'})
+                                 dtype = dict.fromkeys(cfg['col']['itm_sw'], 'str'))
                 temp.close()
             elif file_extension.lower() == '.xlsx' or file_extension.lower() == '.xls':
                 df = pd.read_excel(v, na_values=[' '], skiprows=1)
@@ -599,17 +599,17 @@ def test_for_missing_columns(bomtype, df, pn, printerror=True):
     '''
     global printStrs
     if bomtype == 'sw':
-        required_columns = [('QTY', 'QTY.'), 'DESCRIPTION',
-                            ('PART NUMBER', 'PARTNUMBER', 'Part Number')]
+        required_columns = [cfg['col']['qty'], cfg['col']['descrip'],
+                            cfg['col']['part_num'], cfg['col']['itm_sw']]
     else: # 'for sl bom'
-        required_columns = [('Qty', 'Quantity', 'Qty Per'),
-                            ('Material Description', 'Description'),
-                            ('U/M', 'UM'), ('Item', 'Material')]
+        required_columns = [cfg['col']['qty'], cfg['col']['descrip'],
+                            cfg['col']['part_num'], cfg['col']['um_sl']]
+            
     missing = []
     for r in required_columns:
         if isinstance(r, str) and r not in df.columns:
             missing.append(r)
-        elif isinstance(r, tuple) and test_alternative_column_names(r, df.columns):
+        elif isinstance(r, list) and test_alternative_column_names(r, df.columns):
             missing.append(' or '.join(test_alternative_column_names(r, df.columns)))
     if missing and bomtype=='sw' and printerror:
         printStr = ('\nEssential BOM columns missing.  SolidWorks requires a BOM header\n' +
@@ -640,7 +640,7 @@ def test_alternative_column_names(tpl, lst):
     
     Parameters
     ==========
-    tpl: tuple
+    tpl: tuple or list
         Each item of tpl is a string.  Each item is an alternative column name,
         e.g. ("Qty", "Quantity")
        
@@ -662,6 +662,29 @@ def test_alternative_column_names(tpl, lst):
         return tpl  # one of the tuple items is a required column.  Report that one or the other is missing
 
 
+def col_name(df, col):
+    '''
+    Parameters
+    ----------
+    df: Pandas DataFrame
+        
+    col: list
+        List of column names that will be compared to the list of column
+        names from df (i.e. from df.columns)
+
+    Returns
+    -------
+    out: string
+        Name of column that is common to both df.columns and col
+    '''
+    try:
+        df_cols_as_set = set(list(df.columns))
+        intersect = df_cols_as_set.intersection(col)
+        return list(intersect)[0]
+    except IndexError:
+        return ""
+
+
 def deconstructMultilevelBOM(df, source, top='TOPLEVEL'):
     ''' If the BOM is a multilevel BOM, pull out the BOMs thereof; that is,
     pull out the main assembly and the subassemblies thereof.  These
@@ -673,10 +696,10 @@ def deconstructMultilevelBOM(df, source, top='TOPLEVEL'):
     indicating the level of a subassemby within the BOM; e.g. 1, 2, 3, 2, 3,
     3, 3, 4, 4, 2.  Only multilevel SyteLine BOMs contain this column.
     On the other hand for this function to  pull out subassemblies from a
-    SolidWorks BOM, the column ITEM NO. must exist and contain values that
-    indicate which values are subassemblies; e.g, with item numbers like
-    "1, 2, 2.1, 2.2, 3, 4, etc., items 2.1 and 2.2 are  members of the item 
-    number 2 subassembly.
+    SolidWorks BOM, the column ITEM NO. (see set_globals() for other optional
+    names) must exist and contain values that indicate which values are 
+    subassemblies; e.g, with item numbers like "1, 2, 2.1, 2.2, 3, 4, etc.,
+    items 2.1 and 2.2 are members of the item number 2 subassembly.
 
     Parmeters
     =========
@@ -707,70 +730,70 @@ def deconstructMultilevelBOM(df, source, top='TOPLEVEL'):
         numbers for BOMs; and BOM1, BOM2, etc. are pandas DataFrame objects
         that pertain to those part numbers.
     '''
-    p = None
-    # Find the column name that contains the pns.  This column name varies
-    # depending on whether it came from SW or SL, and ,if from SL, from where
-    # in SL the the BOM come from.
-    for pncolname in ['Item', 'Material', 'PARTNUMBER', 'PART NUMBER', 'Part Number']:
-        if pncolname in df.columns:
-            ptno = pncolname
-    df[ptno] = df[ptno].astype('str').str.strip() # make sure pt nos. are "clean"
-    df[ptno].replace('', 'pn missing', inplace=True)
-    values = {'QTY':0, 'QTY.':0, 'Qty':0, 'Quantity':0, 'LENGTH':0, 'L':0,
-              'DESCRIPTION': 'description missing',
-              'Material Description': 'description missing',
-              'PART NUMBER': 'pn missing', 'PARTNUMBER': 'pn missing',
-              'Part Number':'pn missing', 'Item': 'pn missing', 
-              'Material':'pn missing'}
+    __lvl = col_name(df, cfg['col']['level_sl'])
+    __itm = col_name(df, cfg['col']['itm_sw'])
+    __pn = col_name(df, cfg['col']['part_num'])  # get the column name for pns
+    
+    p = None 
+    df[__pn] = df[__pn].astype('str').str.strip() # make sure pt nos. are "clean"
+    df[__pn].replace('', 'no pn from BOM!', inplace=True)
+          
+    # https://stackoverflow.com/questions/2974022/is-it-possible-to-assign-the-same-value-to-multiple-keys-in-a-dict-object-at-onc
+    values = dict.fromkeys((cfg['col']['qty'] + cfg['col']['length_sw']), 0)
+    values.update(dict.fromkeys(cfg['col']['descrip'], 'no descrip from BOM!'))
+    values.update(dict.fromkeys(cfg['col']['part_num'], 'no pn from BOM!'))
     df.fillna(value=values, inplace=True)
-    if 'Level' in df.columns:  # if present, is a SL BOM.  Make sure top='TOPLEVEL'
-        top = 'TOPLEVEL'
-    # if BOM is from SW, generate a column named Level based on the column named
-    # ITEM NO.  This column constains values like 1, 2, 3, 3.1, 3.1.1, 3.1.2,
-    # 3.2, etc. where item 3.1 is a member of subassy 3.
-    if 'ITEM NO.' in df.columns:  # is a sw bom
-        df['ITEM NO.'] = df['ITEM NO.'].astype('str')
-        df['ITEM NO.'] = df['ITEM NO.'].str.replace('.0', '') # stop 5.0 etc slipping through
-        df['Level'] = df['ITEM NO.'].str.count('\.')
-    elif 'Level' not in df.columns:  # is a single level sl bom
-        df['Level'] = 0
-    # Take the the column named "Level" and create a new column: "Level_pn".
+   
+    # Generate a column named __Level which contains integers based based upon
+    # the level of a part within within an assembly or within subassembly of
+    # an assembly. 0 is the top level assembly, 1 is a part or subassembly one 
+    # level deep, and 2, 3, etc. are levels within subassemblies. 
+    if source=='sw' and __itm and __itm in df.columns:
+        __itm = df[__itm].astype('str')
+        __itm = __itm.str.replace('.0', '') # stop something like 5.0 from slipping through
+        df['__Level'] = __itm.str.count('\.') # level is the number of periods (.) in the string
+    elif source=='sl' and __lvl and __lvl in df.columns:
+        df['__Level'] = df[__lvl]
+    else:
+        df['__Level'] = 0 
+          
+    # Take the the column named "__Level" and create a new column: "Level_pn".
     # Instead of the level at which a part exists within an assembly, like
-    # "Level" which contains integers like [0, 1, 2, 2, 1], "Level_pn" contains
+    # "__Level" which contains integers like [0, 1, 2, 2, 1], "Level_pn" contains
     # the parent part no. of the part at a particular level, e.g.
     # ['TOPLEVEL', '068278', '2648-0300-001', '2648-0300-001', '068278']
     lvl = 0
     level_pn = []  # storage of pns of parent assy/subassy of the part at rows 0, 1, 2, 3, ...
     assys = []  # storage of all assys/subassys found (stand alone parts ignored)
     for item, row in df.iterrows():
-        if row['Level'] == 0:
+        if row['__Level'] == 0:
             poplist = []
             level_pn.append(top)
             if top != "TOPLEVEL":
                 assys.append(top)
             elif 'Description' in df.columns and lvl == 0:
-                excelTitle.append((row[ptno], row['Description'])) # info for a global variable
-        elif row['Level'] > lvl:
+                excelTitle.append((row[__pn], row['Description'])) # info for a global variable
+        elif row['__Level'] > lvl:
             if p in assys:
                 poplist.append('repeat')
             else:
                 assys.append(p)
                 poplist.append(p)
             level_pn.append(poplist[-1])
-        elif row['Level'] == lvl:
+        elif row['__Level'] == lvl:
             level_pn.append(poplist[-1])
-        elif row['Level'] < lvl:
-            i = row['Level'] - lvl  # how much to pop.  i is a negative number.
+        elif row['__Level'] < lvl:
+            i = row['__Level'] - lvl  # how much to pop.  i is a negative number.
             poplist = poplist[:i]   # remove, i.e. pop, i items from end of list
             level_pn.append(poplist[-1])
-        p = row[ptno]
-        lvl = row['Level']
+        p = row[__pn]
+        lvl = row['__Level']
     df['Level_pn'] = level_pn
     # collect all assys/subassys within df and return a dictionary.  keys
     # of the dictionary are pt. numbers of assys/subassys.  
     dic_assys = {}
     for k in assys:
-        dic_assys[k.upper()] = df[df['Level_pn'] == k]  # "upper()" added 3/9/20
+        dic_assys[k.upper()] = df[df['Level_pn'] == k]
     return dic_assys
 
 
@@ -843,7 +866,7 @@ def create_um_factors(ser, from_um='inch', to_um='feet'):
     return factors
 
 
-def is_in(find, xcept, series):   # except is a reserved python word so can't use it
+def is_in(find, xcept, series):
     '''Argument "find" is a list of strings that are glob expressions.  The 
     Pandas Series "series" will be evaluated to see if any members of find
     exists as substrings within each member of series.  Glob expressions are
@@ -943,10 +966,13 @@ def convert_sw_bom_to_sl_format(df):
 
     \u2009
     '''
-    df.rename(columns={'PARTNUMBER':'Item', 'PART NUMBER':'Item', 'Part Number':'Item',
-                       'L': 'LENGTH', 'Length':'LENGTH',
-                       'DESCRIPTION': 'Description', 'QTY': 'Q', 'QTY.': 'Q',}, inplace=True)
-
+    
+    values = dict.fromkeys(cfg['col']['part_num'], 'Item')
+    values.update(dict.fromkeys(cfg['col']['length_sw'], 'LENGTH'))
+    values.update(dict.fromkeys(cfg['col']['descrip'], 'Description'))
+    values.update(dict.fromkeys(cfg['col']['qty'], 'Q'))
+    df.rename(columns=values, inplace=True)        
+    
     if 'LENGTH' in df.columns:  # convert lengths to other unit of measure, i.e. to_um
         factors = create_um_factors(df['LENGTH'], from_um=cfg['from_um'], to_um=cfg['to_um'])
         qtys = df['Q']
@@ -969,9 +995,9 @@ def convert_sw_bom_to_sl_format(df):
         df.drop(df[filtr3].index, inplace=True)
 
     df['WC'] = 'PICK'    # WC is a standard column shown in a SL BOM.
-    df['Op'] = str(10)   # Op is a standard column shown in a SL BOM, usually set to 10  
+    df['Op'] = 10   # Op is a standard column shown in a SL BOM, usually set to 10  
     df.set_index('Op', inplace=True)
-
+    
     return df
 
 
@@ -1019,10 +1045,14 @@ def check_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
         dfsl.drop(['Item'], axis=1, inplace=True)  # the "drop" here is not that in the cfg dictionary
     if 'Description' in dfsl.columns and 'Material Description' in dfsl.columns:
         dfsl.drop(['Description'], axis=1, inplace=True)
-    dfsl.rename(columns={'Material':'Item', 'Quantity':'Q',
-                         'Material Description':'Description', 'Qty':'Q', 'Qty Per': 'Q',
-                         'U/M':'U', 'UM':'U', 'Obsolete Date': 'Obsolete'}, inplace=True)
-
+            
+    values = dict.fromkeys(cfg['col']['part_num'], 'Item')
+    values.update(dict.fromkeys(cfg['col']['um_sl'], 'U'))
+    values.update(dict.fromkeys(cfg['col']['descrip'], 'Description'))
+    values.update(dict.fromkeys(cfg['col']['qty'], 'Q'))
+    values.update({'Obsolete Date': 'Obsolete'})
+    dfsl.rename(columns=values, inplace=True)       
+    
     if 'Obsolete' in dfsl.columns:  # Don't use any obsolete pns (even though shown in the SL BOM)
         filtr4 = dfsl['Obsolete'].notnull()
         dfsl.drop(dfsl[filtr4].index, inplace=True)    # https://stackoverflow.com/questions/13851535/how-to-delete-rows-from-a-pandas-dataframe-based-on-a-conditional-expression
