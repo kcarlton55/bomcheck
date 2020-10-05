@@ -121,6 +121,26 @@
 # level_sl = ["Level"]
 
 
+# Number of rows to skip when reading data from the Excel/csv files
+# that contain SolidWorks BOMs.  The first row to read from BOMs is
+# meant to be the row containing column headings such as ITEM NO., 
+# QTY, PART NUMBER, etc.  Note that if this value is not set
+# correctly, then the program will produce an error message
+# complaining about missing necessary columns.
+# skiprows_sw = 1
+
+
+# Number of rows to skip when reading data from the Excel/csv files
+# that contain SolidWorks BOMs.  The first row to read from BOMs is
+# meant to be the row containing column headings such as Item, 
+# Description, Qty Per, etc.  Note that if this value is not set
+# correctly, then the program will produce an error message
+# complaining about missing necessary columns.
+# skiprows_sl = 0
+
+
+
+
 
 
 

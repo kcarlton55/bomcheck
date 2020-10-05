@@ -21,7 +21,7 @@ howtocompile.md.
 """
 
 
-__version__ = '1.7.3'
+__version__ = '1.7.4'
 __author__ = 'Kenneth E. Carlton'
 import glob, argparse, sys, warnings
 import pandas as pd
@@ -93,7 +93,8 @@ def set_globals():
     list1 = [('accuracy', 2),       ('discard_length', ['3086-*']), 
              ('drop', ['3*-025']),  ('exceptions', []), 
              ('from_um', 'inch'),   ('timezone', 'US/Central'),
-             ('to_um', 'feet')]
+             ('to_um', 'feet'),     ('skiprows_sw', 1), 
+             ('skiprows_sl', 0)]
     # Give to bomcheck names of columns that it can expect to see in BOMs.  If
     # one of the names, except length names, in each group shown in brackets
     # below is not found, then bomcheck will fail.
@@ -106,7 +107,9 @@ def set_globals():
              ('length_sw', ["LENGTH", "Length", "L"])]  # not required in a SL or SW BOM
     for k, v in list1:
         insert_into_cfg(k, v)
-    cfg['accuracy'] = int(cfg['accuracy'])    
+    cfg['accuracy'] = int(cfg['accuracy'])  
+    cfg['skiprows_sw'] = int(cfg['skiprows_sw'])
+    cfg['skiprows_sl'] = int(cfg['skiprows_sl'])
     for k, v in list2:
         insert_into_cfg(k, v, col=True)
                              
@@ -149,7 +152,7 @@ def main():
                         help='Ignore 3*-025 pns, i.e. do not use in the bom check')
     parser.add_argument('-c', '--sheets', action='store_true', default=False,
                         help='Break up results across multiple sheets in the ' +
-                        'Excel file')
+                        'Excel file that is output.')
     parser.add_argument('-v', '--version', action='version', version=__version__,
                         help="Show program's version number and exit")
     parser.add_argument('-f', '--followlinks', action='store_false', default=True,
@@ -161,7 +164,19 @@ def main():
     parser.add_argument('--to_um', default=cfg['to_um'], help='The unit of measure ' +
                         'to convert SolidWorks lengths to', metavar='value')
     parser.add_argument('-a', '--accuracy', help='decimal place accuracy applied ' +
-                        'to lengths in a SolidWorks BOM', default=cfg['accuracy'], metavar='value')
+                        'to lengths in a SolidWorks BOM', default=cfg['accuracy'], 
+                        metavar='value')
+    parser.add_argument('-sr_sw', '--skiprows_sw', help='number of rows to skip when ' +
+                        'reading data from the Excel/csv files that contain SolidWorks BOMs.  ' +
+                        'The first row to read from BOMs is meant to be the row containing ' +
+                        ' column headings such as ITEM NO., QTY, PART NUMBER, etc.',
+                        default=cfg['skiprows_sw'], metavar='value')
+    parser.add_argument('-sr_sl', '--skiprows_sl', help='number of rows to skip when ' +
+                        ' reading data from the Excel/csv files that contain SyteLine BOMs.  ' +
+                        'The first row to read from BOMs is meant to be the row containing ' +
+                        'column headings such as Item, Description, Qty Per, etc.', 
+                        default=cfg['skiprows_sl'], metavar='value')
+    
     
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
@@ -294,6 +309,10 @@ def bomcheck(fn, dic={}, **kwargs):
                        else kwargs.get('a', cfg['accuracy']))
     cfg['drop'] = (dic.get('drop') if dic.get('drop') 
                    else kwargs.get('d', False))
+    cfg['skiprows_sw'] = (dic.get('skiprows_sw') if dic.get('skiprows_sw') 
+                   else kwargs.get('sr_sw', cfg['skiprows_sw']))
+    cfg['skiprows_sl'] = (dic.get('skiprows_sl') if dic.get('skiprows_sl') 
+                   else kwargs.get('sr_sl', cfg['skiprows_sl']))
     c = (dic.get('sheets') if dic.get('sheets') else kwargs.get('c', False))
     u =  kwargs.get('u', 'unknown')  
     x = kwargs.get('x', True)
@@ -517,12 +536,12 @@ def gatherBOMs_from_fnames(filename):
                 for d in data:
                     temp.write(d)
                 temp.seek(0)
-                df = pd.read_csv(temp, na_values=[' '], skiprows=1, sep='$',
+                df = pd.read_csv(temp, na_values=[' '], skiprows=cfg['skiprows_sw'], sep='$',
                                  encoding='iso8859_1', engine='python',
                                  dtype = dict.fromkeys(cfg['col']['itm_sw'], 'str'))
                 temp.close()
             elif file_extension.lower() == '.xlsx' or file_extension.lower() == '.xls':
-                df = pd.read_excel(v, na_values=[' '], skiprows=1)
+                df = pd.read_excel(v, na_values=[' '], skiprows=cfg['skiprows_sw'])
                 colnames = []
                 for colname in df.columns:  # rid colname of '\n' char if exists
                     colnames.append(colname.replace('\n', ''))
@@ -539,7 +558,8 @@ def gatherBOMs_from_fnames(filename):
             _, file_extension = os.path.splitext(v)
             if file_extension.lower() == '.csv' or file_extension.lower() == '.txt':
                 try:
-                    df = pd.read_csv(v, na_values=[' '], engine='python',
+                    df = pd.read_csv(v, na_values=[' '], engine='python', 
+                                     skiprows=cfg['skiprows_sl'],
                                      encoding='utf-16', sep='\t')
                 except UnicodeError:
                     printStr = ("\nError. Probable cause: This program expects Unicode text encoding from\n"
@@ -552,7 +572,7 @@ def gatherBOMs_from_fnames(filename):
                     print(printStr)
                     sys.exit(1)
             elif file_extension.lower() == '.xlsx' or file_extension.lower == '.xls':
-                df = pd.read_excel(v, na_values=[' '])
+                df = pd.read_excel(v, na_values=[' '], skiprows=cfg['skiprows_sl'])
             if not test_for_missing_columns('sl', df, k):
                 sldfsdic.update(deconstructMultilevelBOM(df, 'sl', k))
         except:
