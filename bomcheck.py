@@ -21,7 +21,7 @@ howtocompile.md.
 """
 
 
-__version__ = '1.7.4'
+__version__ = '1.7.5'
 __author__ = 'Kenneth E. Carlton'
 import glob, argparse, sys, warnings
 import pandas as pd
@@ -52,27 +52,39 @@ def set_globals():
     set_globals() tries to derive settings from the file named bc_bomcheck.py
     if it can be located and if values have been established there.
     Otherwise set_globals() creates its on settings for cfg.
+    
+    (see the function named create_bc_config to find where the file bc_check.py
+     is located on you disk drive.)
     '''
     global cfg, printStrs, excelTitle
+    try:
+        create_bc_config()  # if bc_config.py file doen't exist, create a starter file
+    except:
+        pass
     cfg = {}
-    printStrs = ''
+    printStrs = []
     excelTitle = []
     # try to import the file named bc_config.py.
-    usrPrf = os.getenv('USERPROFILE')  # on my win computer, USERPROFILE = C:/Users/k_carlton
-    if usrPrf:
-        userDocDir = os.path.join(usrPrf, 'Documents')  # if usrPrf was not None
-    else:
-        userDocDir = "C:/"  
-    paths = [userDocDir, "/home/ken/projects/project1/"]  # the 2nd value if testing at my home
-    for p in paths:
-        if os.path.exists(p) and not p in sys.path:
-            sys.path.append(p)
-            break
-    else:
-        printStr = ('At function "set_globals", a suitable path was not found to\n'
-              'load bc_config.py from.')
-        printStrs += printStr
-        print(printStr)
+    
+    try:
+        if sys.platform[:3] == 'win':
+            datadir = os.getenv('"LOCALAPPDATA"')
+            dirname = os.path.join(datadir, 'bomcheck')
+            if os.path.exists(dirname) and not dirname in sys.path:
+                sys.path.append(dirname)
+        elif sys.platform[:3] == 'lin' or sys.platform[:3] == 'dar':
+            homedir = os.path.expanduser('~')
+            dirname = os.path.join(homedir, '.bomcheck')
+            if os.path.exists(dirname) and not dirname in sys.path:
+                sys.path.append(dirname)
+        else:
+            printStr = ('At function "set_globals", a suitable path was not found to\n'
+                        'load bc_config.py from.  Notify the programmer of this error.')
+            #printStrs.append(printStr)
+            print(printStr) 
+    except:
+        pass
+           
     try:
         import bc_config
     except ModuleNotFoundError:
@@ -83,16 +95,18 @@ def set_globals():
     cfg['col'] = {}
     def insert_into_cfg(var, default, col=False):
         ''' Function to insert key/value pairs into the dictionary named cfg.
-        Use values set in the file named bc_config.py if possible.'''
+        Use values set in the file named bc_config.py when available.'''
+        global cfg
         if col: 
             value = bc_config.__dict__[var] if (var in dir(bc_config)) else default
             cfg['col'].update({var:value})
         else:                
-           cfg[var] = bc_config.__dict__[var] if (var in dir(bc_config)) else default
+            cfg[var] = bc_config.__dict__[var] if (var in dir(bc_config)) else default
+           
     # default settings for bomcheck
     list1 = [('accuracy', 2),       ('discard_length', ['3086-*']), 
              ('drop', ['3*-025']),  ('exceptions', []), 
-             ('from_um', 'inch'),   ('timezone', 'US/Central'),
+             ('from_um', 'inch'),   ('timezone', 'local'), # or 'US/Central', etc.),
              ('to_um', 'feet'),     ('skiprows_sw', 1), 
              ('skiprows_sl', 0)]
     # Give to bomcheck names of columns that it can expect to see in BOMs.  If
@@ -105,9 +119,12 @@ def set_globals():
              ('level_sl',  ["Level"]),         # not required in a SW BOM
              ('itm_sw',    ["ITEM NO."]),      # not required in a SL BOM
              ('length_sw', ["LENGTH", "Length", "L"])]  # not required in a SL or SW BOM
+    
+    # OK... Default values have just been set above, but look in the bc_confg.py 
+    # file and use any values from there and override the values set above.
     for k, v in list1:
         insert_into_cfg(k, v)
-    cfg['accuracy'] = int(cfg['accuracy'])  
+    cfg['accuracy'] = int(cfg['accuracy'])     # make sure is an int and not a float
     cfg['skiprows_sw'] = int(cfg['skiprows_sw'])
     cfg['skiprows_sl'] = int(cfg['skiprows_sl'])
     for k, v in list2:
@@ -148,7 +165,7 @@ def main():
                         'in that directory and subdirectories thereof will be ' +
                         'gathered.  BOMs gathered from _sl files without ' +
                         'corresponding SolidWorks BOMs found are ignored.')
-    parser.add_argument('-d', '--drop', action='store_true', default=False,
+    parser.add_argument('-d', '--drop_bool', action='store_true', default=False,
                         help='Ignore 3*-025 pns, i.e. do not use in the bom check')
     parser.add_argument('-c', '--sheets', action='store_true', default=False,
                         help='Break up results across multiple sheets in the ' +
@@ -163,20 +180,22 @@ def main():
                         'specified', metavar='value')
     parser.add_argument('--to_um', default=cfg['to_um'], help='The unit of measure ' +
                         'to convert SolidWorks lengths to', metavar='value')
-    parser.add_argument('-a', '--accuracy', help='decimal place accuracy applied ' +
+    parser.add_argument('-a', '--accuracy', help='Decimal place accuracy applied ' +
                         'to lengths in a SolidWorks BOM', default=cfg['accuracy'], 
                         metavar='value')
-    parser.add_argument('-sr_sw', '--skiprows_sw', help='number of rows to skip when ' +
+    parser.add_argument('-sr_sw', '--skiprows_sw', help='Number of rows to skip when ' +
                         'reading data from the Excel/csv files that contain SolidWorks BOMs.  ' +
                         'The first row to read from BOMs is meant to be the row containing ' +
                         ' column headings such as ITEM NO., QTY, PART NUMBER, etc.',
                         default=cfg['skiprows_sw'], metavar='value')
-    parser.add_argument('-sr_sl', '--skiprows_sl', help='number of rows to skip when ' +
-                        ' reading data from the Excel/csv files that contain SyteLine BOMs.  ' +
+    parser.add_argument('-sr_sl', '--skiprows_sl', help='Number of rows to skip when ' +
+                        'reading data from the Excel/csv files that contain SyteLine BOMs.  ' +
                         'The first row to read from BOMs is meant to be the row containing ' +
                         'column headings such as Item, Description, Qty Per, etc.', 
                         default=cfg['skiprows_sl'], metavar='value')
-    
+    parser.add_argument('-p', '--pause', help='Pause the program just before the program ' +
+                        'the program would normally close after completing its work.',
+                        default=False, action='store_true')
     
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
@@ -295,6 +314,7 @@ def bomcheck(fn, dic={}, **kwargs):
     
     '''
     global printStrs, cfg
+    printStrs = []
     # Set settings depending on 1. if input was derived from running this 
     # program from the command line (i.e. values from dic), 2. if from 
     # excecuting the bomcheck() function within a python console or called by
@@ -307,7 +327,7 @@ def bomcheck(fn, dic={}, **kwargs):
                     else kwargs.get('to_um', cfg['to_um']))
     cfg['accuracy'] = (dic.get('accuracy') if dic.get('accuracy')
                        else kwargs.get('a', cfg['accuracy']))
-    cfg['drop'] = (dic.get('drop') if dic.get('drop') 
+    cfg['drop_bool'] = (dic.get('drop_bool') if dic.get('drop_bool') 
                    else kwargs.get('d', False))
     cfg['skiprows_sw'] = (dic.get('skiprows_sw') if dic.get('skiprows_sw') 
                    else kwargs.get('sr_sw', cfg['skiprows_sw']))
@@ -317,8 +337,8 @@ def bomcheck(fn, dic={}, **kwargs):
     u =  kwargs.get('u', 'unknown')  
     x = kwargs.get('x', True)
     f = kwargs.get('f', False)
-
-        
+    p = dic.get('pause', False)
+    
     if isinstance(fn, str) and fn.startswith('[') and fn.endswith(']'):
         fn = eval(fn)  # change a string to a list
     elif isinstance(fn, str):
@@ -326,10 +346,10 @@ def bomcheck(fn, dic={}, **kwargs):
 
     fn = get_fnames(fn, followlinks=f)  # get filenames with any extension.   
         
-    if cfg['drop']:
-        printStr = '\ndrop = ' + str(cfg['drop']) + '\nexceptions = ' + str(cfg['exceptions']) + '\n'
-        printStrs += printStr
-        print(printStr)
+    #if cfg['drop']:
+    #    printStr = '\ndrop = ' + str(cfg['drop']) + '\nexceptions = ' + str(cfg['exceptions']) + '\n'
+    #    printStrs.append(printStr)
+    #    print(printStr)
 
     dirname, swfiles, slfiles = gatherBOMs_from_fnames(fn)
 
@@ -349,7 +369,7 @@ def bomcheck(fn, dic={}, **kwargs):
     if title_dfsw:
         printStr = '\nNo matching SyteLine BOMs found for these SolidWorks files:\n'
         printStr += '\n'.join(list(map(lambda x: '    ' + x[0], title_dfsw))) + '\n'
-        printStrs += printStr
+        printStrs.append(printStr)
         print(printStr)
 
     if c == False:                 # concat_boms is a bomcheck function
@@ -363,22 +383,30 @@ def bomcheck(fn, dic={}, **kwargs):
                 printStr = ('\nNo SolidWorks files found to process.  (Lone SyteLine\n' +
                             'BOMs will be ignored.)  Make sure file names end with\n' +
                             '_sw.xlsx, _sw.csv, _sl.xlsx, or _sl.csv.\n')
-                printStrs += printStr
+                printStrs.append(printStr)
                 print(printStr)
         except PermissionError:
             printStr = '\nError: unable to write to bomcheck.xlsx\n'
-            printStrs += printStr
+            printStrs.append(printStr)
             print(printStr)
-
-    if c == False:
-        if title_dfsw and title_dfmerged:
-            return title_dfsw[0][1], title_dfmerged[0][1]
-        elif title_dfsw:
-            return title_dfsw[0][1], None
-        elif title_dfmerged:
-            return None, title_dfmerged[0][1]
-        else:
-            return None, None
+      
+    if p == True:        
+            input("Press enter to exit")
+            
+    return printStrs
+            
+# =============================================================================
+#     if c == False:
+#         if title_dfsw and title_dfmerged:
+#             return title_dfsw[0][1], title_dfmerged[0][1]
+#         elif title_dfsw:
+#             return title_dfsw[0][1], None
+#         elif title_dfmerged:
+#             return None, title_dfmerged[0][1]
+#         else:
+#             return None, None
+# =============================================================================
+        
 
 
 def get_fnames(fn, followlinks=False):
@@ -550,7 +578,7 @@ def gatherBOMs_from_fnames(filename):
                 swdfsdic.update(deconstructMultilevelBOM(df, 'sw', k))
         except:
             printStr = '\nError processing file: ' + v + '\nIt has been excluded from the BOM check.\n'
-            printStrs += printStr
+            printStrs.append(printStr)
             print(printStr)
     sldfsdic = {}  # for collecting SL BOMs to a dic
     for k, v in slfilesdic.items():
@@ -568,7 +596,7 @@ def gatherBOMs_from_fnames(filename):
                                 '    From Excel, save the file as type “Unicode Text (*.txt)”, and then\n'
                                 '    change the file extension from txt to csv.\n\n'
                                 "On the other hand you can use an Excel file (.xlsx) instead of a csv file.\n")
-                    printStrs += printStr
+                    printStrs.append(printStr)
                     print(printStr)
                     sys.exit(1)
             elif file_extension.lower() == '.xlsx' or file_extension.lower == '.xls':
@@ -577,7 +605,7 @@ def gatherBOMs_from_fnames(filename):
                 sldfsdic.update(deconstructMultilevelBOM(df, 'sl', k))
         except:
             printStr = '\nError processing file: ' + v + '\nIt has been excluded from the BOM check.\n'
-            printStrs += printStr
+            printStrs.append(printStr)
             print(printStr)
     try:
         df = pd.read_clipboard(engine='python', na_values=[' '])
@@ -634,14 +662,14 @@ def test_for_missing_columns(bomtype, df, pn, printerror=True):
               'to be in place.  This BOM will not be processed:\n\n' +
               '    missing: ' + ' ,'.join(missing) +  '\n' +
               '    missing in: ' + pn + '\n') 
-        printStrs += printStr
+        printStrs.append(printStr)
         print(printStr)
         return True
     elif missing and printerror:
         printStr = ('\nEssential BOM columns missing.  This BOM will not be processed:\n' +
                     '    missing: ' + ' ,'.join(missing) +  '\n\n' +
                     '    missing in: ' + pn + '\n')
-        printStrs += printStr
+        printStrs.append(printStr)
         print(printStr)
         return True
     elif missing:
@@ -1008,7 +1036,7 @@ def convert_sw_bom_to_sl_format(df):
     df = df.groupby('Item', as_index=False).aggregate(dd).reindex(columns=df.columns)
     df['Q'] = round(df['Q'], cfg['accuracy'])
 
-    if cfg['drop']==True:
+    if cfg['drop_bool']==True:
         filtr3 = is_in(cfg['drop'], cfg['exceptions'], df['Item'])
         df.drop(df[filtr3].index, inplace=True)
 
@@ -1051,7 +1079,7 @@ def check_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     global printStrs
     if not str(type(dfsw))[-11:-2] == 'DataFrame':
         printStr = '\nProgram halted.  A fault with SolidWorks DataFrame occurred.\n'
-        printStrs += printStr
+        printStrs.append(printStr)
         print(printStr)
         sys.exit()
 
@@ -1085,11 +1113,11 @@ def check_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     if x_lst:
         printStr = ("\nLower case part nos. in SyteLine's BOM have been converted " +
                     "to upper case for \nthis BOM check:\n")
-        printStrs += printStr
+        printStrs.append(printStr)
         print(printStr)
         for y in x_lst:
             printStr = '    ' + y + '  changed to  ' + y.upper() + '\n'
-            printStrs += printStr
+            printStrs.append(printStr)
             print(printStr)
 
     dfmerged = pd.merge(dfsw, dfsl, on='Item', how='outer', suffixes=('_sw', '_sl') ,indicator=True)
@@ -1314,7 +1342,7 @@ def export2excel(dirname, filename, results2export, uname):
             dirname = d   # if user specified a directory, use it instead
         if e and not e.lower()=='.xlsx':
             printStr = '\n(Output filename extension needs to be .xlsx' + '\nProgram aborted.\n'
-            printStrs += printStr
+            printStrs.append(printStr)
             print(printStr)
             sys.exit(0)
         else:
@@ -1338,8 +1366,11 @@ def export2excel(dirname, filename, results2export, uname):
         username = 'unknown'
 
     # ref: https://howchoo.com/g/ywi5m2vkodk/working-with-datetime-objects-and-timezones-in-python
-    utc_now = pytz.utc.localize(datetime.datetime.utcnow())
-    localtime_now = utc_now.astimezone(pytz.timezone(cfg['timezone']))
+    if cfg['timezone'].lower()[:5] == 'local' or not cfg['timezone']:
+        localtime_now = datetime.datetime.now()
+    else:
+        utc_now = pytz.utc.localize(datetime.datetime.utcnow())
+        localtime_now = utc_now.astimezone(pytz.timezone(cfg['timezone']))
     time = localtime_now.strftime("%m-%d-%Y %I:%M %p")
 
     comment1 = 'This workbook created ' + time + ' by ' + username + '.  '
@@ -1376,7 +1407,7 @@ def export2excel(dirname, filename, results2export, uname):
                 'comments': comment1 + comment2})
         writer.save()
     printStr = "\nCreated file: " + fn + '\n'
-    printStrs += printStr
+    printStrs.append(printStr)
     print(printStr)
 
     if sys.platform[:3] == 'win':  # Open bomcheck.xlsx in Excel when on Windows platform
@@ -1384,8 +1415,204 @@ def export2excel(dirname, filename, results2export, uname):
             os.startfile(os.path.abspath(fn))
         except:
             printStr = '\nAttempt to open bomcheck.xlsx in Excel failed.\n'
-            printStrs += printStr
+            printStrs.append(printStr)
             print(printStr)
+            
+            
+def create_bc_config():
+    ''' Create two files: 
+    1. C:\\users\kcarlton\AppData\Local\bomcheck\bc_config.py
+    (or some other location depending on environmental variable LOCALAPPDATA.)
+    2. README.txt
+    
+    bc_config.py is a file that permits local configuration settings to the
+    bomcheck program.
+    
+    Returns
+    -------
+    None.
+
+    '''
+    file_contents = [
+        '# Adjust this file to suit your needs.  Remove the leading comment\n',
+        '# character, e.g. the pound sign and space, that precedes a setting\n',
+        '# that you wish to adjust.  For any setting not set below, that is\n',
+        "# the comment character is left in place, the bomcheck program will \n",
+        "# use its own default value.  Here are examples of three settings\n",
+        "# that will be active in the bomcheck program (but not used by it):\n\n",
+        
+        'example1 = "text, i.e. strings, are enclosed in single or double quotes"\n\n',
+        
+        'example2 = ["lists", "of", "items", "are", "enclosed", "in", "brackets"]\n\n',
+        
+        'example3 = 3   # an integer needs no brackets or quote marks.\n\n\n',
+
+
+        '# Part numbers in this list will be discarded from the SolidWorks BOM\n',
+        '# so that they will not show up in the bom check report (OK to use glob\n'
+        '# expressions, https://en.wikipedia.org/wiki/Glob_(programming)):\n',
+        '# drop = ["3*-025", "3*-0", "3800-*"]\n\n\n',
+
+
+        '# Excecptions to the part numbers in the drop list shown above\n',
+        '# (OK to use glob expressions):\n',
+        '# exceptions = ["3510-0200-025", "3086-1542-025"]\n\n\n',
+
+
+        '# Do not do any length conversions for these parts.  That is, at\n',
+        '# times there might be a length given for a part in a SolidWorks BOM\n',
+        '# that is shown for reference only; for example, for a pipe nipple.\n',
+        '# (OK to use glob expressions)\n',
+        '# discard_length = ["3086-*"] \n\n\n', 
+
+
+        '# decimal point accuracy applied to lengths in a SolidWorks BOM\n',
+        '# accuracy = 2\n\n\n',
+
+
+        '# Set the time zone so that the correct time and date is shown on the\n',
+        '# Excel file that bomcheck ouputs to.  For valid timezones see:\n',
+        '# https://gist.github.com/heyalexej/8bf688fd67d7199be4a1682b3eec7568\n',
+        '# Or set timezone to "local" to get the time and date from the\n',
+        '# computer or server on which bomcheck is run\n',
+        '# timezone = "US/Central"\n\n\n',  
+
+
+        '# The unit of measure of lengths from a SolidWorks BOM are understood\n',
+        '# to be inches unless a unit of measure is afixed to a length\n', 
+        '# (e.g. 507mm).  The unit of measure you specifiy must be surrounded\n', 
+        '# by quotation marks.  Valid units of measure: inch, feet, yard,\n',
+        '# millimenter, centimeter, meter.\n', 
+        '# from_um = "inch"\n\n\n',
+
+
+        '# Lengths from a SolidWorks BOM are converted to a length with this\n',
+        '# unit of measure in order to compare them to lengths in SyteLine.\n',
+        '# Any lengths in SyteLine are all considered to be per this unit of\n',
+        '# measure.\n',
+        '# to_um = "feet"\n\n\n',
+
+
+        '# All the column names that might be shown on a SolidWorks BOM for\n',
+        '# part numbers.  Different names occur when templates used to create\n',
+        '# BOMs are not consistent.  Note that names are case sensitive, so\n',
+        '# "Part Number" is not the same as "PART NUMBER".\n',
+        '# part_num_sw = ["PARTNUMBER", "PART NUMBER", "Part Number"]\n\n\n',
+
+
+        '# All the column names that might be shown on a SyteLine BOM for\n',
+        '# part numbers.  Different names occur when templates used to create\n',
+        '# BOMs are not consistent.  Note that names are case sensitive, so\n',
+        '# "Part Number" is not the same as "PART NUMBER".\n',
+        '# part_num_sl = ["Item", "Material"]\n\n\n',
+
+
+        '# All the column names that might be shown on a SolidWorks BOM for\n',
+        '# quantities of parts.  Different names occur when templates used\n', 
+        '# to create BOMs are not consistent.  Note that names are case \n',
+        '# sensitive, so "Qty" is not the same as "QTY".\n',
+        '# qty_sw = ["QTY", "QTY."]\n\n\n',
+
+
+        '# All the column names that might be shown on a SyteLine BOM for\n',
+        '# quantities of parts.  Different names occur when templates used\n', 
+        '# to create BOMs are not consistent.  Note that names are case\n', 
+        '# sensitive, so "Qty" is not the same as "QTY".\n',
+        '# qty_sl = ["Qty", "Quantity", "Qty Per"]\n\n\n',
+
+
+        '# All the column names that might be shown on a SolidWorks BOM for\n',
+        '# part descriptions.  Different names occur when templates used\n', 
+        '# to create BOMs are not consistent.  Note that names are case\n', 
+        '# sensitive, so "Description" is not the same as "DESCRIPTION".\n',
+        '# descrip_sw = ["DESCRIPTION"]\n\n\n',
+
+
+        '# All the column names that might be shown on a SolidWorks BOM for\n',
+        '# part descriptions.  Different names occur when templates used\n',
+        '# to create BOMs are not consistent.  Note that names are case\n', 
+        '# sensitive, so "Description" is not the same as "DESCRIPTION".\n',
+        '# descrip_sl = ["Material Description", "Description"]\n\n\n',
+
+
+        '# All the column names that might be shown on a SyteLine BOM for\n',
+        '# Unit of Measure.  Different names occur when templates used\n',
+        '# to create BOMs are not consistent.  Note that names are case\n', 
+        '# sensitive, so "um" is not the same as "UM".\n',
+        '# um_sl = ["UM", "U/M"]\n\n\n',
+
+
+        '# All the column names that might be shown on a Solidworks BOM for\n',
+        '# the item number of a part.  Different names occur when templates\n',
+        '# used to create BOMs are not consistent.  Note that names are case\n', 
+        '# sensitive, so "Item No." is not the same as "ITEM NO.".  (Note:\n', 
+        '# this program is not designed to manage item numbers shown on a\n',
+        '# SyteLine BOM.).  The bomcheck program uses this column to determine\n',
+        '# the level of a subassembly within a multilevel SolidWorks BOM.  In\n',
+        '# this case, item numbers will be like 1, 2, 3, 3.1, 3.2, 4, 5, 5.1;\n',
+        '# where items 3 and 5 are subassemblies.\n',
+        '# itm_num_sw = ["ITEM NO."]\n\n\n',
+
+
+        '# All the column names that might be shown on a SyteLine BOM for\n',
+        '# subassembly level.  Different names occur when templates used to\n',
+        '# create BOMs are not consistent.  Note that names are case\n', 
+        '# sensitive, so "Level" is not the same as "LEVEL".  (Note: this\n',
+        '# program is not designed to handle subassy levels that might be\n',
+        '# shown on a SolidWorks BOM.  For SolidWorks, the item number column\n',
+        '# is used to determine subassembly level). Items in the level column\n', 
+        '# will look like: 0, 1, 1, 2, 2, 1, 2, 2, 3, 1... and so forth\n',
+        '# level_sl = ["Level"]\n\n\n'
+        
+        '# Number of rows to skip when reading data from the Excel/csv files\n',
+        '# that contain SolidWorks BOMs.  The first row that bomcheck is to \n',
+        '# evaluate is the row containing column headings such as ITEM NO.,\n', 
+        '# QTY, PART NUMBER, etc.\n',
+        '# skiprows_sw = 1\n\n\n',
+        
+        '# Number of rows to skip when reading data from the Excel/csv files\n',
+        '# that contain SyteLine BOMs.  The first row to evaluate from SL BOMs\n',
+        '# is the row containing column headings such as Item, Decription, etc.\n', 
+        '# skiprows_sl = 0\n\n\n',
+        ]
+    readme_contents = [
+        'bc_config.py is a text file that can be edited with Notepad or Wordpad.\n',
+        "To control aspects of bomcheck's output, change the settings within\n",
+        'bc_config.py.  Follow the examples shown.'
+        ]
+    
+    if sys.platform[:3] == 'win':
+        datadir = os.getenv('"LOCALAPPDATA"')
+        # file where bc_config.py is located
+        #(e.g.  C:\users\kcarlton\AppData\Local\bomcheck\bc_config.py):
+        filename = os.path.join(datadir, 'bomcheck', 'bc_config.py')
+        readme = os.path.join(datadir, 'bomcheck', 'README.txt')
+    elif sys.platform[:3] == 'lin' or sys.platform[:3] == 'dar':  # linux or darwin (Mac OS X)
+        homedir = os.path.expanduser('~')
+        filename = os.path.join(homedir, '.bomcheck', 'bc_config.py')
+        readme = os.path.join(homedir, '.bomcheck', 'README.txt')
+    else:
+        printStr = ('At function "create_bc_config", a suitable path was not found to\n'
+                    'create bc_config.py at.  Notify the programmer of this error.')
+        print(printStr)       
+    if not os.path.isfile(filename):
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        try:
+            with open (filename, 'w') as fname:
+                fname.writelines(file_contents)
+            print('\nConfiguration file created: ' + filename + '\n')
+        except:
+            print('Failed to create file ' + filename)
+    if not os.path.isfile(readme):
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        try:
+            with open (readme, 'w') as fname:
+                fname.writelines(readme_contents)
+        except:
+            pass
+    
+    
+    
 
 # before program begins, create global variables
 set_globals()

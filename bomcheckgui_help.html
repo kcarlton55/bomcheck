@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<a id="top">
+<h1>bomcheckgui help</h1>
+
+
+<a id="into">
+<h2>Introduction:</h2>
+
+    <p>The bomcheck program was originally written to be run from a Command
+    Prompt Terminal
+    <a href="https://en.wikipedia.org/wiki/Cmd.exe" target="_blank">(cmd.exe)</a>.
+    This program, <i>bomcheckgui</i> that you are running now, is actually a wrapper
+    that presents a graphical user interface (gui) for the original bomcheck
+    program that it runs that program.  See the work instruction
+    <a href="file:///\\DVTFS\Procedures\Engineering\WI-EN-054 BOM Check.docx"
+       target="_blank">WI-EN-054 BOM Check.docx</a> for detailed information
+    about how the orignal bomcheck works.  This work instruction should be your
+    primary source of information about getting bomcheck to work for you.</p>
+
+<a id="run">
+<h2>How to run the program:</h2>
+
+    <p>Drag and drop the BOM files that you want to be checked onto the
+    central portion of the gui. File names that do not end with _sw.xlsx,
+    _sw.csv, sl_xlsx, or sl.csv will be ignored. Files that contain a tilde
+    character, ~, will also be ignored.</p>
+
+    <p>Press the green check button.  The bomcheck will then occur.  Then an
+    Excel file will be displayed with results.  The location of the results
+    file will be shown in the bottom of the bomcheckgui window or in a pop-up.
+    window.  The location will be the same as that of the files that were
+    checked.  If checked files come from more than one folder, bomcheck
+    will select one of those folders to place the results in.</p>
+
+    <p>If you wish to check other BOM files, push the clear button to clear the
+    list of files.  Then drag and drop the new files you want checked.</p>
+
+    <p>If an error occurs when checking BOMs, or if bomcheck is confused about
+    some data that was entered, a pop-up window will be shown with a message
+    about the problem.  Otherwise look for something you may have done wrong,
+    like failing to put the _sl or _sw characters in the file name, or
+    something like putting the characters _sw in a file name from SyteLine.</p>
+
+<a id="um">
+<h2>Units of measure:</h2>
+    <p> A length value, e.g. 39.54, in a SolidWorks BOM is always considered to
+    be in inches. When the BOM check occurs, it is converted to feet because
+    the unit of measure in SyteLine is in feet.  However if a unit of measure
+    is appended to a value in the SW BOM, for example 39.54mm, 39.54 ft,
+    or 39.54', then the appended uom will be taken into account when the value
+    is converted to feet.</p>
+
+<a id="settings">
+<h2>User personalized settings:</h2>
+    <p>When the bomcheck program is run for the first time, a file named
+    bc_config.py is created.  It allows the user to change settings for how
+    the bomcheck program will operate.  You should never have to make any
+    changes to this file. And if you're uncertain about what certain settings
+    do (settings are described in the bc_config.py), then don't change them.
+    However a couple of settings that might be useful to change are called
+    drop and exceptions.  These come into effect when the "ignore 3*-025 SW
+    parts" button is activated.  If you want more that just 3*-025 parts
+    ignored, then adjust the drop setting.</p>
+
+    <p>bc_config.py is created in a folder in your user directory where
+    application data is held.  Look for the file in a location like this:
+    C:\users\kcarlton\AppData\Local\bomcheck\bc_config.py.  Of course, instead
+    of "kcarlton" you should use your name. </p>
+
+    <p>Any settings that are not correctly typed in may cause the bomcheck
+    program to malfunction.  If this is the case, a simple fix for this is to
+    delete the bc_config.py that you have modified.  Then when you rerun the
+    bomcheck program, the original bc_config.py file will be installed.</p>
+
+
+    <i><p style="text-align:right;">last updated: 1/28/2021</p></i>
+
+</body>
+</html>
