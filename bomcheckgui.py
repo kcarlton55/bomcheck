@@ -31,7 +31,7 @@ class MainWindow(QMainWindow):
         file_menu = self.menuBar().addMenu('&File')
         help_menu = self.menuBar().addMenu('&Help')
         self.setWindowTitle('bomcheck')
-        self.setMinimumSize(850, 600)
+        self.setMinimumSize(925, 300)
         
         toolbar = QToolBar()
         toolbar.setMovable(False)

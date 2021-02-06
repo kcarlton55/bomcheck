@@ -447,7 +447,7 @@ def get_fnames(fn, followlinks=False):
     for f in _fn1:
         if followlinks==True and os.path.islink(f) and os.path.exists(f):
             _fn2 += get_fnames(os.readlink(f))              
-        elif os.path.isdir(f):  # if a dir gather all filenames in dirs and subdirs thereof
+        elif os.path.isdir(f):  # if a dir, gather all filenames in dirs and subdirs thereof
             for root, dirs, files in os.walk(f, followlinks=followlinks):
                 for filename in files:
                   _fn2.append(os.path.join(root, filename))  
@@ -601,7 +601,11 @@ def gatherBOMs_from_fnames(filename):
                     sys.exit(1)
             elif file_extension.lower() == '.xlsx' or file_extension.lower == '.xls':
                 df = pd.read_excel(v, na_values=[' '], skiprows=cfg['skiprows_sl'])
-            if not test_for_missing_columns('sl', df, k):
+                
+            if not (test_for_missing_columns('sl', df, k) and 
+                    cfg['col']['level_sl'] in df.columns):
+                sldfsdic.update(deconstructMultilevelBOM(df, 'sl', 'TOPLEVEL'))
+            elif not test_for_missing_columns('sl', df, k):
                 sldfsdic.update(deconstructMultilevelBOM(df, 'sl', k))
         except:
             printStr = '\nError processing file: ' + v + '\nIt has been excluded from the BOM check.\n'
@@ -1582,7 +1586,7 @@ def create_bc_config():
         ]
     
     if sys.platform[:3] == 'win':
-        datadir = os.getenv('"LOCALAPPDATA"')
+        datadir = os.getenv('LOCALAPPDATA')
         # file where bc_config.py is located
         #(e.g.  C:\users\kcarlton\AppData\Local\bomcheck\bc_config.py):
         filename = os.path.join(datadir, 'bomcheck', 'bc_config.py')
