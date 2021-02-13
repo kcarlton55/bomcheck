@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -9,6 +10,7 @@ Created on Wed Jan 20 19:47:41 2021
 import sys
 import bomcheck
 import webbrowser
+import os.path
 
 from PyQt5.QtCore import Qt #, QSize
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QToolBar, QAction,
@@ -20,6 +22,7 @@ from PyQt5.QtGui import QIcon, QKeySequence, QPainter, QFont, QColor, QPixmap
 __version__ = '1.7.5'
 __author__ = 'Kenneth E. Carlton'
 printStrs = []
+folder = ''
 
 
 class MainWindow(QMainWindow):
@@ -27,7 +30,13 @@ class MainWindow(QMainWindow):
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
         self.setWindowIcon(QIcon('icons/bomcheck.png'))
-
+        
+        try:
+            self.foldertxt = get_foldertxt_pathname() # location of this file: folder.txt
+            self.folder = get_from_foldertxt(self.foldertxt) # location of last folder that held BOMs for check
+        except:
+            self.folder = ''
+        
         file_menu = self.menuBar().addMenu('&File')
         help_menu = self.menuBar().addMenu('&Help')
         self.setWindowTitle('bomcheck')
@@ -46,6 +55,11 @@ class MainWindow(QMainWindow):
         btn_ac_clear.triggered.connect(self.clear)
         btn_ac_clear.setStatusTip('Clear')
         toolbar.addAction(btn_ac_clear)
+        
+        btn_ac_folder = QAction(QIcon('icons/folder.png'), "Open the folder", self) 
+        btn_ac_folder.triggered.connect(self.openfolder)
+        btn_ac_folder.setStatusTip('Open the folder that contains the BOMs')
+        toolbar.addAction(btn_ac_folder)
         
         empty_label1 = QLabel()
         empty_label1.setText('   ')
@@ -81,8 +95,30 @@ class MainWindow(QMainWindow):
         self.lstbox_view.setWordWrap(True)
         self.setCentralWidget(self.lstbox_view)
         
+    def openfolder(self):
+        try:   # get BOM folder name from 1st item in drag/drop list
+            self.folder = os.path.dirname(self.lstbox_view.item(0).text())
+            put_into_foldertxt(self.folder, self.foldertxt)
+            webbrowser.open(os.path.realpath(self.folder))
+        except AttributeError:  # drag/drop list empty.  Try smthg else...
+            if self.foldertxt and os.path.exists(self.foldertxt):  # get BOM's folder from folder.txt
+                self.folder = get_from_foldertxt(self.foldertxt)
+                webbrowser.open(os.path.realpath(self.folder))
+            else:
+                msg = ('Drag in some files first.  Thereafter\n'
+                   'clicking the folder icon will open the\n'
+                   'folder where BOMs are located.')
+                msgtitle = 'Folder location not set'
+                self.message(msg, msgtitle, msgtype='Information')
+                          
     def execute(self):
         global printStrs
+        try:
+            self.folder = os.path.dirname(self.lstbox_view.item(0).text())
+            put_into_foldertxt(self.folder, self.foldertxt)
+        except:
+            pass   
+        
         self.createdfile = ''
         files = []
         n = self.lstbox_view.count()
@@ -145,12 +181,70 @@ class MainWindow(QMainWindow):
         msgbox = QMessageBox()
         if msgtype == 'Warning':
             msgbox.setIcon(QMessageBox.Warning)
+        elif msgtype == 'Information':
+            msgbox.setIcon(QMessageBox.Information)
         msgbox.setWindowTitle(msgtitle)
         msgbox.setText(msg)
         if showButtons:
             msgbox.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
         retval = msgbox.exec_()
         return retval
+
+# =============================================================================
+#     def get_foldertxt_pathname(self):
+#         ''' Get the pathname of the text file, folder.txt, that contains the
+#         name of the folder that has the most recent location of processed BOMs.'''
+#         if sys.platform[:3] == 'win':
+#             datadir = os.getenv('LOCALAPPDATA')
+#             foldertxt = os.path.join(datadir, 'bomcheck', 'folder.txt')
+#         elif sys.platform[:3] == 'lin' or sys.platform[:3] == 'dar':  # linux or darwin (Mac OS X)
+#             homedir = os.path.expanduser('~')
+#             foldertxt = os.path.join(homedir, '.bomcheck', 'folder.txt')
+#         else:
+#             foldertxt = ''
+#             printStr = ('At method "getFolderName", a suitable path was not found to\n'
+#                         'create "folder.txt.  Notify the programmer of this error.')
+#             print(printStr) 
+#         return foldertxt
+#             
+#     def put_into_foldertxt(self, folder, foldertxt):
+#         ''' Put contents of variable "self.folder" into "folder.txt"
+#         
+#         Parameters
+#         ----------
+#         folder: str
+#             pathname of the folder that contains BOMs that have, or will be checked.
+#         foldertxt: str
+#             pathname of the txt file that will store the value of the "folder"
+#             variable, i.e. path/folder.txt
+# 
+#         Returns
+#         -------
+#         None.
+# 
+#         '''
+#         try:
+#             if folder and foldertxt and not os.path.isfile(foldertxt):
+#                  os.makedirs(os.path.dirname(foldertxt), exist_ok=True)
+#             with open (foldertxt, 'w') as fname:
+#                 if folder:
+#                      fname.write(folder)
+#         except FileNotFoundError as err:
+#             print('Error at method "put_into_foldertxt": {}'.format(err))
+# 
+# 
+#     def get_from_foldertxt(self, foldertxt):
+#         ''' Get contents of folder.txt and assign to variable "self.folder""'''
+#         if foldertxt and os.path.exists(foldertxt):
+#             with open (foldertxt) as fname:
+#                 try:
+#                     folder = fname.readline()
+#                 except:
+#                     folder = ''
+#         else:
+#             folder = ''
+#         return folder
+# =============================================================================
         
         
 class AboutDialog(QDialog):
@@ -205,6 +299,7 @@ class ListboxWidget(QListWidget):
             event.ignore()
             
     def dropEvent(self, event):
+        global folder
         if event.mimeData().hasUrls():
             event.setDropAction(Qt.CopyAction)
             event.accept()
@@ -217,6 +312,7 @@ class ListboxWidget(QListWidget):
                     links.append(str(url.toString()))
                     
             self.addItems(links)
+
         else:
             event.ignore()
     
@@ -244,9 +340,66 @@ class ListboxWidget(QListWidget):
             painter.drawText(self.viewport().rect(), Qt.AlignCenter, elided_text)
             painter.restore()        
         
+
+def get_foldertxt_pathname():
+    ''' Get the pathname of the text file, folder.txt, that contains the
+    name of the folder that has the most recent location of processed BOMs.'''
+    if sys.platform[:3] == 'win':
+        datadir = os.getenv('LOCALAPPDATA')
+        foldertxt = os.path.join(datadir, 'bomcheck', 'folder.txt')
+    elif sys.platform[:3] == 'lin' or sys.platform[:3] == 'dar':  # linux or darwin (Mac OS X)
+        homedir = os.path.expanduser('~')
+        foldertxt = os.path.join(homedir, '.bomcheck', 'folder.txt')
+    else:
+        foldertxt = ''
+        printStr = ('At method "getFolderName", a suitable path was not found to\n'
+                    'create "folder.txt.  Notify the programmer of this error.')
+        print(printStr) 
+    return foldertxt
+
+
+def put_into_foldertxt(folder, foldertxt):
+    ''' Put contents of variable "self.folder" into "folder.txt"
+    
+    Parameters
+    ----------
+    folder: str
+        pathname of the folder that contains BOMs that have, or will be checked.
+    foldertxt: str
+        pathname of the txt file that will store the value of the "folder"
+        variable, i.e. path/folder.txt
+
+    Returns
+    -------
+    None.
+
+    '''
+    try:
+        if folder and foldertxt and not os.path.isfile(foldertxt):
+             os.makedirs(os.path.dirname(foldertxt), exist_ok=True)
+        with open (foldertxt, 'w') as fname:
+            if folder:
+                 fname.write(folder)
+    except FileNotFoundError as err:
+        print('Error at method "put_into_foldertxt": {}'.format(err))
+
+
+def get_from_foldertxt(foldertxt):
+    ''' Get contents of folder.txt and assign to variable "self.folder""'''
+    if foldertxt and os.path.exists(foldertxt):
+        with open (foldertxt) as fname:
+            try:
+                folder = fname.readline()
+            except:
+                folder = ''
+    else:
+        folder = ''
+    return folder
+
+
+
         
-        
-        
+            
 app = QApplication(sys.argv)
 
 window = MainWindow()

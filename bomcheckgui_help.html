@@ -12,37 +12,69 @@
     <p>The bomcheck program was originally written to be run from a Command
     Prompt Terminal
     <a href="https://en.wikipedia.org/wiki/Cmd.exe" target="_blank">(cmd.exe)</a>.
-    This program, <i>bomcheckgui</i> that you are running now, is actually a wrapper
-    that presents a graphical user interface (gui) for the original bomcheck
-    program that it runs that program.  See the work instruction
+    This program that you are now running, <i>bomcheckgui</i>, is actually a
+    wrapper that presents a graphical user interface (gui) for the bomcheck
+    program.  That is, bomcheckgui runs the bomcheck program in the background.
+    See the work instruction
     <a href="file:///\\DVTFS\Procedures\Engineering\WI-EN-054 BOM Check.docx"
-       target="_blank">WI-EN-054 BOM Check.docx</a> for detailed information
-    about how the orignal bomcheck works.  This work instruction should be your
-    primary source of information about getting bomcheck to work for you.</p>
+       target="_blank">WI-EN-054 BOM Check.docx</a> for detailed instructions
+    about how to operate bomcheck.</p>
 
 <a id="run">
-<h2>How to run the program:</h2>
+<h2>How to run bomcheckgui:</h2>
 
     <p>Drag and drop the BOM files that you want to be checked onto the
     central portion of the gui. File names that do not end with _sw.xlsx,
     _sw.csv, sl_xlsx, or sl.csv will be ignored. Files that contain a tilde
     character, ~, will also be ignored.</p>
 
-    <p>Press the green check button.  The bomcheck will then occur.  Then an
-    Excel file will be displayed with results.  The location of the results
-    file will be shown in the bottom of the bomcheckgui window or in a pop-up.
-    window.  The location will be the same as that of the files that were
-    checked.  If checked files come from more than one folder, bomcheck
-    will select one of those folders to place the results in.</p>
+    <p>Press the green check button icon to run bomcheckgui and have your BOMs
+    checked.  An Excel file with results will then be displayed.  The location
+    of the results file will be shown in the bottom of the bomcheckgui window
+    or in a pop-up window.  The file location will be the same as that of the
+    files that were checked.  If checked files come from more than one folder,
+    bomcheck will select one of those folders to place the results in.</p>
 
     <p>If you wish to check other BOM files, push the clear button to clear the
     list of files.  Then drag and drop the new files you want checked.</p>
 
-    <p>If an error occurs when checking BOMs, or if bomcheck is confused about
-    some data that was entered, a pop-up window will be shown with a message
-    about the problem.  Otherwise look for something you may have done wrong,
-    like failing to put the _sl or _sw characters in the file name, or
-    something like putting the characters _sw in a file name from SyteLine.</p>
+    <p>If an error occurs when checking your BOMs, or if bomcheck is confused
+    about some data that was entered, a pop-up window will be shown with a
+    message about the problem.  Otherwise look for something you may have done
+    wrong, like failing to attach the _sl or _sw characters to the file name,
+    or like attaching the characters _sw to a file name other than that for
+    a SolidWorks BOM.</p>
+
+    <p>If at some point in your work day you close the folder that contains
+    your BOMs, and later you want to reopen it to make changes, instead of
+    having to search for that folder again, click on the folder icon.
+    The folder will open.</p>
+
+    <p><b>Tip 1:</b>  Instead of dragging individual file names into the
+    bomcheckgui program, you can drag in the folder that contains the files
+    that are to be checked.  Then once the program is run, the program's action
+    will be to do a bom check of the files in that folder.  The advantage of
+    doing it this way is that files in a Microsoft File Explorer window can be
+    updated without having to clear previous selections from bomcheckgui and
+    then dragging in new ones.
+    </p>
+
+    <p><b>Tip 2:</b> If the SyteLine BOM is a multilevel BOM (has a  column
+    named "Level"), then the name of the Excel file for that BOM is irrelevant
+    as long as it has the <i>_sl</i> characters attached.  Part numbers of
+    multilevel SyteLine BOMs are extracted from the BOM data and not from the
+    file name.  So then a file name like <i>094433_initial_sl.xlsx</i> will
+    work, or even a silly name like <i>ANYNAMEUSA_sl.xlsx</i> will work.<p>
+
+    <p><b>Tip 3:</b> Save yourself some keystrokes: Instead of placing the
+    multilevel BOM from SyteLine into the folder that contains the SolidWorks
+    BOMs, copy the multilevel SyteLine BOM to the clipboard.  Bomcheck will
+    find that BOM in the clipboard and will use it for evaluation.
+    (To copy to the clipboard, open up the SyteLine BOM in Excel, click the
+    empty cell located to the left of the column header named "A", and then
+    do a Ctrl-C.)<p>
+
+
 
 <a id="um">
 <h2>Units of measure:</h2>
