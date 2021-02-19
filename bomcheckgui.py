@@ -19,7 +19,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QToolBar, QAction,
 from PyQt5.QtGui import QIcon, QKeySequence, QPainter, QFont, QColor, QPixmap
 
 
-__version__ = '1.7.5'
+__version__ = '1.7.6'
 __author__ = 'Kenneth E. Carlton'
 printStrs = []
 folder = ''
