@@ -74,6 +74,10 @@ class MainWindow(QMainWindow):
         execute_action.triggered.connect(self.execute)
         file_menu.addAction(execute_action)
         
+        settings_action = QAction(QIcon('icons/settings.png'), 'Settings', self)
+        settings_action.triggered.connect(self.settings)
+        file_menu.addAction(settings_action)
+        
         quit_action = QAction(QIcon('icons/quit.png'), '&Quit', self)
         quit_action.setShortcut(QKeySequence.Quit)
         quit_action.triggered.connect(self.close)
@@ -96,14 +100,41 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.lstbox_view)
         
     def openfolder(self):
+        ''' Open the folder determined by variable "self.folder"'''
+        
+        def cmdtxt(foldr):
+            ''' Create a dirpath name based on a URI type scheme.  Put in front of
+            it the command that will be capable of opening it in file manager program.  
+            
+            e.g. in Windows: 
+                exlorer file:///C:/SW_Vault/CAD%20Documents/PRODUCTION%20SYSTEMS
+                
+            e.g. on my Ubuntu Linux system:
+                thunar file:///home/ken/tmp/bom%20files
+                
+            Where %20 is equivalent to a space character.
+            referece: https://en.wikipedia.org/wiki/File_URI_scheme
+            '''
+            if sys.platform[:3] == 'win':
+                foldr = foldr.replace(' ', '%20')
+                command = 'explorer file:///' + foldr
+            elif sys.platform[:3] == 'lin' or sys.platform[:3] == 'dar':
+                homedir = os.path.expanduser('~')
+                foldr = os.path.join(homedir, foldr)
+                foldr = foldr.replace(' ', '%20')
+                command = 'thunar file:///' + foldr  # thunar is the name of a file manager
+            return command
+        
         try:   # get BOM folder name from 1st item in drag/drop list
             self.folder = os.path.dirname(self.lstbox_view.item(0).text())
             put_into_foldertxt(self.folder, self.foldertxt)
-            webbrowser.open(os.path.realpath(self.folder))
+            #webbrowser.open(os.path.realpath(self.folder)) # Works badly in Windows
+            os.system(cmdtxt(self.folder))
         except AttributeError:  # drag/drop list empty.  Try smthg else...
             if self.foldertxt and os.path.exists(self.foldertxt):  # get BOM's folder from folder.txt
                 self.folder = get_from_foldertxt(self.foldertxt)
-                webbrowser.open(os.path.realpath(self.folder))
+                #webbrowser.open(os.path.realpath(self.folder))
+                os.system(cmdtxt(self.folder))
             else:
                 msg = ('Drag in some files first.  Thereafter\n'
                    'clicking the folder icon will open the\n'
@@ -157,6 +188,12 @@ class MainWindow(QMainWindow):
         dlg = AboutDialog()
         dlg.exec_()
         
+    def settings(self):
+        if os.path.exists(self.foldertxt):
+            f = os.path.realpath(self.foldertxt)
+            foldername = os.path.dirname(f)
+            webbrowser.open(os.path.realpath(foldername))
+        
     def message(self, msg, msgtitle, msgtype='Warning', showButtons=False):
         '''
         UI message to show to the user
@@ -190,63 +227,7 @@ class MainWindow(QMainWindow):
         retval = msgbox.exec_()
         return retval
 
-# =============================================================================
-#     def get_foldertxt_pathname(self):
-#         ''' Get the pathname of the text file, folder.txt, that contains the
-#         name of the folder that has the most recent location of processed BOMs.'''
-#         if sys.platform[:3] == 'win':
-#             datadir = os.getenv('LOCALAPPDATA')
-#             foldertxt = os.path.join(datadir, 'bomcheck', 'folder.txt')
-#         elif sys.platform[:3] == 'lin' or sys.platform[:3] == 'dar':  # linux or darwin (Mac OS X)
-#             homedir = os.path.expanduser('~')
-#             foldertxt = os.path.join(homedir, '.bomcheck', 'folder.txt')
-#         else:
-#             foldertxt = ''
-#             printStr = ('At method "getFolderName", a suitable path was not found to\n'
-#                         'create "folder.txt.  Notify the programmer of this error.')
-#             print(printStr) 
-#         return foldertxt
-#             
-#     def put_into_foldertxt(self, folder, foldertxt):
-#         ''' Put contents of variable "self.folder" into "folder.txt"
-#         
-#         Parameters
-#         ----------
-#         folder: str
-#             pathname of the folder that contains BOMs that have, or will be checked.
-#         foldertxt: str
-#             pathname of the txt file that will store the value of the "folder"
-#             variable, i.e. path/folder.txt
-# 
-#         Returns
-#         -------
-#         None.
-# 
-#         '''
-#         try:
-#             if folder and foldertxt and not os.path.isfile(foldertxt):
-#                  os.makedirs(os.path.dirname(foldertxt), exist_ok=True)
-#             with open (foldertxt, 'w') as fname:
-#                 if folder:
-#                      fname.write(folder)
-#         except FileNotFoundError as err:
-#             print('Error at method "put_into_foldertxt": {}'.format(err))
-# 
-# 
-#     def get_from_foldertxt(self, foldertxt):
-#         ''' Get contents of folder.txt and assign to variable "self.folder""'''
-#         if foldertxt and os.path.exists(foldertxt):
-#             with open (foldertxt) as fname:
-#                 try:
-#                     folder = fname.readline()
-#                 except:
-#                     folder = ''
-#         else:
-#             folder = ''
-#         return folder
-# =============================================================================
-        
-        
+
 class AboutDialog(QDialog):
     ''' Show company name, logo, program author, program creation date
     '''

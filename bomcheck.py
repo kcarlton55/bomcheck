@@ -1582,7 +1582,12 @@ def create_bc_config():
     readme_contents = [
         'bc_config.py is a text file that can be edited with Notepad or Wordpad.\n',
         "To control aspects of bomcheck's output, change the settings within\n",
-        'bc_config.py.  Follow the examples shown.'
+        'the file named bc_config.py.  Follow the examples shown.\n\n',
+        
+        'Any settings that are not correctly typed in may cause the bomcheck\n',
+        'program to malfunction. If this is the case, a simple fix for this is\n',
+        'to delete the bc_config.py that you have modified. Then when you rerun\n',
+        'the bomcheck program, the original bc_config.py file will be installed.\n\n',
         ]
     
     if sys.platform[:3] == 'win':

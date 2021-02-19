@@ -74,41 +74,7 @@
     empty cell located to the left of the column header named "A", and then
     do a Ctrl-C.)<p>
 
-
-
-<a id="um">
-<h2>Units of measure:</h2>
-    <p> A length value, e.g. 39.54, in a SolidWorks BOM is always considered to
-    be in inches. When the BOM check occurs, it is converted to feet because
-    the unit of measure in SyteLine is in feet.  However if a unit of measure
-    is appended to a value in the SW BOM, for example 39.54mm, 39.54 ft,
-    or 39.54', then the appended uom will be taken into account when the value
-    is converted to feet.</p>
-
-<a id="settings">
-<h2>User personalized settings:</h2>
-    <p>When the bomcheck program is run for the first time, a file named
-    bc_config.py is created.  It allows the user to change settings for how
-    the bomcheck program will operate.  You should never have to make any
-    changes to this file. And if you're uncertain about what certain settings
-    do (settings are described in the bc_config.py), then don't change them.
-    However a couple of settings that might be useful to change are called
-    drop and exceptions.  These come into effect when the "ignore 3*-025 SW
-    parts" button is activated.  If you want more that just 3*-025 parts
-    ignored, then adjust the drop setting.</p>
-
-    <p>bc_config.py is created in a folder in your user directory where
-    application data is held.  Look for the file in a location like this:
-    C:\users\kcarlton\AppData\Local\bomcheck\bc_config.py.  Of course, instead
-    of "kcarlton" you should use your name. </p>
-
-    <p>Any settings that are not correctly typed in may cause the bomcheck
-    program to malfunction.  If this is the case, a simple fix for this is to
-    delete the bc_config.py that you have modified.  Then when you rerun the
-    bomcheck program, the original bc_config.py file will be installed.</p>
-
-
-    <i><p style="text-align:right;">last updated: 1/28/2021</p></i>
+    <i><p style="text-align:right;">last updated: 2/14/2021</p></i>
 
 </body>
 </html>
