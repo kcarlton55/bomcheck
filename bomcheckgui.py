@@ -1,26 +1,35 @@
-
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Wed Jan 20 19:47:41 2021
 
 @author: ken
+
+A graphical user interface for the bomcheck.py program.
+
 """
 
 import sys
 import bomcheck
 import webbrowser
 import os.path
+import ast
 
-from PyQt5.QtCore import Qt #, QSize
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QToolBar, QAction,
-                             QStatusBar, QListWidget, QLabel, QCheckBox,
-                             QDialog, QVBoxLayout, QDialogButtonBox, QHBoxLayout, 
-                             QMessageBox, QLineEdit, QPushButton, QTextEdit)
-from PyQt5.QtGui import QIcon, QKeySequence, QPainter, QFont, QColor, QPixmap
-# import dbm
-from configfn import *
-
+try:
+    from PySide2.QtCore import Qt
+    from PySide2.QtWidgets import (QApplication, QMainWindow, QToolBar, QAction,
+                                 QStatusBar, QListWidget, QLabel, QCheckBox, QComboBox,
+                                 QDialog, QVBoxLayout, QDialogButtonBox, QHBoxLayout, 
+                                 QMessageBox, QLineEdit, QPushButton, QTextEdit)
+    from PySide2.QtGui import QIcon, QKeySequence, QPainter, QFont, QColor, QPixmap
+except ModuleNotFoundError:
+    from PyQt5.QtCore import Qt
+    from PyQt5.QtWidgets import (QApplication, QMainWindow, QToolBar, QAction,
+                                 QStatusBar, QListWidget, QLabel, QCheckBox, QComboBox,
+                                 QDialog, QVBoxLayout, QDialogButtonBox, QHBoxLayout, 
+                                 QMessageBox, QLineEdit, QPushButton, QTextEdit)
+    from PyQt5.QtGui import QIcon, QKeySequence, QPainter, QFont, QColor, QPixmap
+    print('\nModule PySide2 not found.  Standby PyQt5 used instead.')
 
 __version__ = '1.7.6'
 __author__ = 'Kenneth E. Carlton'
@@ -33,17 +42,21 @@ class MainWindow(QMainWindow):
         super(MainWindow, self).__init__(*args, **kwargs)
         self.setWindowIcon(QIcon('icons/bomcheck.png'))
         
-
         try:
-            self.configdb = get_configfn()[0]        
+            self.configdb = get_configfn()        
             with open(self.configdb, 'r') as file:
                 x = file.read()     
-            self.dbdic = eval(x)
+            self.dbdic = ast.literal_eval(x)
         except Exception as e:
-            print("error1 in MainWindow", e)
+            msg = ("Error 101:\n\n"
+                   "Unable to open config.txt file which allows the program\n"
+                   "to remember user settings.  Default settings will be used.\n"
+                   "Otherwise the program will run as normal.\n\n" + str(e))
+            msgtitle = 'Warning'
+            message(msg, msgtitle, msgtype='Warning', showButtons=False)
             self.dbdic = {'udrop': '3*-025', 'uexceptions': '', 'ask': False, 
                           'overwrite': False, 'folder': '', 'file2save2': 'bomcheck'}
-            self.configdb = ('', '')
+            self.configdb = ''
             
         self.folder = self.dbdic.get('folder')
         
@@ -79,7 +92,16 @@ class MainWindow(QMainWindow):
         self.drop_chkbox.setChecked(False)
         self.drop_chkbox.setStatusTip('Ignore pt. nos of SW parts that are in the drop list.  See File>Settings.')
         toolbar.addWidget(self.drop_chkbox)
-                
+        
+        empty_label1 = QLabel()
+        empty_label1.setText('   ')
+        toolbar.addWidget(empty_label1)
+        
+        self.across_chkbox = QCheckBox('Output to multiple sheets')
+        self.across_chkbox.setChecked(False)
+        self.across_chkbox.setStatusTip('Break up results across multiple sheets within the output Excel file.')
+        toolbar.addWidget(self.across_chkbox)
+        
         execute_action = QAction(QIcon('icons/bomcheck.png'), 'Execute', self)
         execute_action.triggered.connect(self.execute)
         file_menu.addAction(execute_action)
@@ -117,7 +139,7 @@ class MainWindow(QMainWindow):
             self.folder = os.path.dirname(self.lstbox_view.item(0).text())
             with open(self.configdb, 'r+') as file:
                 x = file.read() 
-                self.dbdic = eval(x)
+                self.dbdic = ast.literal_eval(x)
                 self.dbdic['folder'] = self.folder
                 file.seek(0)
                 file.write(str(self.dbdic))
@@ -133,7 +155,7 @@ class MainWindow(QMainWindow):
             try: 
                 with open(self.configdb, 'r') as file:
                     x = file.read()     
-                    self.dbdic = eval(x)
+                    self.dbdic = ast.literal_eval(x)
                 self.folder = self.dbdic.get('folder', '')
                 if self.folder:
                     os.system(cmdtxt(self.folder))
@@ -144,7 +166,7 @@ class MainWindow(QMainWindow):
                     msgtitle = 'Folder location not set'
                     message(msg, msgtitle, msgtype='Information')
             except Exception as e:  # it an error occured, moset likely and AttributeError
-                print("error3 at MainWindow/openfolder", e)
+                print("Error 103 at MainWindow/openfolder", e)
             
     def execute(self):
         global printStrs, standardflow
@@ -152,7 +174,7 @@ class MainWindow(QMainWindow):
         try: 
             with open(self.configdb, 'r+') as file:   
                 x = file.read()
-                self.dbdic = eval(x)
+                self.dbdic = ast.literal_eval(x)
                 try:
                     self.folder = os.path.dirname(self.lstbox_view.item(0).text())
                     self.dbdic['folder'] = self.folder
@@ -174,7 +196,7 @@ class MainWindow(QMainWindow):
             try: 
                 with open(self.configdb, 'r') as file:
                     x = file.read()     
-                    self.dbdic = eval(x)
+                    self.dbdic = ast.literal_eval(x)
             except Exception as e:  # it an error occured, moset likely and AttributeError
                 print("error10 at MainWindow/execute", e) 
         else:
@@ -182,13 +204,18 @@ class MainWindow(QMainWindow):
             try:
                 with open(self.configdb, 'r+') as file:
                     x = file.read()     
-                    self.dbdic = eval(x)
+                    self.dbdic = ast.literal_eval(x)
                     self.dbdic['file2save2'] = defaultfname
                     file.seek(0)
                     file.write(str(self.dbdic))
                     file.truncate()
             except Exception as e:  # it an error occured, moset likely and AttributeError
-                print("error6 at MainWindow/execute", e)
+                   msg = ("Error 102:\n\n"
+                   "Unable to read/write to config.txt in order to record the\n"
+                   "folder location the last folder containing BOMs.\n"
+                   "Otherwise the program will run as normal.\n\n" + str(e))
+                   msgtitle = 'Warning'
+                   message(msg, msgtitle, msgtype='Warning', showButtons=False)
         
         self.createdfile = ''
         files = []
@@ -196,8 +223,10 @@ class MainWindow(QMainWindow):
         for i in range(n):
             files.append(self.lstbox_view.item(i).text())
         
-        if standardflow == True:   
-            msg = bomcheck.bomcheck(files, d=self.drop_chkbox.isChecked(), dbdic = self.dbdic)
+        if standardflow == True:
+            msg = bomcheck.bomcheck(files, d=self.drop_chkbox.isChecked(), 
+                                    c=self.across_chkbox.isChecked(), dbdic = self.dbdic,
+                                    x=True, l=True)
         else:
             msg = []         
             
@@ -226,7 +255,7 @@ class MainWindow(QMainWindow):
         self.lstbox_view.clear()
     
     def _help(self):
-        webbrowser.open('bomcheckgui_help.html')
+        webbrowser.open(os.path.join('help_files', 'bomcheckgui_help.html'))
      
     def about(self):
         dlg = AboutDialog()
@@ -306,17 +335,17 @@ class AskDialog(QDialog):
             askfname = 'bomcheck'
         askfname = os.path.splitext(os.path.basename(askfname))[0]
         
-        configdb = get_configfn()[0] 
+        configdb = get_configfn()
         try:
             with open(configdb, 'r+') as file:
                 x = file.read()     
-                self.dbdic = eval(x)
+                self.dbdic = ast.literal_eval(x)
                 self.dbdic['file2save2'] = askfname
                 file.seek(0)
                 file.write(str(self.dbdic))
                 file.truncate()
         except Exception as e:  # if an error occured, moset likely and AttributeError
-            print("error7 at AskDialog", e)
+            print("Error 103 at AskDialog\n\n", e)
         standardflow = True
         self.close()
         
@@ -324,7 +353,6 @@ class AskDialog(QDialog):
 class SettingsDialog(QDialog):
     ''' A dialog box asking the user what the settings he would like to make.
     '''
-        
     def __init__(self):
         super(SettingsDialog, self).__init__()
 
@@ -336,10 +364,10 @@ class SettingsDialog(QDialog):
         
         self.configdb = ''
         try:
-            self.configdb = get_configfn()[0]
+            self.configdb = get_configfn()
             with open(self.configdb, 'r') as file: # Use file to refer to the file object
                 x = file.read()
-            self.dbdic = eval(x) 
+            self.dbdic = ast.literal_eval(x)
         except Exception as e:  # it an error occured, moset likely and AttributeError
             print("error8 at SettingsDialog", e)
             
@@ -353,6 +381,45 @@ class SettingsDialog(QDialog):
         self.overwrite_chkbox.setChecked(_bool)
         layout.addWidget(self.overwrite_chkbox)
 
+        hbox1 = QHBoxLayout()        
+        
+        self.decplcs = QComboBox()
+        self.decplcs.addItems(['0', '1', '2', '3', '4', '5'])
+        _decplcs = str(self.dbdic.get('accuracy', 2))
+        self.decplcs.setCurrentText(_decplcs)
+        hbox1.addWidget(self.decplcs) 
+        decplcs_label = QLabel()
+        decplcs_label.setText('Round SW converted lengths to X decimal plcs.')
+        hbox1.addWidget(decplcs_label)
+        
+        layout.addLayout(hbox1)
+        
+        hbox2 =  QHBoxLayout() 
+        
+        self.swum = QComboBox()
+        self.swum.addItems(['in', 'ft', 'yd', 'mm', 'cm', 'm'])
+        _from_um = str(self.dbdic.get('from_um', 'in'))
+        self.swum.setCurrentText(_from_um)
+        hbox2.addWidget(self.swum)
+        swum_label = QLabel()
+        swum_label.setText('SolidWorks U/M' + 10*' ')
+        hbox2.addWidget(swum_label)
+        
+        empty_label1 = QLabel()
+        empty_label1.setText('   ')
+        hbox2.addWidget(empty_label1)
+        
+        self.slum = QComboBox()
+        self.slum.addItems(['in', 'ft', 'yd', 'mm', 'cm', 'm'])
+        _to_um = str(self.dbdic.get('to_um', 'ft'))
+        self.slum.setCurrentText(_to_um)
+        hbox2.addWidget(self.slum)
+        slum_label = QLabel()
+        slum_label.setText('SyteLine U/M' + 20*' ')
+        hbox2.addWidget(slum_label)
+        
+        layout.addLayout(hbox2)
+        
         drop_label = QLabel()
         drop_label.setText('drop list (Ignore these pt. nos. shown in SW BOMs):')
         layout.addWidget(drop_label)
@@ -372,6 +439,22 @@ class SettingsDialog(QDialog):
         if 'uexceptions' in self.dbdic:
             self.exceptions_input.setPlainText(self.dbdic.get('uexceptions', ''))
         layout.addWidget(self.exceptions_input)
+        
+        
+        ############################################################
+        authorname_label = QLabel()
+        authorname_label.setText('Author: ')
+        layout.addWidget(authorname_label)
+        
+        self.authorname_input = QLineEdit()
+        self.authorname_input.setPlaceholderText(get_author(forPlaceHolder=True))
+        if 'author' in self.dbdic:
+            self.author =  self.dbdic.get('author')
+            self.authorname_input.setText(self.author)
+        layout.addWidget(self.authorname_input)
+        
+        ############################################################
+        
         
         self.QBtnOK = QPushButton('text-align:center')
         self.QBtnOK.setText("OK")
@@ -393,7 +476,7 @@ class SettingsDialog(QDialog):
         try:
             with open(self.configdb, "r+") as file:
                 x = file.read()    
-                self.dbdic = eval(x)    
+                self.dbdic = ast.literal_eval(x)
                 if self.ask_chkbox.isChecked():
                     self.dbdic['ask'] = True
                 else:
@@ -406,6 +489,18 @@ class SettingsDialog(QDialog):
                 self.dbdic['udrop'] = drp
                 excep = self.exceptions_input.toPlainText()
                 self.dbdic['uexceptions'] = excep
+                
+                self.dbdic['accuracy'] = int(self.decplcs.currentText())
+                self.dbdic['from_um'] = self.swum.currentText()
+                self.dbdic['to_um'] = self.slum.currentText()
+                
+                self.authorname = self.authorname_input.text().strip()
+                if not self.authorname:
+                    self.authorname = get_author(True)
+                
+                self.dbdic['author'] = self.authorname
+                
+                
                 file.seek(0)
                 file.write(str(self.dbdic))
                 file.truncate()
@@ -437,16 +532,17 @@ class AboutDialog(QDialog):
         self.setWindowTitle('About')
 
         labelpic = QLabel()
-        pixmap = QPixmap('icons/DekkerLogo.png')
+        pixmap = QPixmap('icons/welcomemat.png')
         labelpic.setPixmap(pixmap)
-        labelpic.setFixedHeight(150)
+        #labelpic.setFixedHeight(150)
 
         layout.addWidget(labelpic)
         layout.addWidget(QLabel('bomcheckgui version: ' + __version__ + '\n' +
-                                'A program to commpare BOMs from SolidWorks to\n' +
-                                'to those in the SiteLine database.  Written for\n' +
-                                'Dekker Vacuum Technologies, Inc.\n\n' +
-                                'Written by Ken Carlton, January 27, 2021'))
+                                'bomcheck version: ' + bomcheck.get_version() + '\n'
+                                'A program to commpare BOMs\n' +
+                                'from SolidWorks to those from an\n' +
+                                'ERP database.\n\n' +
+                                'Author: Ken Carlton, 1/27/2021'))
         layout.addWidget(self.buttonBox)
         self.setLayout(layout)       
         
@@ -570,7 +666,73 @@ def message(msg, msgtitle, msgtype='Warning', showButtons=False):
     retval = msgbox.exec_()
     return retval
 
-        
+
+def get_configfn():
+    '''1. Get the pathname to store user defined settings.  The file will be
+    named config.txt.  The pathname will be vary depending on who's logged in. 
+    It will look like: C:\\Users\\Ken\\AppData\\Local\\bomcheck\\config.txt.
+    2.  If a Linux system is used, the pathname will look like:
+    /home/Ken/.bomcheck/config.txt
+    3.  If directories in the path do not already exists, crete them.
+    4.  If the config.txt file doesn't already exist, create it and put in it
+    some inital data: {'udrop':'3*-025'}
+    '''
+    if sys.platform[:3] == 'win':  # if a Window operating system being used.
+        datadir = os.getenv('LOCALAPPDATA')
+        path = os.path.join(datadir, 'bomcheck')
+        if not os.path.isdir(path):
+            os.makedirs(path, exist_ok=True)
+        configdb = os.path.join(datadir, 'bomcheck', 'config.txt')
+         
+    elif sys.platform[:3] == 'lin':  # if a Linux operating system being used.
+        homedir = os.path.expanduser('~')
+        path = os.path.join(homedir, '.bomcheck')
+        if not os.path.isdir(path):
+            os.makedirs(path, exist_ok=True) 
+        configdb = os.path.join(homedir, '.bomcheck', 'config.txt') 
+            
+    else:
+        printStr = ('At method "get_configfn", a suitable path was not found to\n'
+                    'create file config.txt.  Notify the programmer of this error.')
+        print(printStr) 
+        return ""
+    
+    _bool = os.path.exists(configdb)
+    if not _bool or (_bool and os.path.getsize(configdb) == 0):
+        with open(configdb, 'w') as file: 
+            file.write("{'udrop':'3*-025'}")
+                
+    return configdb
+
+
+############################################################
+
+def get_author(forPlaceHolder=False):
+    # first assume that "author" name not in file containing user settings
+    if os.getenv('USERNAME'):
+        author = os.getenv('USERNAME')  # Works only on MS Windows
+    elif sys.platform[:3] == 'lin':  # I'm working on my Linux system
+        author = 'kcarlton'
+    else:
+        author = 'unknown'
+
+    if forPlaceHolder:
+        return author
+
+    # if "author" is in the settings file:
+    settingsfn = get_configfn() 
+    try:
+        with open(settingsfn, 'r') as file:
+            x = file.read()
+            settingsdic = ast.literal_eval(x)
+            author = settingsdic.get('author', author)
+    except Exception as e:
+        msg =  "error12 at get_author.  " + str(e)
+        print(msg)
+        message(msg, 'Error', msgtype='Warning', showButtons=False)
+    return author
+
+############################################################      
             
 app = QApplication(sys.argv)
 
