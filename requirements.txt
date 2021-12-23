@@ -1,6 +1,6 @@
-pandas>=0.23.4
-openpyxl>=2.5.12
+pandas>=1.2
+openpyxl>=3.0
 xlrd>=1.2.0
-xlsxwriter>=1.1.2
-PyQt5
+xlsxwriter>=1.1
+pyside2>=5.15 
 
