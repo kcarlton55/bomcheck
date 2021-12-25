@@ -20,7 +20,7 @@ To see how to create an EXE file from this program, see the file named
 howtocompile.md.
 """
 
-__version__ = '1.7.6'
+__version__ = '1.8'
 __author__ = 'Kenneth E. Carlton'
 import glob, argparse, sys, warnings
 import pandas as pd
