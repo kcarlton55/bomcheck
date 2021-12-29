@@ -102,7 +102,7 @@ def set_globals():
              ('um_sl',     ["UM", "U/M"]),     # not required in a SW BOM
              ('level_sl',  ["Level"]),         # not required in a SW BOM
              ('itm_sw',    ["ITEM NO."]),      # not required in a SL BOM
-             ('length_sw', ["LENGTH", "Length", "L", "SIZE", "AMT", "AMOUNT"])]  # not required in a SL or SW BOM
+             ('length_sw', ["LENGTH", "Length", "L", "SIZE", "AMT", "AMOUNT", "MEAS"])]  # not required in a SL or SW BOM
 
     # The function "insert_into_cfg" is called upon below.  It will fill the
     # dictionary named cfg with values from the bc_config.py file, that is if
