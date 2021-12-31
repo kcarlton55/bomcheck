@@ -281,25 +281,25 @@
       ERP database program. For example, 336.7mm will be converted to 1.10 ft,
       and 8 pints will be converted to 1.00 gal. Other names that can be
       substituted for the column name LENGTH in a SolidWorks BOM are: SIZE,
-      Length, L, SIZE, AMT, and AMOUNT.</p>
+      Length, L, SIZE, AMT, AMOUNT, and MEAS.  Names are case sensitive.</p>
 
 
     <h2 id="bc_config">bc_config.py</h2>
-    <p>In the source files directory there is a file name bc_config.py. If
-      that file is placed in the same directory as bomcheckgui.exe, it can be
-      used to alter the operating characteristics of the bomecheck program.
-      bc_config.py was created to allow bomcheck to adapt, as much as possible,
-      for use by other companies. For example, it allows diffent column
-      headings to be used; e.g. "Numero de pieza" instead of "Part Number". </p>
+    <p>In the source files directory there is a file named bc_config.py. If that 
+      file is placed in the same directory as bomcheckgui.exe (or of bomcheckgui.py),
+      it can be used to alter the operating characteristics of the bomecheck program.  
+      bc_config.py was created to allow bomcheck to adapt, as much as possible, for
+      use by other companies. For example, it allows diffent column headings to be
+      used; e.g. "Numero de pieza" instead of "Part Number". </p>
 
-    <p>The bomcheck automatically assumes length values are in inches, and
-      length values in the ERP database program are in feet. (bomcheck converts
-      from inches to feet for a comparison.) If you have different units of
-      measurement, set those in the bc_config.py file</p>
+    <p>If no unit of measure is specified for a length in a CAD BOM, bomcheck 
+      assumes that the value is in inches.  If required, update bc_config.py to
+      specify another unit of measure.</p>
 
-    <p>Open bc_config.py with a text editor to see instuctions on its use.
-      (notepad may yield a garbled mess since the special character at the end
-      of each line may not be interpreted correctly. Try wordpad instead.)</p>
+    <p>Open bc_config.py with a text editor and you'll see instuctions on its use.
+      (Microsoft's Wordpad program works well since it correctly recognizes end-of-line
+      charcters used by Windows.  Otherwise, text may be scrambled.  Notepad++
+      is a good alternative.)</p>
 
     <i>
       <p style="text-align:right;">last updated: 4/6/2021</p>
