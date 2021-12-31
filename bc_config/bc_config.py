@@ -1,13 +1,15 @@
-# This file needs to be in the same directory as the bomcheckgui.exe
-# (or bomcheck.exe) file for it to take affect.  It allows for different
-# column headings in Excel files, different units of measure, etc..
+# This file needs to be in the same directory as the bomcheck.exe
+# file, or the bomcheck.py file, for it to take affect.  It allows
+# for different column headings in BOMs, different units of 
+# measure, etc..
 
 # Adjust this file to suit your needs.  Remove the leading comment
 # character, e.g. the pound sign and space, that precedes a setting
-# that you wish to adjust.  For any setting not set below, that is
-# the comment character is left in place, the bomcheck program will
+# that you wish to adjust.  For any setting not set below, i.e.
+# when the comment character is left in place, the bomcheck program will
 # use its own default value.  Here are examples of three settings
-# that will be active in the bomcheck program (but not used by it):
+# that will be active when bomcheck is run... however bomcheck will
+# not use them:
 
 example1 = "text, i.e. strings, are enclosed in single or double quotes"
 
@@ -37,7 +39,7 @@ example3 = 3   # an integer needs no brackets or quote marks.
 # All the column names that might be shown on a SyteLine BOM for
 # part numbers.  Different names occur when templates used to create
 # BOMs are not consistent.  Note that names are case sensitive, so
-# "Part Number" is not the same as "PART NUMBER".
+# "Item" is not the same as "ITEM".
 # part_num_sl = ["Item", "Material"]
 
 
@@ -103,12 +105,14 @@ example3 = 3   # an integer needs no brackets or quote marks.
 # Note that, in SolidWorks, the quantity column the number of a
 # particular item, and the length column contains the length of that
 # item.  For exaample, a quatity of 4 beams, each 20" long.
-# length_sw: ['LENGTH', 'Length', 'L', 'SIZE', 'AMT', 'AMOUNT']
+# length_sw: ['LENGTH', 'Length', 'L', 'SIZE', 'AMT', 'AMOUNT', 'MEAS']
 
 
-# If an area of an item is specified in the length column, e.g. 13.5 sqmm,
-# convert to this U/M.  If the item is found in the SyteLine BOM, it will be
-# converted to the U/M there, and this U/M will be ignored.
+# If an area of an item is specified in the SW length column,
+# e.g. 13.5 sqmm, then during program execution convert to this U/M
+# just prior to comparing the SW BOM to that in SyteLine.  And if
+# the item is found in the SyteLine BOM, then convert it to the
+# U/M that is there.
 # toA_um = 'SQI'
 
 
@@ -145,8 +149,7 @@ example3 = 3   # an integer needs no brackets or quote marks.
 # from_um = "inch"
 
 
-# Lengths from a SolidWorks BOM are converted to a length with this
-# unit of measure in order to compare them to lengths in SyteLine.
-# Any lengths in SyteLine are all considered to be per this unit of
-# measure.
+# If no matching item is found in a SyteLine BOM for a given item
+# in a SW BOM, then convert to this U/M.  Else convert to the U/M
+# given in the SL BOM measure.
 # to_um = "feet"
