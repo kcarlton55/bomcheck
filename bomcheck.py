@@ -22,6 +22,7 @@ howtocompile.md.
 
 __version__ = '1.8'
 __author__ = 'Kenneth E. Carlton'
+
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -169,7 +170,7 @@ def main():
                         'Excel file that is output.')
     parser.add_argument('-v', '--version', action='version', version=__version__,
                         help="Show program's version number and exit")
-    parser.add_argument('-f', '--followlinks', action='store_false', default=True,
+    parser.add_argument('-f', '--followlinks', action='store_false', default=False,
                         help='Follow symbolic links when searching for files to process.  ' +
                         "  (MS Windows doesn't honor this option.)")
     parser.add_argument('--from_um',  default=cfg['from_um'], help='The unit of measure ' +
@@ -331,6 +332,7 @@ def bomcheck(fn, dic={}, **kwargs):
     l = kwargs.get('l', False)
     p = dic.get('pause', False)
     x = dic.get('excel', x)
+
 
     # If dbdic is in kwargs, it comes from bomcheckgui.
     # Variables thereof take precedence.
