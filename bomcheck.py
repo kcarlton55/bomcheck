@@ -20,7 +20,7 @@ To see how to create an EXE file from this program, see the file named
 howtocompile.md.
 """
 
-__version__ = '1.8'
+__version__ = '1.8.1'
 __author__ = 'Kenneth E. Carlton'
 
 import glob, argparse, sys, warnings
@@ -197,115 +197,130 @@ def main():
 
 def bomcheck(fn, dic={}, **kwargs):
     '''
-    This is the primary function of the bomcheck program and acts as a hub
-    for other functions within the bomcheck module.  First to occur: Excel
-    and/or csv files that contain BOMs are opened.  Filenames containing BOMs
-    must end with _sw.xlsx,_sl.xlsx, _sw.csv, or _sl.csv; otherwise the files
-    are ignored.  For a comparison between a SolidWorks (SW) BOM and a
-    SyteLine (SL) BOM to occur, filenames must be the same up until the
-    underscore (_) character of the filename.  E.g., 086677_sw.xlsx and
-    086677_sl.xlsx match.  By the way, an _sw.csv file will compare with a
-    _sl.xlsx file, and vice versa.
+    This is the primary function of the bomcheck program
+    and acts as a hub for other functions within the 
+    bomcheck module.
 
-    This function will also handle multilevel BOMs from SW and/or SL.  In which
-    case subassembly BOMs will automatically be extracted from the top level
-    BOM.
+    This function will handle single and multilevel BOMs 
+    that are derived from SW and/or SL.  For multilevel 
+    BOMs, subassemblies will automatically be extracted 
+    from the top level BOM.
 
-    Any _sw files found for which no matching _sl file is found will be
-    converted into a SyteLine like BOM format and output to an Excel file.
-    If a _sl file is present for which no corresponding _sw file is found,
-    the _sl file is ignored; that is, no output... output is silent.
+    Any BOMs from SW files found for which no matching SL 
+    file is found will be converted into a SyteLine like
+    BOM format.  If a SL BOM is present for which no 
+    corresponding SW BOM is found, the SW file is ignored;
+    that is, no output is shown for this SW file.
 
-    After BOM merges occur, an Excel file containing the results can be output.
-    The name of the Excel file is bomcheck.xlsx.  (It this program is run
-    via bomcheckgui.py, the output name can be altered.)  The results are the
-    SW files for which no matching SL file was found, and the compared SW/SL
-    BOMs.
-
-    If this program is run from a python shell, the function "getresults"
-    can be used to show results.
-
-    calls: gatherBOMs_from_fnames, collect_checked_boms, concat_boms,
-    export2excel, get_fnames
+    This fuction calls these functions: 
+    gatherBOMs_from_fnames, collect_checked_boms, 
+    concat_boms, export2excel, get_fnames
 
     Parmeters
     =========
 
     fn: string or list
-        1.  Filename of Excel or csv files to do a BOM check on.  Default: "*"
-            (i.e. all _sw & _sl files in the current working directory).
-        2.  fn can be a directory name in which case all _sw and _sl files
-            in that directory and subdirectories thereof are analyzed.
-        3.  If a list is given, then it is a list of filenames and/or
-            directories.
-        4.  An asterisk, *, matches any characters.  E.g. 6890-083544-* will
-            match 6890-083544-1_sw.xlsx, 6890-083544-2_sw.xlsx, etc.
+        *  Files constaining BOMs from SolidWorks and/or 
+           SyteLine.  Files from Solidworks must end with 
+           _sw.xlsx or _sw.csv.  Files from SyteLine must
+           end with _sl.xlsx or _sl.csv.
+        *  An asterisk, *, matches any characters.  E.g. 
+           6890-083544-* will match 6890-083544-1_sw.xlsx, 
+           6890-083544-2_sw.xlsx, etc.        
+        *  fn can be a directory name, in which case
+           files in that directory, and subdirectories
+           thereof, will be analized.
+        *  If a list is given, then it is a list of 
+           filenames and/or directories.
+        *  PNs shown in filenames must correspond, e.g. 
+           099238_sw.xlsx and 099238_sl.xlsx.  Exception: 
+           BOM from SyteLine is a multilevel BOM.
 
     dic: dictionary
-        default: {} (i.e. an empty dictionary).  This variable is only used if
-        the function "main" is used to run the bomcheck program; that is,
-        the bomcheck program was inititiated from the command line.  If so,
-        keys named "drop", "sheets", "from_um", and "to_um" and corresponding
-        values thereof will have been put into dic.
+        default: {} (i.e. an empty dictionary).  This 
+        variable is only used if the function "main" is
+        used to run the bomcheck program... that is, the
+        bomcheck program was inititiated from the command
+        line.  If so, keys named "drop", "sheets", 
+        "from_um", and "to_um" and corresponding values 
+        thereof will have been put into dic.
 
     kwargs: dictionary
-        Unlike dic, no values in kwargs are derived from the "main" function.
-        This kwargs variable is used when bomcheck is run from a python
-        shell.  The dictionary key/value items that this function looks for
-        are:
+        Unlike dic, no values in kwargs are derived from the 
+        "main" function; i.e. bomcheck was not run from the
+        command line.  I.e., was from from Jupyter Notebook.  
+        The dictionary key/value items that this function
+        looks for are:
 
         c:  bool
-            Break up results across multiple sheets within the bomcheck.xlsx
-            file.  Default: False
+            Break up results across multiple sheets within
+            the Excel bomcheck.xlsx file.  Default: False
 
         d: bool
-            If True, employ the list named drop which will have been created by
-            the function named "set_globals".  Default: False
+            If True, employ the list named drop which will
+            have been created by the function named 
+            "set_globals".  (E.g. ignore pt. nos. from a 
+            SW BOM like 3*-025) Default: False
 
         x: bool
-            Export results to an Excel file named bomcheck.xlsx.  Default: False
+            Export results to an Excel file named 
+            bomcheck.xlsx. (If bomcheckgui is used, name 
+            can be changed.) Default: False
 
         u: str
-            Username.  This will be fed to the export2exel function so that a
-            username will be placed into the footer of the bomcheck.xlsx file.
+            Username.  This will be fed to the export2exel 
+            function so that a username will be placed
+            into  the footer of the bomcheck.xlsx file.  
             Default: 'unknown'
 
         f: bool
-            If True, follow symbolic links when searching for files to process.
-            Default: False
+            If True, follow symbolic links when searching 
+            for  files to process.  Default: False
 
         l: bool
-            Export a list of errors, if any, that occured during the bomcheck.
-            Default: False
+            Export a list of errors, if any, that occured 
+            during the bomcheck.  Default: False
+            
+        m: int
+            Max no. of rows to display when results are 
+            output.  (This does not effect results that are
+            exported an Excel file.)  Default: None (That 
+            is, all rows are output.  Nothing is truncated.)
 
     Returns
     =======
 
     out: list|tuple
 
-        If "l" is set to True, return a list of strings.  Each string describes
-            an error that occurred during the bomcheck.  If no errors occurred,
-            return [], i.e. an empty string.(bomcheckgui sets l = True);
-        Else return a tuple of two items that contains bom check results;
-            each of the two items of the tuple is a Pandas dataframe.
-            The first dataframe shows SolidWorks (SW) boms for which no
-            SyteLine (SL) bom was found to compare the bom to.  The second
-            item shows a SW to SL bom comparison.
+        If argument l is set to True:
+            return a list of strings.  Each string describes 
+            an error that occurred during the bomcheck.  If
+            no errors occurred, return [], i.e. an empty 
+            string. (bomcheckgui automatically sets 
+            l = True).
+        Else:
+            Return a tuple of two items that contains 
+            bomcheck results.  Each of the two items of the 
+            tuple is a Pandas dataframe object.
+            *  The first dataframe shows SolidWorks BOMs for
+               which no SyteLine BOMs were found to compare
+               them to.  
+            *  The second dataframe is SW to SL BOM 
+               comparisons.
 
     Examples
     ========
 
-    >>> bomcheck("078551*") # all file names beginning with characters: 078551
+    >>> # files names starting with 6890
+    >>> bomcheck("folder1/6890*", d=True, u="John Doe")  
 
-    >>> bomcheck("C:/folder/6890*")  # files names starting with 6890
+    >>> # all files in 'folder1' and in subfolders thereof
+    >>> bomcheck("folder1")
 
-    >>> bomcheck("*", d=True)   # all files in the current working directory
+    >>> # all files, one level deep
+    >>> bomcheck("folder1/*") 
 
-    >>> bomcheck("C:/folder") # all files in 'folder' and in subdirectories of
-
-    >>> bomcheck("C:/folder/*") # all files, one level deep
-
-    >>> bomcheck(["C:/folder1/*", "C:/folder2/*"], d=True, u="John Doe")
+    >>> bomcheck(["folder1/*", "folder2/*"], d=True)
 
     '''
     global printStrs, cfg, results
@@ -330,9 +345,9 @@ def bomcheck(fn, dic={}, **kwargs):
     x = kwargs.get('x', False)
     f = kwargs.get('f', False)
     l = kwargs.get('l', False)
+    m = kwargs.get('m', None)
     p = dic.get('pause', False)
     x = dic.get('excel', x)
-
 
     # If dbdic is in kwargs, it comes from bomcheckgui.
     # Variables thereof take precedence.
@@ -361,6 +376,8 @@ def bomcheck(fn, dic={}, **kwargs):
         fn = ast.literal_eval(fn)  # change a string to a list
     elif isinstance(fn, str):
         fn = [fn]
+        
+    pd.set_option('display.max_rows', m)
 
     fn = get_fnames(fn, followlinks=f)  # get filenames with any extension.
 
