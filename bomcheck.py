@@ -46,15 +46,55 @@ def get_version():
 
 
 def getcfg():
+    ''' Return the value of "cfg".  cfg shows configuration
+    variables and values thereof that are applied to
+    bomcheck when it is run. For example, the variable 
+    "accuracy" is the no. of decimal places that length
+    values are rounded to.  (See the function "setcfg")
+    
+    Returns
+    =======
+    
+    out: dictionary
+    
+    Examples
+    ========
+    
+    getcfg()
+    '''
     return cfg
 
 
 def setcfg(**kwargs):
+    ''' Set configuration variables that effect how bomcheck
+    operates.  For example, set the unit of measure that
+    length values are calculated to.  Run the function 
+    getcfg() to see the names of variables that can be set.  
+    Open the file bc_config.py to see an explanation of the
+    variables.  
+    
+    The object type that a variable holds (list, string, 
+    etc.) should be like that seen via the getcfg()
+    function, else bomcheck could crash (correcting is just
+    a matter rerunning setcfg with the correct values).  
+    
+    Values can be set to something more permanent by 
+    altering the file bc_config.py.
+    
+    Examples
+    ========
+    
+    setcfg(drop=["3*-025", "3*-008"], accuracy=4) 
+    '''
     global cfg
     if not kwargs:
-        print("e.g.:  setcfg(drop=['3886-*'], from_um='IN', to_um='FT')")
+        print("You did not set any configuration values.  Do so like this:")
+        print("setcfg(drop=['3886-*'], from_um='IN', to_um='FT')")
+        print("Do help(setcfg) for more info")
     else:
         cfg.update(kwargs)
+
+    
 
 
 def set_globals():
@@ -163,13 +203,14 @@ def main():
                         'in that directory and subdirectories thereof will be ' +
                         'gathered.  BOMs gathered from _sl files without ' +
                         'corresponding SolidWorks BOMs found are ignored.')
-    parser.add_argument('-d', '--drop_bool', action='store_true', default=False,
-                        help='Ignore 3*-025 pns, i.e. do not use in the bom check')
+    parser.add_argument('-a', '--accuracy', help='Decimal place accuracy applied ' +
+                        'to lengths in a SolidWorks BOM', default=cfg['accuracy'],
+                        metavar='value')
     parser.add_argument('-c', '--sheets', action='store_true', default=False,
                         help='Break up results across multiple sheets in the ' +
-                        'Excel file that is output.')
-    parser.add_argument('-v', '--version', action='version', version=__version__,
-                        help="Show program's version number and exit")
+                        'Excel file that is output.')   
+    parser.add_argument('-d', '--drop_bool', action='store_true', default=False,
+                        help='Ignore 3*-025 pns, i.e. do not use in the bom check')
     parser.add_argument('-f', '--followlinks', action='store_false', default=False,
                         help='Follow symbolic links when searching for files to process.  ' +
                         "  (MS Windows doesn't honor this option.)")
@@ -178,12 +219,11 @@ def main():
                         'specified', metavar='value')
     parser.add_argument('--to_um', default=cfg['to_um'], help='The unit of measure ' +
                         'to convert SolidWorks lengths to', metavar='value')
-    parser.add_argument('-a', '--accuracy', help='Decimal place accuracy applied ' +
-                        'to lengths in a SolidWorks BOM', default=cfg['accuracy'],
-                        metavar='value')
     parser.add_argument('-p', '--pause', help='Pause the program just before the program ' +
                         'the program would normally close after completing its work.',
                         default=False, action='store_true')
+    parser.add_argument('-v', '--version', action='version', version=__version__,
+                        help="Show program's version number and exit")
     parser.add_argument('-x', '--excel', help='Create Excel file showing check results.',
                         default=False, action='store_true')
 
@@ -211,6 +251,9 @@ def bomcheck(fn, dic={}, **kwargs):
     BOM format.  If a SL BOM is present for which no 
     corresponding SW BOM is found, the SW file is ignored;
     that is, no output is shown for this SW file.
+    
+    See the function setcfg for controlling other
+    variables in bomcheck. Do: help(setcfg)
 
     This fuction calls these functions: 
     gatherBOMs_from_fnames, collect_checked_boms, 
@@ -261,22 +304,11 @@ def bomcheck(fn, dic={}, **kwargs):
             have been created by the function named 
             "set_globals".  (E.g. ignore pt. nos. from a 
             SW BOM like 3*-025) Default: False
-
-        x: bool
-            Export results to an Excel file named 
-            bomcheck.xlsx. (If bomcheckgui is used, name 
-            can be changed.) Default: False
-
-        u: str
-            Username.  This will be fed to the export2exel 
-            function so that a username will be placed
-            into  the footer of the bomcheck.xlsx file.  
-            Default: 'unknown'
-
+            
         f: bool
             If True, follow symbolic links when searching 
             for  files to process.  Default: False
-
+            
         l: bool
             Export a list of errors, if any, that occured 
             during the bomcheck.  Default: False
@@ -286,6 +318,17 @@ def bomcheck(fn, dic={}, **kwargs):
             output.  (This does not effect results that are
             exported an Excel file.)  Default: None (That 
             is, all rows are output.  Nothing is truncated.)
+
+        u: str
+            Username.  This will be fed to the export2exel 
+            function so that a username will be placed
+            into  the footer of the bomcheck.xlsx file.  
+            Default: 'unknown'
+
+        x: bool
+            Export results to an Excel file named 
+            bomcheck.xlsx. (If bomcheckgui is used, name 
+            can be changed.) Default: False
 
     Returns
     =======
