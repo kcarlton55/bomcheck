@@ -95,8 +95,6 @@ def setcfg(**kwargs):
         cfg.update(kwargs)
 
     
-
-
 def set_globals():
     ''' Create a global variables including the primary one named cfg.
     cfg is a dictionary containing settings used by this program.
@@ -1280,13 +1278,13 @@ def concat_boms(title_dfsw, title_dfmerged):
 
             ``out = ([("SW BOMS", DataFrame1)], [("BOM Check", DataFrame2)])``
 
-    Where...
-        "SW BOMS" is the title. (when c=True in the bomcheck function, the
-        title will be an assembly part no.).
-        DataFrame1 = SW BOMs that have been concatenated together.
+        Where...
+            "SW BOMS" is the title. (when c=True in the bomcheck function, the
+            title will be an assembly part no.).
+            DataFrame1 = SW BOMs that have been concatenated together.
 
-        "BOM Check" is another title.
-        DataFrame2 = Merged SW/SL BOMs that have been concatenated together.
+            "BOM Check" is another title.
+            DataFrame2 = Merged SW/SL BOMs that have been concatenated together.
     '''
     dfswDFrames = []
     dfmergedDFrames = []
