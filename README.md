@@ -99,9 +99,8 @@ in feet.
 
 
 ## **BC_CONFIG.PY**
-
 Bomcheck has a configuration file available named bc_config.py.  With it the default U/M measure can be switched
-from inches to mm or to some other U/M.  Also, column names and can be changed, and so forth.
+from inches to mm or to some other U/M.  Also, column names can be changed, and so forth.
 
 &nbsp;
 
