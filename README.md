@@ -116,8 +116,7 @@ you can launch the file *bomcheck.ipynb* that is on my github site.  It is a
 [Jupyter Notebook](https://www.codecademy.com/article/how-to-use-jupyter-notebooks).  With it you
 can try out the bomcheck program.  After the web page opens, if files and folders are not shown
 on the left, click the folder icon in the upper left.  Look for the folder named *mydata*, and read
-the README.txt file therein for more information
-about running the notebook.
+the README.txt file therein.
  
 
 

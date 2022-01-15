@@ -1527,11 +1527,9 @@ areaUMs = set(['sqi', 'sqin','sqf', 'sqft', 'sqyd', 'sqy', 'sqmm', 'sqcm', 'sqm'
 liquidUMs = set(['pint',  'pt', 'quart', 'qt', 'gallon', 'g', 'gal' 'ltr', 'liter', 'l'])
 
 
-
-
 if __name__=='__main__':
-    main()                   # comment out this line for testing
-    #bomcheck('*')   # use for testing #
+    main()           # comment out this line for testing -.- . -.-.
+    #bomcheck('*')   # use for testing
 
 
 
