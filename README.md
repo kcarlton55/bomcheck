@@ -110,12 +110,12 @@ from inches to mm or to some other U/M.  Also, column names can be changed, and 
 &nbsp;
 
 By clicking this link:&nbsp; &nbsp; 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/kcarlton55/project1/master),&nbsp; &nbsp;
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/kcarlton55/bomcheck/master?labpath=bomcheck.ipynb),&nbsp; &nbsp;
 you can launch the file *bomcheck.ipynb* that is on my github site.  It is a 
 [Jupyter Notebook](https://www.codecademy.com/article/how-to-use-jupyter-notebooks).  With it you
-can try out the bomcheck program on a web page.  After the web page opens, if files and folders are not shown
-on the left, click the folder icon in the upper left.  Look for the folder named *mydata*, and read
-the README.txt file therein.
+can try out the bomcheck program on a web page.  After the web page opens, if a file browser is not
+shown on the left, click the folder icon in the upper left (or Ctrl+Shift+F).  Then look for the folder
+named *mydata*, and read the README.txt file therein.
  
  For more information, see the web page [bomcheck_help.html](https://htmlpreview.github.io/?https://github.com/kcarlton55/project1/blob/v1.8.1/help_files/bomcheck_help.html)
 
