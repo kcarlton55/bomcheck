@@ -1,4 +1,5 @@
-# <b>bomcheck</b>
+# **bomcheck**
+
 
 ## **WHAT THE PROGRAM DOES**
 This program compares Bills of Materials (BOMs).  BOMs from a CAD
@@ -25,9 +26,9 @@ extracted from a top level BOM.  For a BOM from the ERP program to be
 recognized as a multilevel BOM, a column named "Level" must exist
 that gives the relative level of a subassembly to the main assembly. 
 (The name "Level" can be altered with the file bc_config.py.  See info 
-below.) The Level column starts out with "0" for the top
-level assembly, "1" for part/subassemblies under the main assembly, "2" for
-a part/subassembly under a Level "1" subassembly, and so forth. From the
+below.) The Level column starts out with "0" for the top level assembly,
+"1" for part/subassemblies under the main assembly, "2" for a 
+part/subassembly under a Level "1" subassembly, and so forth. From the
 CAD program, it is similar.  However item nos. indicate the Level, for 
 example item nos. like 1, 2, 3, 3.1, 3.2, 3.2.1, 3.2.2, 3.3, 4, etc.,
 where item 3 is a subassembly with parts under it.
@@ -36,7 +37,7 @@ where item 3 is a subassembly with parts under it.
 ## **HOW TO RUN BOMCHECK**
 To run the program from the command line, run like this:
 
-<ul><li><code>python bomcheck.py</code></li></ul>
+- `python bomcheck.py`
 
 This assumes that you have the python program running on your system 
 (See: [https://www.anaconda.com/products/individual](https://www.anaconda.com/products/individual)).
@@ -44,19 +45,19 @@ When the above command is run, help info will be shown about required
 command line arguments.  
 
 Another way of running bomcheck is by using the program called Jupyter Notebook.
-Enter this in a JupyterLab cell and hit Shift-Enter to run the cell.
-<ul>
-    <li><code>import bomcheck as bc</code></li>
-    <li><code>bc.bomcheck(arg1, arg2, ...)</code></li>
-</ul>
-  
+Enter this in a JupyterLab cell and hit Shift-Enter to run the cell:
+
+- `import bomcheck as bc`
+- `bc.bomcheck(arg1, arg2, ...)`
+
 To see the arguments that bomcheck takes, in a Jupyter Notebook cell run:
-<ul><li><code>help(bc.bomcheck)</code></li></ul>
+- `help(bc.bomcheck)`
 
 And third way to run the program is to use the program called bomcheckgui.
 It provides a graphical user interface for the bomcheck program.  It can
 be stared from a command prompt like this:
-<ul><li><code>python bomcheckgui.py</code></li></ul>
+
+- `python bomcheckgui.py`
 
 
 ## **SAMPLE OUTPUT**
@@ -104,20 +105,19 @@ from inches to mm or to some other U/M.  Also, column names can be changed, and 
 
 &nbsp;
 
+<hr style="border:2px solid grey"> </hr>
+
 &nbsp;
-
----
-
-For more info, see the web page [bomcheck_help.html](https://htmlpreview.github.io/?https://github.com/kcarlton55/project1/blob/v1.8.1/help_files/bomcheck_help.html)
 
 By clicking this link:&nbsp; &nbsp; 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/kcarlton55/project1/master),&nbsp; &nbsp;
 you can launch the file *bomcheck.ipynb* that is on my github site.  It is a 
 [Jupyter Notebook](https://www.codecademy.com/article/how-to-use-jupyter-notebooks).  With it you
-can try out the bomcheck program.  After the web page opens, if files and folders are not shown
+can try out the bomcheck program on a web page.  After the web page opens, if files and folders are not shown
 on the left, click the folder icon in the upper left.  Look for the folder named *mydata*, and read
 the README.txt file therein.
  
+ For more information, see the web page [bomcheck_help.html](https://htmlpreview.github.io/?https://github.com/kcarlton55/project1/blob/v1.8.1/help_files/bomcheck_help.html)
 
 
 
