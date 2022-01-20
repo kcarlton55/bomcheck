@@ -195,8 +195,8 @@ def main():
                         'Output is sent to a Microsoft Excel spreadsheet.')
     parser.add_argument('filename', help='Name of file containing a BOM.  Name ' +
                         'must end with _sw.xlsx, _sl.xlsx. _sw.csv, or ' +
-                        '_sl.csv.  Enclose filename in quotes!  An asterisk, *, ' +
-                        'caputures multiple files.  Examples: "6890-*", "*".  ' +
+                        '_sl.csv.  Enclose filename in quote marks!  An asterisk, i.e. *, ' +
+                        'is a wild card character.  Examples: "6890-*", "*".  ' +
                         'Or if filename is instead a directory, all _sw and _sl files ' +
                         'in that directory and subdirectories thereof will be ' +
                         'gathered.  BOMs gathered from _sl files without ' +
@@ -266,7 +266,7 @@ def bomcheck(fn, dic={}, **kwargs):
            _sw.xlsx or _sw.csv.  Files from SyteLine must
            end with _sl.xlsx or _sl.csv.
         *  An asterisk, *, matches any characters.  E.g. 
-           6890-083544-* will match 6890-083544-1_sw.xlsx, 
+           "6890-083544-*" will match 6890-083544-1_sw.xlsx, 
            6890-083544-2_sw.xlsx, etc.        
         *  fn can be a directory name, in which case
            files in that directory, and subdirectories

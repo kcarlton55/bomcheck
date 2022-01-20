@@ -2,9 +2,9 @@
 
 
 ## **WHAT THE PROGRAM DOES**
-This program compares Bills of Materials (BOMs).  BOMs from a CAD
-(Computer Aided Design) program like SolidWorks are compared to BOMs
-from an ERP (Enterprise Resource Planning) program like SyteLine.  
+The bomcheck.py program compares Bills of Materials (BOMs).  BOMs from
+a CAD (Computer Aided Design) program like SolidWorks are compared to
+BOMs from an ERP (Enterprise Resource Planning) program like SyteLine.  
 The CAD and ERP programs must be able to export to excel files 
 because that is where bomcheck gathers data from.
 
@@ -105,7 +105,7 @@ from inches to mm or to some other U/M.  Also, column names can be changed, and 
 
 &nbsp;
 
-<hr style="border:2px solid grey"> </hr>
+<hr style="border:2px solid grey">
 
 &nbsp;
 
