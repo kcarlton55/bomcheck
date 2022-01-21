@@ -37,8 +37,8 @@ pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
 pd.set_option('display.max_colwidth', 100)
 pd.set_option('display.width', 200)
-from IPython.core.display import display, HTML
-display(HTML("<style>.container { width:100% !important; }</style>"))
+#from IPython.core.display import display, HTML
+#display(HTML("<style>.container { width:100% !important; }</style>"))
 
 
 def get_version():
