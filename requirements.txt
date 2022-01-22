@@ -2,4 +2,3 @@ pandas>=1.2
 openpyxl>=3.0
 xlrd>=1.2.0
 xlsxwriter>=1.1
-ipykernel>6.0
