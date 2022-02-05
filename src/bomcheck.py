@@ -212,9 +212,11 @@ def main():
     parser.add_argument('-a', '--accuracy', help='Decimal place accuracy applied ' +
                         'to lengths in a SolidWorks BOM', default=cfg['accuracy'],
                         metavar='value')
-    parser.add_argument('-c', '--sheets', action='store_true', default=False,
+    parser.add_argument('-b', '--sheets', action='store_true', default=False,
                         help='Break up results across multiple sheets in the ' +
-                        'Excel file that is output.')   
+                        'Excel file that is output.') 
+    parser.add_argument('-c', '--cfgfolder', help='Folder where file bc_config.py resides',
+                        default='')  
     parser.add_argument('-d', '--drop_bool', action='store_true', default=False,
                         help='Ignore 3*-025 pns, i.e. do not use in the bom check')
     parser.add_argument('-f', '--followlinks', action='store_false', default=False,
@@ -301,7 +303,7 @@ def bomcheck(fn, dic={}, **kwargs):
         The dictionary key/value items that this function
         looks for are:
 
-        c:  bool
+        b:  bool
             Break up results across multiple sheets within
             the Excel bomcheck.xlsx file.  Default: False
 
@@ -389,7 +391,7 @@ def bomcheck(fn, dic={}, **kwargs):
                        else kwargs.get('a', cfg['accuracy']))
     cfg['drop_bool'] = (dic.get('drop_bool') if dic.get('drop_bool')
                    else kwargs.get('d', False))
-    c = (dic.get('sheets') if dic.get('sheets') else kwargs.get('c', False))
+    b = (dic.get('sheets') if dic.get('sheets') else kwargs.get('b', False))
     u =  kwargs.get('u', 'unknown')
     x = kwargs.get('x', False)
     f = kwargs.get('f', False)
@@ -451,7 +453,7 @@ def bomcheck(fn, dic={}, **kwargs):
         printStrs.append(printStr)
         print(printStr)
 
-    if c == False:                 # concat_boms is a bomcheck function
+    if b == False:                 # concat_boms is a bomcheck function
         title_dfsw, title_dfmerged = concat_boms(title_dfsw, title_dfmerged)
         results = title_dfsw, title_dfmerged
 
@@ -1331,7 +1333,7 @@ def export2excel(dirname, filename, results2export, uname):
 
     results2export: list
         List of tuples.  The number of tuples in the list varies according to
-        the number of BOMs analyzed, and if bomcheck's c (sheets) option was
+        the number of BOMs analyzed, and if bomcheck's b (sheets) option was
         invoked or not.  Each tuple has two items.  The  first item of a tuple
         is a string and is the name to be assigned to the tab of the Excel
         worksheet.  It is typically an assembly part number.  The second  item
