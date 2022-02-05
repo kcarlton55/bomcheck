@@ -39,5 +39,5 @@ setup(
     author='Kenneth Edward Carlton',
     author_email='kencarlton55@gmail.com',
     entry_points={'console_scripts': ['bomcheck=bomcheck:main']},
-    keywords='BOM,BOMs,compare,bill,materials',
+    keywords='BOM,BOMs,compare,bill,materials,SolidWorks,SyteLine,ERP',
 )

@@ -2,19 +2,25 @@
 
 
 ## **WHAT THE PROGRAM DOES**
-The bomcheck.py program compares Bills of Materials (BOMs).  BOMs from
+The bomcheck.py program compares Bills of Materials (BOMs). BOMs from
 a CAD (Computer Aided Design) program like SolidWorks are compared to
-BOMs from an ERP (Enterprise Resource Planning) program like SyteLine.  
+BOMs from an ERP (Enterprise Resource Planning) program like SyteLine. 
 The CAD and ERP programs must be able to export to excel files 
 because that is where bomcheck gathers data from.
 
+## **HOW TO INSTALL**
+Assuming that you already have Python on your machine, use the package
+manager software [pip](https://en.wikipedia.org/wiki/Pip_(package_manager))
+that comes with Python:
+
+`pip install bomcheck`
 
 ## **BOMS ARE COMPARED BASED ON FILE NAMES**
 The name of a file containing a BOM from the CAD program has the syntax:
 `PartNumberOfBOM_sw.xlsx`.  That is names like 0399-2344-005_sw.xlsx,
 093352_sw.xlsx, and 35K2445_sw.xlsx are all legitimate file names. The
-names of the files from the ERP program have the same syntax but end
-with `_sl.xlsx`. Thus the names will look like 0399-2344-005_sl.xlsx, 
+names of the files from the ERP program have the same syntax, but instead
+end with `_sl.xlsx`. Thus the names will look like 0399-2344-005_sl.xlsx, 
 093352_sl.xlsx, and 35K2445_sl.xlsx. The program will match the
 0399-2344-005_**sw**.xlsx file to the 0399-2344-005_**sl**.xlsx 
 file, and so forth.
@@ -35,34 +41,22 @@ where item 3 is a subassembly with parts under it.
 
 
 ## **HOW TO RUN BOMCHECK**
-To run the program from the command line, run like this:
 
-- `python bomcheck.py`
+From the command line do:
 
-This assumes that you have the python program running on your system 
-(See: [https://www.anaconda.com/products/individual](https://www.anaconda.com/products/individual)).
-When the above command is run, help info will be shown about required 
-command line arguments.  
+`bomcheck`
+ 
+If you wish to use Jupyter Notebook, look at the files *bomcheck.ipynb*, 
+*mydata/README.txt*, and *exampledata/README.txt*, located at:
+[https://github.com/kcarlton55/bomcheck](https://github.com/kcarlton55/bomcheck)
 
-Another way of running bomcheck is by using the program called Jupyter Notebook.
-Enter this in a JupyterLab cell and hit Shift-Enter to run the cell:
 
-- `import bomcheck as bc`
-- `bc.bomcheck(arg1, arg2, ...)`
-
-To see the arguments that bomcheck takes, in a Jupyter Notebook cell run:
-- `help(bc.bomcheck)`
-
-And third way to run the program is to use the program called bomcheckgui.
-It provides a graphical user interface for the bomcheck program.  It can
-be stared from a command prompt like this:
-
-- `python bomcheckgui.py`
+If you would rather use a graphical user interface, look at: bomcheckgui.
 
 
 ## **SAMPLE OUTPUT**
-Shown below is an example of the result of a BOM comparison that the bomcheck
-program outputs:
+An Excel file is output. Shown below is an example of the result of a BOM
+comparison that the bomcheck program outputs:
 
 | assy   | Item   | i | q | d | u | Q_sw | Q_sl | Descripton_sw | Description_sl | U_sw | U_sl |
 |--------|--------|---|---|---|---| :-:  | :-:  |---------------|----------------| :-:  | :-:  |
@@ -79,12 +73,11 @@ program outputs:
 |        | 500000 |   |   |   |   |  1   |  1   | SHIFT FORK    | SHIFT FORK     |  EA  |  EA  |
 |        | K34452 |   |   |   |   |  1   |  1   | SPRING PIN    | SPRING PIN     |  EA  |  EA  |
 
-The columns i, q, d, and u show Xs if <span style="color:red">**i**</span>tem,
-<span style="color:red">**q**</span>uantity, <span style="color:red">**d**</span>escription,
-or <span style="color:red">**u**</span>nit of measure don't match between the two BOMs. Q_sw is
-the quantity per the CAD BOM, Q_sl per the ERP BOM, and so forth.  In the example above, 
-1309031 is in the  ERP BOM, but not in SolidWorks.  130039 is in the CAD's BOM, but not in
-the ERP's BOM.
+The columns i, q, d, and u show Xs if  ***i*** tem, ***q***uantity, ***d***escription,
+or ***u***nit of measure don't match between the two BOMs. Q_sw is the quantity
+per the CAD BOM, Q_sl per the ERP BOM, and so forth. In the example above, 
+1309031 is in the  ERP BOM, but not in SolidWorks. 130039 is in the CAD's BOM,
+but not in the ERP's BOM.
 
 
 ## **UNITS OF MEASURE**
@@ -100,8 +93,9 @@ in feet.
 
 
 ## **BC_CONFIG.PY**
-Bomcheck has a configuration file available named bc_config.py.  With it the default U/M measure can be switched
-from inches to mm or to some other U/M.  Also, column names can be changed, and so forth.
+Bomcheck has a configuration file available named bc_config.py.  With it the
+default U/M measure can be switched from inches to mm, or to some other U/M.
+Also, column names can be changed, and so forth.
 
 &nbsp;
 
@@ -115,7 +109,7 @@ you can launch the file *bomcheck.ipynb* that is on my github site.  It is a
 [Jupyter Notebook](https://www.codecademy.com/article/how-to-use-jupyter-notebooks).  With it you
 can try out the bomcheck program on a web page.  After the web page opens, if a file browser is not
 shown on the left, click the folder icon in the upper left (or Ctrl+Shift+F).  Then look for the folder
-named *mydata*, and read the README.txt file therein.
+named *mydata* and read the README.txt file therein.
  
  For more information, see the web page [bomcheck_help.html](https://htmlpreview.github.io/?https://github.com/kcarlton55/project1/blob/v1.8.1/help_files/bomcheck_help.html)
 
