@@ -5,22 +5,14 @@ File initial creation on Sun Nov 18 2018
 
 @author: Kenneth E. Carlton
 
-This program compares two BOMs: one originating from SolidWorks (SW) and the
-other from SyteLine (SL).  The structure of the BOMs (headings, structure,
-etc.) are very unique to my company.  Therefore this program, unaltered, will
-fail to function at another company.
-
-Run this program from the command line like this: python bomcheck.py '*'
-
-Without any arguments help info is shown: python bomcheck.py
-
-Run from a python console terminal like this: bomcheck('*')
-
-To see how to create an EXE file from this program, see the file named
-howtocompile.md.
+This program compares two BOMs: one originating from a CAD program like
+SolidWorks (SW) and the other from an ERP program like SyteLine (SL).  
+The structure of the BOMs (headings, structure, etc.) are very unique to a
+particular company.  A configuration file, bomcheck.cfg, can be altered
+to help adapt it to another company.
 """
 
-__version__ = '1.8.1'
+__version__ = '1.8.2'
 __author__ = 'Kenneth E. Carlton'
 
 import glob, argparse, sys, warnings
@@ -32,21 +24,12 @@ import re
 from datetime import datetime
 import fnmatch
 import ast
+from configparser import ConfigParser
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
 pd.set_option('display.max_colwidth', 100)
 pd.set_option('display.width', 200)
-
-#try:
-#    __IPYTHON__
-#    _in_ipython_session = True
-#except NameError:
-#    _in_ipython_session = False
-#
-#if _in_ipython_session: 
-#    from IPython.core.display import display, HTML
-#    display(HTML("<style>.container { width:100% !important; }</style>"))
 
 
 def get_version():
@@ -78,7 +61,7 @@ def setcfg(**kwargs):
     operates.  For example, set the unit of measure that
     length values are calculated to.  Run the function 
     getcfg() to see the names of variables that can be set.  
-    Open the file bc_config.py to see an explanation of the
+    Open the file bomcheck.cfg to see an explanation of the
     variables.  
     
     The object type that a variable holds (list, string, 
@@ -87,7 +70,7 @@ def setcfg(**kwargs):
     a matter rerunning setcfg with the correct values).  
     
     Values can be set to something more permanent by 
-    altering the file bc_config.py.
+    altering the file bomcheck.cfg.
     
     Examples
     ========
@@ -102,19 +85,49 @@ def setcfg(**kwargs):
     else:
         cfg.update(kwargs)
 
+              
+def get_bomcheckcfg(pathname):
+    ''' Get configuration settings from the file bomcheck.cfg.
     
+    Parameters
+    ==========
+    pathname: str
+        pathname of the config file, e.g. r"C:\\folder\\bomcheck.cfg"
+        
+    Returns
+    =======
+    out: dict
+         dictionary of values derived from bomcheck.cfg.
+    '''
+    global printStrs
+    dic = {}
+    fn = os.path.abspath(pathname)
+    if not os.path.isfile(fn):
+        printStr = ('\nThe config file could not be found at:\n' + fn + '\n\n'
+                    'For MS Windows, format should look like this:  r"C:\\folder\\bomcheck.cfg" \n'
+                    'That is, put the r character in front to get the pathname correctly interpreted. \n'
+                    'And for a unix-like operating system: "/home/ken/docs/bomcheck.cfg"\n')
+        printStrs.append(printStr)
+        print(printStr)
+        return dic
+    config = ConfigParser()
+    config.read(fn)
+    for i in config['integers']:
+        dic[i] = int(config['integers'][i])
+    for l in config['lists']:
+        lst = config['lists'][l].split(',')
+        dic[l] = [i.strip() for i in lst]  # strip leading and trailing spaces from str
+        #dic[l] = config['lists'][l].split(',')
+    for s in config['single_values']:
+        dic[s] = config['single_values'][s]
+    return dic        
+        
+        
 def set_globals():
     ''' Create a global variables including the primary one named cfg.
     cfg is a dictionary containing settings used by this program.
 
     set_globals() is ran when bomcheck first starts up.
-
-    set_globals() tries to derive settings from the file named bc_bomcheck.py
-    if it can be located and if values have been established there.
-    Otherwise set_globals() creates its on settings for cfg.
-
-    (see the function named create_bc_config to find where the file bc_check.py
-     is located on you disk drive.)
     '''
     global cfg, printStrs, excelTitle
 
@@ -122,45 +135,17 @@ def set_globals():
     printStrs = []
     excelTitle = []
 
-    try:
-        import bc_config
-    except ModuleNotFoundError:
-        def bc_config():  # do this so that doing "dir(bc_config)" just below doesn't fail
-            pass
-
-    cfg = {}
-    def insert_into_cfg(var, default):
-        ''' Function to insert key/value pairs into the dictionary named cfg.
-        Use values set in the file named bc_config.py when available.'''
-        global cfg
-        cfg[var] = bc_config.__dict__[var] if (var in dir(bc_config)) else default
-
-    # default settings for bomcheck.  See bc_config.py are explanations about variables.
-    list1 = [('accuracy', 2),       ('ignore', ['3086-*']),
-             ('drop', ['3*-025']),  ('exceptions', []),
-             ('from_um', 'IN'),     ('to_um', 'FT'),
-             ('toL_um', 'GAL'),     ('toA_um', 'SQF')]
-    # Give to bomcheck names of columns that it can expect to see in BOMs.  If
-    # one of the names, except length names, in each group shown in brackets
-    # below is not found, then bomcheck will fail.
-    list2 = [('part_num',  ["PARTNUMBER", "PART NUMBER", "Part Number", "Item", "Material"]),
-             ('qty',       ["QTY", "QTY.", "Qty", "Quantity", "Qty Per"]),
-             ('descrip',   ["DESCRIPTION", "Material Description", "Description"]),
-             ('um_sl',     ["UM", "U/M"]),     # not required in a SW BOM
-             ('level_sl',  ["Level"]),         # not required in a SW BOM
-             ('itm_sw',    ["ITEM NO."]),      # not required in a SL BOM
-             ('length_sw', ["LENGTH", "Length", "L", "SIZE", "AMT", "AMOUNT", "MEAS"])]  # not required in a SL or SW BOM
-
-    # The function "insert_into_cfg" is called upon below.  It will fill the
-    # dictionary named cfg with values from the bc_config.py file, that is if
-    # the values can be found there, otherwise the "default" values shown in
-    # the two lists above will be used.
-    for k, v in list1:
-        insert_into_cfg(k, v)
-    cfg['accuracy'] = int(cfg['accuracy'])     # make sure is an int and not a float
-    for k, v in list2:
-        insert_into_cfg(k, v)
-
+    # default settings for bomcheck.  See bomcheck.cfg are explanations about variables
+    cfg = {'accuracy': 2,   'ignore': ['3086-*'], 'drop': ['3*-025'],  'exceptions': [],
+           'from_um': 'IN', 'to_um': 'FT',        'toL_um': 'GAL',     'toA_um': 'SQF',   
+           'part_num':  ["PARTNUMBER", "PART NUMBER", "Part Number", "Item", "Material"],
+           'qty':       ["QTY", "QTY.", "Qty", "Quantity", "Qty Per"],
+           'descrip':   ["DESCRIPTION", "Material Description", "Description"],
+           'um_sl':     ["UM", "U/M"],
+           'level_sl':  ["Level"],
+           'itm_sw':    ["ITEM NO."],
+           'length_sw': ["LENGTH", "Length", "L", "SIZE", "AMT", "AMOUNT", "MEAS"]}
+    
 
 def getresults(i=1):
     ''' If i = 0, return a dataframe containing SW's BOMs for which no matching
@@ -198,6 +183,7 @@ def main():
     $ python bomcheck.py --help
 
     '''
+    global cfg
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                         description='Program compares SolidWorks BOMs to SyteLine BOMs.  ' +
                         'Output is sent to a Microsoft Excel spreadsheet.')
@@ -209,24 +195,16 @@ def main():
                         'in that directory and subdirectories thereof will be ' +
                         'gathered.  BOMs gathered from _sl files without ' +
                         'corresponding SolidWorks BOMs found are ignored.')
-    parser.add_argument('-a', '--accuracy', help='Decimal place accuracy applied ' +
-                        'to lengths in a SolidWorks BOM', default=cfg['accuracy'],
-                        metavar='value')
     parser.add_argument('-b', '--sheets', action='store_true', default=False,
                         help='Break up results across multiple sheets in the ' +
                         'Excel file that is output.') 
-    parser.add_argument('-c', '--cfgfolder', help='Folder where file bc_config.py resides',
+    parser.add_argument('-c', '--cfgfolder', help='Folder where file bomcheck.cfg resides',
                         default='')  
     parser.add_argument('-d', '--drop_bool', action='store_true', default=False,
                         help='Ignore 3*-025 pns, i.e. do not use in the bom check')
     parser.add_argument('-f', '--followlinks', action='store_false', default=False,
                         help='Follow symbolic links when searching for files to process.  ' +
                         "  (MS Windows doesn't honor this option.)")
-    parser.add_argument('--from_um',  default=cfg['from_um'], help='The unit of measure ' +
-                        'to apply to lengths in a SolidWorks BOM unless otherwise ' +
-                        'specified', metavar='value')
-    parser.add_argument('--to_um', default=cfg['to_um'], help='The unit of measure ' +
-                        'to convert SolidWorks lengths to', metavar='value')
     parser.add_argument('-p', '--pause', help='Pause the program just before the program ' +
                         'the program would normally close after completing its work.',
                         default=False, action='store_true')
@@ -239,7 +217,7 @@ def main():
         parser.print_help(sys.stderr)
         sys.exit(1)
     args = parser.parse_args()
-
+    
     bomcheck(args.filename, vars(args))
 
 
@@ -265,7 +243,8 @@ def bomcheck(fn, dic={}, **kwargs):
 
     This fuction calls these functions: 
     gatherBOMs_from_fnames, collect_checked_boms, 
-    concat_boms, export2excel, get_fnames
+    concat_boms, export2excel, get_fnames, 
+    get_bomcheckcfg
 
     Parmeters
     =========
@@ -278,9 +257,9 @@ def bomcheck(fn, dic={}, **kwargs):
         *  An asterisk, *, matches any characters.  E.g. 
            "6890-083544-*" will match 6890-083544-1_sw.xlsx, 
            6890-083544-2_sw.xlsx, etc.        
-        *  fn can be a directory name, in which case
-           files in that directory, and subdirectories
-           thereof, will be analized.
+        *  fn can be a directory name, in which case files
+           in that directory, and subdirectories thereof,
+           will be analized.
         *  If a list is given, then it is a list of 
            filenames and/or directories.
         *  PNs shown in filenames must correspond, e.g. 
@@ -292,21 +271,29 @@ def bomcheck(fn, dic={}, **kwargs):
         variable is only used if the function "main" is
         used to run the bomcheck program... that is, the
         bomcheck program was inititiated from the command
-        line.  If so, keys named "drop", "sheets", 
-        "from_um", and "to_um" and corresponding values 
-        thereof will have been put into dic.
+        line.  If so, the values from "main" for the keys
+        "drop", "sheets", "from_um", and "to_um" will
+        have been put into dic.  Do not manually put in
+        a value for dic.
 
     kwargs: dictionary
         Unlike dic, no values in kwargs are derived from the 
         "main" function; i.e. bomcheck was not run from the
-        command line.  I.e., was from from Jupyter Notebook.  
-        The dictionary key/value items that this function
-        looks for are:
+        command line.  The keys in kwargs that function will
+        recognize are listed below.  Any other keys will
+        be ignored.
 
         b:  bool
             Break up results across multiple sheets within
             the Excel bomcheck.xlsx file.  Default: False
-
+        c:  str 
+            Pathname of the file bomcheck.cfg. For MS 
+            Windows, the format should look like this:
+            r"C:\\folder\\bomcheck.cfg".  The leadin r 
+            character means 'raw'.  It is needed to 
+            correctly read a file path in windows.  For a 
+            unix-like operating system, something like this:
+            "/home/ken/docs/bomcheck.cfg"  
         d: bool
             If True, employ the list named drop which will
             have been created by the function named 
@@ -377,31 +364,24 @@ def bomcheck(fn, dic={}, **kwargs):
     global printStrs, cfg, results
     printStrs = []
     results = [None, None]
-    # Set settings depending on 1. if input was derived from running this
-    # program from the command line (i.e. values from dic), 2. if from
-    # excecuting the bomcheck() function within a python console or called by
-    # some other python function (i.e. from kwargs), or 3. if the settings were
-    # imported from bc_config.py.  Many default values (e.g. cfg['from_um'])
-    # were initially establisd by the set_globals() function.
-    cfg['from_um'] = (dic.get('from_um') if dic.get('from_um')
-                      else kwargs.get('from_um', cfg['from_um']))
-    cfg['to_um'] = (dic.get('to_um') if dic.get('to_um')
-                    else kwargs.get('to_um', cfg['to_um']))
-    cfg['accuracy'] = (dic.get('accuracy') if dic.get('accuracy')
-                       else kwargs.get('a', cfg['accuracy']))
-    cfg['drop_bool'] = (dic.get('drop_bool') if dic.get('drop_bool')
-                   else kwargs.get('d', False))
+    
+    c = (dic.get('cfgfolder') if dic.get('cfgfolder')
+         else kwargs.get('c', ''))
+    if c: cfg.update(get_bomcheckcfg(c))
+    
+    # Set settings
     b = (dic.get('sheets') if dic.get('sheets') else kwargs.get('b', False))
-    u =  kwargs.get('u', 'unknown')
-    x = kwargs.get('x', False)
+    cfg['drop_bool'] = (dic.get('drop_bool') if dic.get('drop_bool')
+                        else kwargs.get('d', False))
     f = kwargs.get('f', False)
-    l = kwargs.get('l', False)
-    m = kwargs.get('m', None)
+    l = kwargs.get('l', False) 
     p = dic.get('pause', False)
-    x = dic.get('excel', x)
-
+    u = kwargs.get('u', 'unknown')
+    m = kwargs.get('m', None)
+    x = (dic.get('excel') if dic.get('excel') else kwargs.get('x', False))
+    
     # If dbdic is in kwargs, it comes from bomcheckgui.
-    # Variables thereof take precedence.
+    # Variables therefrom take precedence.
     if 'dbdic' in kwargs:
         dbdic = kwargs['dbdic']
         udrop =  dbdic.get('udrop', '')

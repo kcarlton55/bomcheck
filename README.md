@@ -92,10 +92,12 @@ For example, if the ERP program uses FT as a U/M, then comparison results will b
 in feet.
 
 
-## **BC_CONFIG.PY**
-Bomcheck has a configuration file available named bc_config.py.  With it the
+## **BOMCHECK.CFG**
+Bomcheck has a configuration file available named bomcheck.cfg.  With it the
 default U/M measure can be switched from inches to mm, or to some other U/M.
-Also, column names can be changed, and so forth.
+Also, column names can be changed, and so forth.  Within the bomcheck.cfg
+file are explanations about settings That can be employed.  Open the file
+with a text editor program such as Microsoft's wordpad.
 
 &nbsp;
 
@@ -111,7 +113,7 @@ can try out the bomcheck program on a web page.  After the web page opens, if a 
 shown on the left, click the folder icon in the upper left (or Ctrl+Shift+F).  Then look for the folder
 named *mydata* and read the README.txt file therein.
  
- For more information, see the web page [bomcheck_help.html](https://htmlpreview.github.io/?https://github.com/kcarlton55/project1/blob/v1.8.1/help_files/bomcheck_help.html)
+For more information, see the web page [bomcheck_help.html](https://htmlpreview.github.io/?https://github.com/kcarlton55/project1/blob/v1.8.1/help_files/bomcheck_help.html)
 
 
 
