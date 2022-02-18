@@ -571,6 +571,27 @@ def common_data(list1, list2):
     return result
 
 
+def clean(s):
+    ''' Remove the end of line character, \\n, from a string.
+    
+    Parameters
+    ==========
+    s: str
+        String from which to remove the \\n character.
+        
+    Returns
+    =======
+    out: str
+         If no \\n character was found, return the original string.
+         Otherwise return the string less the \\n character.
+    '''
+    if isinstance(s, str) and re.search('[\n]', s):
+        pos = re.search('[\n]', s).start()
+        return s[0:pos] + s[pos+1:]
+    else:
+        return s
+
+    
 def gatherBOMs_from_fnames(filename):
     ''' Gather all SolidWorks and SyteLine BOMs derived from "filename".
     "filename" can be a string containing wildcards, e.g. 6890-085555-*, which
@@ -644,14 +665,15 @@ def gatherBOMs_from_fnames(filename):
                                      encoding='iso8859_1', engine='python',
                                      dtype = dict.fromkeys(cfg['itm_sw'], 'str'))
                 df.columns = fixcolnames(df)
+                breakpoint()
                 if test_for_missing_columns('sw', df, '', printerror=False):
                     df = pd.read_csv(temp, na_values=[' '], sep='$',
                                      encoding='iso8859_1', engine='python',
-                                     dtype = dict.fromkeys(cfg['itm_sw'], 'str'))
+                                     dtype = dict.fromkeys(cfg['itm_sw'], 'str')).applymap(clean)
                     df.columns = fixcolnames(df)
                 temp.close()
             elif file_extension.lower() == '.xlsx' or file_extension.lower() == '.xls':
-                df = pd.read_excel(v, na_values=[' '], skiprows=1)
+                df = pd.read_excel(v, na_values=[' '], skiprows=1).applymap(clean)
                 df.columns = fixcolnames(df)
                 if test_for_missing_columns('sw', df, '', printerror=False):
                     df = pd.read_excel(v, na_values=[' '])
