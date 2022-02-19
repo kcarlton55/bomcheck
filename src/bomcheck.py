@@ -592,6 +592,28 @@ def clean(s):
         return s
 
     
+def clean(s):
+    ''' Remove end of line characters, \\n, from a string.
+    
+    Parameters
+    ==========
+    s: str | other
+        The string from which any \\n characters are to be removed.  If s
+        is not a string, such as an int or float, it is ignored.
+        
+    Returns
+    =======
+    out: str | other
+         If s is a string, and \\n, or multiples of, are in s, then s is 
+         returned less the \\n charaters.  Otherwise return the original
+         value of s no matter what type of object it is.
+    '''
+    if isinstance(s, str) and ('\n' in s):
+        return s.replace('\n', '')
+    else:
+        return s
+
+    
 def gatherBOMs_from_fnames(filename):
     ''' Gather all SolidWorks and SyteLine BOMs derived from "filename".
     "filename" can be a string containing wildcards, e.g. 6890-085555-*, which
@@ -631,12 +653,6 @@ def gatherBOMs_from_fnames(filename):
     '''
     dirname = '.'  # to this will assign the name of 1st directory a _sw is found in
     global printStrs
-    def fixcolnames(df):
-        '''rid any column names of '\n' char if exists'''
-        colnames = []
-        for colname in df.columns:
-                    colnames.append(str(colname).replace('\n', ''))
-        return colnames
     swfilesdic = {}
     slfilesdic = {}
     for f in filename:  # from filename extract all _sw & _sl files and put into swfilesdic & slfilesdic
@@ -663,21 +679,20 @@ def gatherBOMs_from_fnames(filename):
                 temp.seek(0)
                 df = pd.read_csv(temp, na_values=[' '], skiprows=1, sep='$',
                                      encoding='iso8859_1', engine='python',
-                                     dtype = dict.fromkeys(cfg['itm_sw'], 'str'))
-                df.columns = fixcolnames(df)
-                breakpoint()
+                                     dtype = dict.fromkeys(cfg['itm_sw'], 'str')).applymap(clean)
+                df.columns = [clean(c) for c in df.columns]
                 if test_for_missing_columns('sw', df, '', printerror=False):
                     df = pd.read_csv(temp, na_values=[' '], sep='$',
                                      encoding='iso8859_1', engine='python',
                                      dtype = dict.fromkeys(cfg['itm_sw'], 'str')).applymap(clean)
-                    df.columns = fixcolnames(df)
+                    df.columns = [clean(c) for c in df.columns]
                 temp.close()
             elif file_extension.lower() == '.xlsx' or file_extension.lower() == '.xls':
                 df = pd.read_excel(v, na_values=[' '], skiprows=1).applymap(clean)
-                df.columns = fixcolnames(df)
+                df.columns = [clean(c) for c in df.columns]
                 if test_for_missing_columns('sw', df, '', printerror=False):
-                    df = pd.read_excel(v, na_values=[' '])
-                    df.columns = fixcolnames(df)
+                    df = pd.read_excel(v, na_values=[' ']).applymap(clean)
+                    df.columns = [clean(c) for c in df.columns]
 
             if not test_for_missing_columns('sw', df, k):
                 swdfsdic.update(deconstructMultilevelBOM(df, 'sw', k))
