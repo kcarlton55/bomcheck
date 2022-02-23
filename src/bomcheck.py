@@ -103,10 +103,19 @@ def get_bomcheckcfg(pathname):
     dic = {}
     fn = os.path.abspath(pathname)
     if not os.path.isfile(fn):
-        printStr = ('\nThe config file could not be found at:\n' + fn + '\n\n'
-                    'For MS Windows, format should look like this:  r"C:\\folder\\bomcheck.cfg" \n'
-                    'That is, put the r character in front to get the pathname correctly interpreted. \n'
-                    'And for a unix-like operating system: "/home/ken/docs/bomcheck.cfg"\n')
+        printStr = ('\n\n---------------------------------------------------------\n'
+                    'The config file could not be found at:\n\n        ' + fn + '\n\n'
+                    'The pathname that you enter should look like this:\n\n'
+                    '1.  MS Windows running bomcheckgui: C:\\folder\\bomcheck.cfg\n'
+                    '2.  MS Windows running bomcheck:  r"C:\\folder\\bomcheck.cfg"\n'
+                    '                             or:  "C:\\\\folder\\\\bomcheck.cfg"\n'
+                    '                             or:  "C:/folder/bomcheck.cfg"\n'
+                    '3.  Linux/Mac  running bomcheckgui: /home/ken/bomcheck.cfg\n' 
+                    '4.  Linux/Mac  running bomcheck:   "/home/ken/bomcheck.cfg"\n\n'
+                    '(The \\ character is a special "escape" character for the \n'
+                    'programming language used for bomcheck.  Using the r character \n'
+                    'or using \\\\ are work-arounds to allow using the \\ character.)\n'
+                    '---------------------------------------------------------\n\n')
         printStrs.append(printStr)
         print(printStr)
         return dic
@@ -198,8 +207,8 @@ def main():
     parser.add_argument('-b', '--sheets', action='store_true', default=False,
                         help='Break up results across multiple sheets in the ' +
                         'Excel file that is output.') 
-    parser.add_argument('-c', '--cfgfolder', help='Folder where file bomcheck.cfg resides',
-                        default='')  
+    parser.add_argument('-c', '--cfgpathname', help='pathname where configuration file ' +
+                        'resides (e.g. r"C\\folder\\bomcheck.cfg"', default='') , 
     parser.add_argument('-d', '--drop_bool', action='store_true', default=False,
                         help='Ignore 3*-025 pns, i.e. do not use in the bom check')
     parser.add_argument('-f', '--followlinks', action='store_false', default=False,
@@ -237,14 +246,6 @@ def bomcheck(fn, dic={}, **kwargs):
     BOM format.  If a SL BOM is present for which no 
     corresponding SW BOM is found, the SW file is ignored;
     that is, no output is shown for this SW file.
-    
-    See the function setcfg for controlling other
-    variables in bomcheck. Do: help(setcfg)
-
-    This fuction calls these functions: 
-    gatherBOMs_from_fnames, collect_checked_boms, 
-    concat_boms, export2excel, get_fnames, 
-    get_bomcheckcfg
 
     Parmeters
     =========
@@ -267,25 +268,39 @@ def bomcheck(fn, dic={}, **kwargs):
            BOM from SyteLine is a multilevel BOM.
 
     dic: dictionary
-        default: {} (i.e. an empty dictionary).  This 
-        variable is only used if the function "main" is
-        used to run the bomcheck program... that is, the
-        bomcheck program was inititiated from the command
-        line.  If so, the values from "main" for the keys
-        "drop", "sheets", "from_um", and "to_um" will
-        have been put into dic.  Do not manually put in
-        a value for dic.
+        default: {} (i.e. an empty dictionary).  This
+        variable is used ONLY if the function "main" is used
+        to run the bomcheck program; that is "main" itself 
+        puts it in. This happens when the bomcheck program 
+        is run from the command line.  If so, the values 
+        from "main" for the keys "drop", "sheets", 
+        "from_um", "to_um", etc. will have been put into 
+        dic.  DO NOT PUT IN VALUES FOR DIC MANUALLY!
 
     kwargs: dictionary
-        Unlike dic, no values in kwargs are derived from the 
-        "main" function; i.e. bomcheck was not run from the
-        command line.  The keys in kwargs that function will
-        recognize are listed below.  Any other keys will
-        be ignored.
+        Here is an example of entering arguments into the
+        bomcheck function:
+        
+        bomcheck("6890*", c=r"C:\bomcheck.cfg", d=1, x=1)
+        
+        The program will gather the c=r"C:\bomchk.cfg", d=1,
+        and x=1, and put them into what's called a 
+        dictionary, i.e. {c:"C:\bomchk.cfg", d:1, x=1}; and
+        then assign that dicitionary to the kwargs argument.
+        c, d, and x are called "keys".  "C:\bomchk.cfg", 1, 
+        and 1 are values for those keys.  If no keys and
+        their vaules are entered, bomcheck will use its own
+        defaults.  The key/value pairs must go after the 
+        fn ("6890*") argument.
+    
+        The keys in kwargs that will be recognized are
+        listed below.  Any other keys will be ignored.
 
         b:  bool
-            Break up results across multiple sheets within
-            the Excel bomcheck.xlsx file.  Default: False
+            If True (or = 1), break up results across 
+            multiple sheets within the Excel bomcheck.xlsx
+            file.  Default: False
+            
         c:  str 
             Pathname of the file bomcheck.cfg. For MS 
             Windows, the format should look like this:
@@ -293,20 +308,24 @@ def bomcheck(fn, dic={}, **kwargs):
             character means 'raw'.  It is needed to 
             correctly read a file path in windows.  For a 
             unix-like operating system, something like this:
-            "/home/ken/docs/bomcheck.cfg"  
+            "/home/ken/docs/bomcheck.cfg" 
+            
         d: bool
-            If True, employ the list named drop which will
-            have been created by the function named 
-            "set_globals".  (E.g. ignore pt. nos. from a 
-            SW BOM like 3*-025) Default: False
+            If True (or = 1), make use of the list named
+            "drop".  The list "drop" is either defined
+            internally within the bomcheck program itself,
+            or overridden by the "drop" list defined in the
+            bomcheck.cfg file.  Default: False
             
         f: bool
-            If True, follow symbolic links when searching 
-            for  files to process.  Default: False
+            If True (or = 1), follow symbolic links when
+            searching for files to process.  (Doesn't work
+            when using MS Windows.)  Default: False
             
         l: bool
-            Export a list of errors, if any, that occured 
-            during the bomcheck.  Default: False
+            If True (or = 1), export a list of errors, if 
+            any, that occured during the bomcheck.  
+            Default: False
             
         m: int
             Max no. of rows to display when results are 
@@ -321,9 +340,9 @@ def bomcheck(fn, dic={}, **kwargs):
             Default: 'unknown'
 
         x: bool
-            Export results to an Excel file named 
-            bomcheck.xlsx. (If bomcheckgui is used, name 
-            can be changed.) Default: False
+            It True (or = 1), export results to an Excel
+            file named bomcheck.xlsx. (If bomcheckgui is 
+            used, name can be changed.) Default: False
 
     Returns
     =======
@@ -365,8 +384,9 @@ def bomcheck(fn, dic={}, **kwargs):
     printStrs = []
     results = [None, None]
     
-    c = (dic.get('cfgfolder') if dic.get('cfgfolder')
-         else kwargs.get('c', ''))
+    c = dic.get('cfgpathname')    # if from the command line, e.g. bomcheck or python bomcheck.py
+    if c: cfg.update(get_bomcheckcfg(c))
+    c = kwargs.get('c')           # if from an arg of the bomcheck() function.
     if c: cfg.update(get_bomcheckcfg(c))
     
     # Set settings
@@ -384,6 +404,8 @@ def bomcheck(fn, dic={}, **kwargs):
     # Variables therefrom take precedence.
     if 'dbdic' in kwargs:
         dbdic = kwargs['dbdic']
+        c = dbdic.get('cfgpathname')   # activated if from bomcheckgui
+        if c: cfg.update(get_bomcheckcfg(c))
         udrop =  dbdic.get('udrop', '')
         uexceptions = dbdic.get('uexceptions', '')
         udrop = udrop.replace(',', ' ')
@@ -401,6 +423,8 @@ def bomcheck(fn, dic={}, **kwargs):
     else:
         cfg['file2save2'] = 'bomcheck'
         cfg['overwrite'] = False
+        
+     
 
     if isinstance(fn, str) and fn.startswith('[') and fn.endswith(']'):
         # fn = eval(fn)  # change a string to a list
@@ -569,27 +593,6 @@ def common_data(list1, list2):
             if x == y:
                 result = True
     return result
-
-
-def clean(s):
-    ''' Remove the end of line character, \\n, from a string.
-    
-    Parameters
-    ==========
-    s: str
-        String from which to remove the \\n character.
-        
-    Returns
-    =======
-    out: str
-         If no \\n character was found, return the original string.
-         Otherwise return the string less the \\n character.
-    '''
-    if isinstance(s, str) and re.search('[\n]', s):
-        pos = re.search('[\n]', s).start()
-        return s[0:pos] + s[pos+1:]
-    else:
-        return s
 
     
 def clean(s):
