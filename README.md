@@ -85,7 +85,7 @@ If a unit of measure (U/M) is not given for a value in the Length column of a So
 then the U/M is assumed to be inches unless explicity specified, e.g. 336.7mm. The program will 
 recognize the following abreviations for U/Ms:
 
-`in, inch, ”, ft, ', feet, foot, yrd, yd, yard, mm, millimeter, cm, centimeter, m, meter, mtr, sqin, sqi, sqft, sqf, sqyd, sqy, sqmm, sqcm, sqm, pint, pt, qt, quart, gal, g, gallon, ltr, l, liter`
+`in, inch, ", ft, ', feet, foot, yrd, yd, yard, mm, millimeter, cm, centimeter, m, meter, mtr, sqin, sqi, sqft, sqf, sqyd, sqy, sqmm, sqcm, sqm, pint, pt, qt, quart, gal, g, gallon, ltr, l, liter`
 
 When the program is run, values will be converted to the U/M given in the ERP's BOM. 
 For example, if the ERP program uses FT as a U/M, then comparison results will be shown

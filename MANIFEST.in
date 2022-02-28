@@ -1,0 +1,9 @@
+include *.ipynb
+include *.txt
+recursive-include docs *.cfg
+recursive-include docs *.txt
+recursive-include exampledata *.txt
+recursive-include exampledata *.xlsx
+recursive-include help_files *.html
+recursive-include mydata *.txt
+recursive-include src *.py__
