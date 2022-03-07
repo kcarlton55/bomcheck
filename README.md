@@ -113,7 +113,7 @@ can try out the bomcheck program on a web page.  After the web page opens, if a 
 shown on the left, click the folder icon in the upper left (or Ctrl+Shift+F).  Then look for the folder
 named *mydata* and read the README.txt file therein.
  
-For more information, see the web page [bomcheck_help.html](https://htmlpreview.github.io/?https://github.com/kcarlton55/project1/blob/v1.8.1/help_files/bomcheck_help.html)
+For more information, see the web page [bomcheck_help.html](https://htmlpreview.github.io/?https://github.com/kcarlton55/bomcheck/blob/master/help_files/bomcheck_help.html)
 
 
 
