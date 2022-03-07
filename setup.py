@@ -1,16 +1,5 @@
-
 '''
-Intial structure before creating a package:
-
-bomcheck/
-    src/
-        __init__.py
-        bomcheck.py
-    LICENSE.txt
-    README.md
-    setup.py
-
-Where __init__.py is a text file that is empty.
+setup.py for bomcheck.py.
 '''
 
 from setuptools import setup
