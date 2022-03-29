@@ -105,13 +105,11 @@ with a text editor program such as Microsoft's wordpad.
 
 &nbsp;
 
-By clicking this link:&nbsp; &nbsp; 
+You can try out the program online by clicking:&nbsp; &nbsp;
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kcarlton55/bomcheck/blob/master/bc-colab.ipynb) or
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/kcarlton55/bomcheck/master?labpath=bomcheck.ipynb),&nbsp; &nbsp;
-you can launch the file *bomcheck.ipynb* that is on my github site.  It is a 
-[Jupyter Notebook](https://www.codecademy.com/article/how-to-use-jupyter-notebooks).  With it you
-can try out the bomcheck program on a web page.  After the web page opens, if a file browser is not
-shown on the left, click the folder icon in the upper left (or Ctrl+Shift+F).  Then look for the folder
-named *mydata* and read the README.txt file therein.
+These are both
+[Jupyter Notebooks](https://www.codecademy.com/article/how-to-use-jupyter-notebooks).  Open the file browser of the notebook (folder icon at upper left), create a folder named "mydata", and upload your data to it.
  
 For more information, see the web page [bomcheck_help.html](https://htmlpreview.github.io/?https://github.com/kcarlton55/bomcheck/blob/master/help_files/bomcheck_help.html)
 

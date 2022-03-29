@@ -12,7 +12,7 @@ particular company.  A configuration file, bomcheck.cfg, can be altered
 to help adapt it to another company.
 """
 
-__version__ = '1.8.2'
+__version__ = '1.8.3'
 __author__ = 'Kenneth E. Carlton'
 
 import glob, argparse, sys, warnings
@@ -26,7 +26,7 @@ import fnmatch
 import ast
 from configparser import ConfigParser
 warnings.filterwarnings('ignore')  # the program has its own error checking.
-pd.set_option('display.max_rows', 150)
+pd.set_option('display.max_rows', None)  # was pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
 pd.set_option('display.max_colwidth', 100)
 pd.set_option('display.width', 200)
