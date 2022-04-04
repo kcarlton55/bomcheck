@@ -15,6 +15,7 @@ to help adapt it to another company.
 __version__ = '1.8.3'
 __author__ = 'Kenneth E. Carlton'
 
+#import pdb
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -662,7 +663,7 @@ def gatherBOMs_from_fnames(filename):
         i = f.rfind('_')
         if f[i:i+4].lower() == '_sw.' or f[i:i+4].lower() == '_sl.':
             dname, fname = os.path.split(f)
-            k = fname.rfind('_')
+            k = fname.find('_')
             fntrunc = fname[:k]  # Name of the sw file, excluding path, and excluding _sw.xlsx
             if f[i:i+4].lower() == '_sw.' and '~' not in fname: # Ignore names like ~$085637_sw.xlsx
                 swfilesdic.update({fntrunc: f})
@@ -681,21 +682,30 @@ def gatherBOMs_from_fnames(filename):
                     temp.write(d)
                 temp.seek(0)
                 df = pd.read_csv(temp, na_values=[' '], skiprows=1, sep='$',
-                                     encoding='iso8859_1', engine='python',
-                                     dtype = dict.fromkeys(cfg['itm_sw'], 'str')).applymap(clean)
+                                     encoding='iso8859_1', engine='python')
+                df = df.astype(str).applymap(clean) # if ITEM NO. col exists, and itms like 8.1, 8.2, make sure they are strings
+                df = df.replace('nan', None)
                 df.columns = [clean(c) for c in df.columns]
                 if test_for_missing_columns('sw', df, '', printerror=False):
                     df = pd.read_csv(temp, na_values=[' '], sep='$',
-                                     encoding='iso8859_1', engine='python',
-                                     dtype = dict.fromkeys(cfg['itm_sw'], 'str')).applymap(clean)
+                                     encoding='iso8859_1', engine='python')
+                    df = df.astype(str).applymap(clean)
+                    df = df.replace('nan', None)
                     df.columns = [clean(c) for c in df.columns]
                 temp.close()
             elif file_extension.lower() == '.xlsx' or file_extension.lower() == '.xls':
                 df = pd.read_excel(v, na_values=[' '], skiprows=1).applymap(clean)
+                df = df.astype(str)
+                df = df.replace('nan', None)
                 df.columns = [clean(c) for c in df.columns]
                 if test_for_missing_columns('sw', df, '', printerror=False):
                     df = pd.read_excel(v, na_values=[' ']).applymap(clean)
+                    df = df.astype(str)
+                    df = df.replace('nan', None)
                     df.columns = [clean(c) for c in df.columns]
+
+            __q = col_name(df, cfg['qty'])
+            df[__q] = df[__q].astype(float)
 
             if not test_for_missing_columns('sw', df, k):
                 swdfsdic.update(deconstructMultilevelBOM(df, 'sw', k))
@@ -776,7 +786,7 @@ def test_for_missing_columns(bomtype, df, pn, printerror=True):
     global printStrs
     if bomtype == 'sw':
         required_columns = [cfg['qty'], cfg['descrip'],
-                            cfg['part_num'], cfg['itm_sw']]
+                            cfg['part_num']]
     else: # 'for sl bom'
         required_columns = [cfg['qty'], cfg['descrip'],
                             cfg['part_num'], cfg['um_sl']]
@@ -892,9 +902,9 @@ def deconstructMultilevelBOM(df, source, top='TOPLEVEL'):
         bomcheck program in two ways:  1. If df originated from a SolidWorks
         BOM or from a single level SyteLine  BOM, then “top” is derived from
         the filename; e.g. 091828 from the filename 091828_sw.xlsx.  2. If df
-        originated from a multilevel BOM, then it has a column named “Level”
-        (i.e. the level of subassemblies and parts within subassemblies
-        relative to the main, top, assembly part number).  In this case the
+        originated from a multilevel BOM, (i.e. SL) then it has a column named
+        “Level” (i.e. the level of subassemblies and parts within subassemblies
+        relative to the main, top assembly part number).  In this case the
         part number associated with level "0" is assigned to "top".
 
     Returns
@@ -913,7 +923,7 @@ def deconstructMultilevelBOM(df, source, top='TOPLEVEL'):
     p = None
     df[__pn] = df[__pn].astype('str').str.strip() # make sure pt nos. are "clean"
     df[__pn].replace('', 'no pn from BOM!', inplace=True)
-
+    
     # https://stackoverflow.com/questions/2974022/is-it-possible-to-assign-the-same-value-to-multiple-keys-in-a-dict-object-at-onc
     values = dict.fromkeys((cfg['qty'] + cfg['length_sw']), 0)
     values.update(dict.fromkeys(cfg['descrip'], 'no descrip from BOM!'))
@@ -928,11 +938,13 @@ def deconstructMultilevelBOM(df, source, top='TOPLEVEL'):
         __itm = df[__itm].astype('str')
         __itm = __itm.str.replace('.0', '') # stop something like 5.0 from slipping through
         df['__Level'] = __itm.str.count('\.') # level is the number of periods (.) in the string
-    elif source=='sl' and __lvl and __lvl in df.columns:
-        df['__Level'] = df[__lvl]
+    elif __lvl and __lvl in df.columns:
+    #elif source=='sl' and __lvl and __lvl in df.columns:
+        df['__Level'] = df[__lvl].astype(int)
+        #df = df.astype(str).applymap(clean)
     else:
         df['__Level'] = 0
-
+        
     # Take the the column named "__Level" and create a new column: "Level_pn".
     # Instead of the level at which a part exists within an assembly, like
     # "__Level" which contains integers like [0, 1, 2, 2, 1], "Level_pn" contains
@@ -1270,7 +1282,6 @@ def collect_checked_boms(swdic, sldic):
         else:
             df = convert_sw_bom_to_sl_format(dfsw)
             df['Q'] = round(df['Q'], cfg['accuracy'])
-            #lone_sw_dic[key + '_sw'] = df
             lone_sw_dic[key] = df
     return lone_sw_dic, combined_dic
 
