@@ -34,7 +34,7 @@
       ERP programs must be able to export to excel files because that is where
       this program gathers BOMs from for comparison.</p>
 
-    <h2 id="basics">Basics you need to know:</h2>
+    <h2 id="basics">Basics you need to know</h2>
 
     <p>The file names for BOMs that come from the CAD program should be
       the part no. of the BOM followed by _sw.xlsx. That is names like
@@ -60,7 +60,7 @@
       be of help. See the file named <a href="#bomcheckcfg">bomcheck.cfg</a>.</p>
 
 
-    <h2 id="run">How to run bomcheck:</h2>
+    <h2 id="run">How to run bomcheck</h2>
 
     <p>To run the program from the command line, run like this:
 
@@ -321,12 +321,51 @@
       that contains settings that you can change
       in order to alter how the bomcheck program behaves.  For example, you can 
       change units of measure.  Open bomcheck.cfg with a text editor program
-      such as Microsoft's Wordpad.  There you will see settings that can be changed.
+      such as Microsoft's Wordpad.  There you will see settings that can be 
+      changed.</p>
       
-      Place bomcheck.cfg in a directory of your choosing.  Then set the location
+    <p>Place bomcheck.cfg in a directory of your choosing.  Then set the location
       of this file via an argument setting in the bomcheck function, or, if you
       are using bomcheckgui, go to the settings section and enter the location
       there.
+    </p>
+
+    <h2 id="more">More about file names and file comparisons</h2>
+    <p>Already mentioned above about file names is that they should be names
+      like 093352_sw.xlsx.  Bomcheck will recogize the characters 093352 from
+      the file name as being the top level part no. for that BOM.  However if 
+      the name is something like 093352_083752_sw.xlsx, bomcheck will ignore 
+      the characters between the two underscores, in this case 083752, and yet
+      bomcheck will still use the 093352 as the part no. for the BOM.</p>
+    
+    <p>Where this might come in handy is if you have several BOMs in SolidWorks
+      (SW) that are likely candidates for a BOM you have put together in 
+      SyteLine (SL).  You can find out which comes closest to your SL BOM.  For
+      example you have SW BOMs 087345, 074333, and 097266; and the SL BOM you 
+      wish to compare them against is 101555.  What you can do is name your 
+      SW files as 101555_087345_sw.xlsx, 101555_074333_sw.xlsx, and 
+      101555_097266_sw.xlsx.  Then you do your comparison.  Bomcheck will use 
+      the first portion of the name (101555) for checking.  The second portion,
+      e.g. 087345, will help you keep track of what part no. the BOM is actually
+      for.</p>
+
+    <p>Something else you can do with program is to compare one SL BOM against
+       another SL BOM.  To do this, give one of the SL BOMs a name ending with
+       _sw.xlsx, even though it isn't an actual SW BOM.  You can use the two 
+       underscores method mentioned above to help you keep track of the actual 
+       origin of BOMs.</p> 
+
+    <p>As mentioned above, bomcheck determines the part no. of the BOM from its
+      file name.  Something to note however is that this is not always the 
+      case.  If a BOM comes from a multilevel SL BOM, then the top level part 
+      no. comes from within the BOM file itself.  The part no. used is where 
+      the level is 0 in the column named Level.</p>
+
+    <p>Something that the bomcheck program cannot do is to compare a SW BOM
+      to another SW BOM.  The reason this cannot be done is because the SL
+      BOM needs to contain a U/M column for the program to function properly.
+    </p>  
+
     
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.10.2/dist/umd/popper.min.js"
