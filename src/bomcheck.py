@@ -162,6 +162,7 @@ def getresults(i=1):
     SL BOMs were found.  If i = 1, return a dataframe containing compared
     SW/SL BOMs. If i = 2, return a tuple of two items:
     (getresults(0), getresults(1))'''
+    # This function gets results from the global variable "results".
     r = []
     r.append(None) if not results[0] else r.append(results[0][0][1])
     r.append(None) if not results[1] else r.append(results[1][0][1])
@@ -287,12 +288,12 @@ def bomcheck(fn, dic={}, **kwargs):
         The program will gather the c=r"C:\bomchk.cfg", d=1,
         and x=1, and put them into what's called a 
         dictionary, i.e. {c:"C:\bomchk.cfg", d:1, x=1}; and
-        then assign that dicitionary to the kwargs argument.
+        then assign that dictionary to the kwargs argument.
         c, d, and x are called "keys".  "C:\bomchk.cfg", 1, 
         and 1 are values for those keys.  If no keys and
         their vaules are entered, bomcheck will use its own
         defaults.  The key/value pairs must go after the 
-        fn ("6890*") argument.
+        fn argument, i.e. after "6899*" in this case.
     
         The keys in kwargs that will be recognized are
         listed below.  Any other keys will be ignored.
@@ -333,6 +334,11 @@ def bomcheck(fn, dic={}, **kwargs):
             output.  (This does not effect results that are
             exported an Excel file.)  Default: None (That 
             is, all rows are output.  Nothing is truncated.)
+            
+        o: str
+            Output file name.  If x=True, that is if
+            an Excel file is to be exported to, then give
+            it this name.  Default: 'bomcheck'
 
         u: str
             Username.  This will be fed to the export2exel 
@@ -342,8 +348,8 @@ def bomcheck(fn, dic={}, **kwargs):
 
         x: bool
             It True (or = 1), export results to an Excel
-            file named bomcheck.xlsx. (If bomcheckgui is 
-            used, name can be changed.) Default: False
+            file.  The default file name is bomcheck.xlsx.
+            Default: False
 
     Returns
     =======
@@ -399,6 +405,7 @@ def bomcheck(fn, dic={}, **kwargs):
     p = dic.get('pause', False)
     u = kwargs.get('u', 'unknown')
     m = kwargs.get('m', None)
+    outputFileName = kwargs.get('o', 'bomcheck')
     x = (dic.get('excel') if dic.get('excel') else kwargs.get('x', False))
     
     # If dbdic is in kwargs, it comes from bomcheckgui.
@@ -415,14 +422,13 @@ def bomcheck(fn, dic={}, **kwargs):
             cfg['drop'] = udrop.split()
         if uexceptions:
             cfg['exceptions'] = uexceptions.split()
-        cfg['file2save2'] = dbdic.get('file2save2', 'bomcheck')
+        outputFileName = dbdic.get('file2save2', 'bomcheck')
         cfg['overwrite'] = dbdic.get('overwrite', False)
         cfg['accuracy'] = dbdic.get('accuracy', 2)
         cfg['from_um'] = dbdic.get('from_um', 'in')
         cfg['to_um'] = dbdic.get('to_um', 'FT')
         u = dbdic.get('author', 'unknown')
     else:
-        cfg['file2save2'] = 'bomcheck'
         cfg['overwrite'] = False
         
     if isinstance(fn, str) and fn.startswith('[') and fn.endswith(']'):
@@ -463,7 +469,7 @@ def bomcheck(fn, dic={}, **kwargs):
     if x:
         try:
             if title_dfsw or title_dfmerged:
-                export2excel(dirname, cfg['file2save2'], title_dfsw + title_dfmerged, u)
+                export2excel(dirname, outputFileName, title_dfsw + title_dfmerged, u)
             else:
                 printStr = ('\nNotice 203\n\n' +
                             'No SolidWorks files found to process.  (Lone SyteLine\n' +
@@ -564,11 +570,18 @@ def make_csv_file_stable(filename):
     '''
     with open(filename, encoding="ISO-8859-1") as f:
         data1 = f.readlines()
+    for d in cfg['descrip']:
+        if d in data1[0]:
+            r = 0
+            desc = d
+        elif d in data1[1]:
+            r = 1
+            desc = d
     # n1 = number of commas in 2nd line of filename (i.e. where column header
     #      names located).  This is the no. of commas that should be in each row.
-    n1 = data1[1].count(',')
-    n2 = data1[1].upper().find('DESCRIPTION')  # locaton of the word DESCRIPTION within the row.
-    n3 = data1[1][:n2].count(',')  # number of commas before the word DESCRIPTION
+    n1 = data1[r].count(',')
+    n2 = data1[r].upper().find(desc)  # locaton of the word DESCRIPTION within the row.
+    n3 = data1[r][:n2].count(',')  # number of commas before the word DESCRIPTION   
     data2 = list(map(lambda x: x.replace(',', '$') , data1)) # replace ALL commas with $
     data = []
     for row in data2:
@@ -672,24 +685,24 @@ def gatherBOMs_from_fnames(filename):
                 df = pd.read_csv(temp, na_values=[' '], skiprows=1, sep='$',
                                      encoding='iso8859_1', engine='python')
                 df = df.astype(str).applymap(clean) # if ITEM NO. col exists, and itms like 8.1, 8.2, make sure they are strings
-                df = df.replace('nan', None)
+                df = df.replace('nan', 0)
                 df.columns = [clean(c) for c in df.columns]
                 if test_for_missing_columns('sw', df, '', printerror=False):
                     df = pd.read_csv(temp, na_values=[' '], sep='$',
                                      encoding='iso8859_1', engine='python')
                     df = df.astype(str).applymap(clean)
-                    df = df.replace('nan', None)
+                    df = df.replace('nan', 0)
                     df.columns = [clean(c) for c in df.columns]
                 temp.close()
             elif file_extension.lower() == '.xlsx' or file_extension.lower() == '.xls':
                 df = pd.read_excel(v, na_values=[' '], skiprows=1).applymap(clean)
                 df = df.astype(str)
-                df = df.replace('nan', None)
+                df = df.replace('nan', 0)
                 df.columns = [clean(c) for c in df.columns]
                 if test_for_missing_columns('sw', df, '', printerror=False):
                     df = pd.read_excel(v, na_values=[' ']).applymap(clean)
                     df = df.astype(str)
-                    df = df.replace('nan', None)
+                    df = df.replace('nan', 0)
                     df.columns = [clean(c) for c in df.columns]
 
             __q = col_name(df, cfg['qty'])
@@ -841,9 +854,18 @@ def test_alternative_column_names(tpl, lst):
 
 def col_name(df, col):
     '''
+    Find one common name from the list of column names derived from the
+    DataFrame, df, and the list of names from col.  For example, if 
+    list(df.columns) is [ITEM NO., QTY, LENGTH, DESCRIPTION, PART NUMBER]; and 
+    col is [PARTNUMBER, PART NUMBER, Part Number, Item, Material], then return
+    PART NUMBER because it is common to both lists.
+    
     Parameters
     ----------
-    df: Pandas DataFrame
+    df: Pandas DataFrame or list
+        If a DataFrame, then df.columns will be extracted and it will be
+        converted to a list.  If df is instead simply a list, it is a list
+        of column names.
 
     col: list
         List of column names that will be compared to the list of column
@@ -855,8 +877,11 @@ def col_name(df, col):
         Name of column that is common to both df.columns and col
     '''
     try:
-        df_cols_as_set = set(list(df.columns))
-        intersect = df_cols_as_set.intersection(col)
+        if isinstance(df, pd.DataFrame):
+            s = set(list(df.columns))
+        else:
+            s = set(df)
+        intersect = s.intersection(col)
         return list(intersect)[0]
     except IndexError:
         return ""
@@ -1081,8 +1106,9 @@ def convert_sw_bom_to_sl_format(df):
     values.update(dict.fromkeys(cfg['qty'], 'Q'))
     df.rename(columns=values, inplace=True)
 
-    if 'LENGTH' in df.columns:  # convert lengths to other unit of measure, i.e. to_um
-        ser = df['LENGTH']
+    __len = col_name(df, cfg['length_sw'])
+    if __len:  # convert lengths to other unit of measure, i.e. to_um
+        ser = df[__len]
         value = ser.replace('[^\d.]', '', regex=True).apply(str).str.strip('.').astype(float)  # "3.5MM" -> 3.5
         from_um = ser.apply(str).replace('[\d.]', '', regex=True)  # e.g. "3.5MM" -> "mm"
         from_um.replace('', cfg['from_um'].lower(), inplace=True)  # e.g. "" -> "ft"
