@@ -147,7 +147,7 @@ def set_globals():
 
     # default settings for bomcheck.  See bomcheck.cfg are explanations about variables
     cfg = {'accuracy': 2,   'ignore': ['3086-*'], 'drop': ['3*-025'],  'exceptions': [],
-           'from_um': 'IN', 'to_um': 'FT',        'toL_um': 'GAL',     'toA_um': 'SQF',   
+           'from_um': 'IN', 'to_um': 'FT', 'toL_um': 'GAL', 'toA_um': 'SQF',   
            'part_num':  ["PARTNUMBER", "PART NUMBER", "Part Number", "Item", "Material"],
            'qty':       ["QTY", "QTY.", "Qty", "Quantity", "Qty Per"],
            'descrip':   ["DESCRIPTION", "Material Description", "Description"],
@@ -546,7 +546,7 @@ def get_fnames(fn, followlinks=False):
     return _fn2
 
 
-def make_csv_file_stable(filename):
+def make_csv_file_stable(filename, sep='$'):
     ''' Except for any commas in a parts DESCRIPTION, replace all commas
     in a csv file with a $ character.  Commas will sometimes exist in a
     DESCRIPTION field, e.g, "TANK, 60GAL".  But commas are intended to be field
@@ -577,21 +577,21 @@ def make_csv_file_stable(filename):
         elif d in data1[1]:
             r = 1
             desc = d
-    # n1 = number of commas in 2nd line of filename (i.e. where column header
-    #      names located).  This is the no. of commas that should be in each row.
+    # n1 = number of commas the line of "filename" where column header names are located.
+    # This is the no. of commas that should be in each row.
     n1 = data1[r].count(',')
-    n2 = data1[r].upper().find(desc)  # locaton of the word DESCRIPTION within the row.
+    n2 = data1[r].upper().find(desc)  # locaton of the word DESCRIPTION within that row.
     n3 = data1[r][:n2].count(',')  # number of commas before the word DESCRIPTION   
     data2 = list(map(lambda x: x.replace(',', '$') , data1)) # replace ALL commas with $
     data = []
     for row in data2:
-        n4 = row.count('$')
+        n4 = row.count(sep)
         if n4 != n1:
-            # n5 = location of 1st ; character within the DESCRIPTION field
-            #      that should be a , character
-            n5 = row.replace('$', '?', n3).find('$')
-            # replace those ; chars that should be , chars in the DESCRIPTION field:
-            data.append(row[:n5] + row[n5:].replace('$', ',', (n4-n1))) # n4-n1: no. commas needed
+            # n5 = location of 1st "sep" character within the DESCRIPTION field
+            #      that should actually be a , character
+            n5 = row.replace(sep, '?', n3).find(sep) # replace n3 "sep" chars w/ "?" character.  Then do "find"
+            # replace those "sep" chars that should be "," chars in the DESCRIPTION field:
+            data.append(row[:n5] + row[n5:].replace(sep, ',', (n4-n1))) # n4-n1: no. commas needed
         else:
             data.append(row)
     return data
@@ -678,21 +678,16 @@ def gatherBOMs_from_fnames(filename):
             _, file_extension = os.path.splitext(v)
             if file_extension.lower() == '.csv' or file_extension.lower() == '.txt':
                 data = make_csv_file_stable(v)
+                skiprows = row_w_DESCRIPTION(data)
                 temp = tempfile.TemporaryFile(mode='w+t')
                 for d in data:
                     temp.write(d)
                 temp.seek(0)
-                df = pd.read_csv(temp, na_values=[' '], skiprows=1, sep='$',
+                df = pd.read_csv(temp, na_values=[' '], skiprows=skiprows, sep='$',
                                      encoding='iso8859_1', engine='python')
                 df = df.astype(str).applymap(clean) # if ITEM NO. col exists, and itms like 8.1, 8.2, make sure they are strings
                 df = df.replace('nan', 0)
                 df.columns = [clean(c) for c in df.columns]
-                if test_for_missing_columns('sw', df, '', printerror=False):
-                    df = pd.read_csv(temp, na_values=[' '], sep='$',
-                                     encoding='iso8859_1', engine='python')
-                    df = df.astype(str).applymap(clean)
-                    df = df.replace('nan', 0)
-                    df.columns = [clean(c) for c in df.columns]
                 temp.close()
             elif file_extension.lower() == '.xlsx' or file_extension.lower() == '.xls':
                 df = pd.read_excel(v, na_values=[' '], skiprows=1).applymap(clean)
@@ -713,8 +708,8 @@ def gatherBOMs_from_fnames(filename):
                 swdfsdic.update(deconstructMultilevelBOM(df, 'sw', 'TOPLEVEL'))
             elif not test_for_missing_columns('sw', df, k):
                 swdfsdic.update(deconstructMultilevelBOM(df, 'sw', k))
-        except:
-            printStr = '\nError processing file: ' + v + '\nIt has been excluded from the BOM check.\n'
+        except ZeroDivisionError as e:
+            printStr =  ('\nError processing file: ' + v + '\nIt has been excluded from the BOM check.\n')
             printStrs.append(printStr)
             print(printStr)
     sldfsdic = {}  # for collecting SL BOMs to a dic
@@ -731,7 +726,7 @@ def gatherBOMs_from_fnames(filename):
                                 "Probable cause: This program expects Unicode text encoding from\n"
                                 "a csv file.  The file " + v + " does not have this.  The\n"
                                 "correct way to achieve a functional csv file is:\n\n"
-                                '    From Excel, save the file as type “Unicode Text (*.txt)”, and then\n'
+                                '    From Excel, save the file as type Ã¢â‚¬Å“Unicode Text (*.txt)Ã¢â‚¬Â, and then\n'
                                 '    change the file extension from txt to csv.\n\n'
                                 "On the other hand, easiest solution: use an Excel file instead.\n")
                     printStrs.append(printStr)
@@ -875,7 +870,7 @@ def col_name(df, col):
     -------
     out: string
         Name of column that is common to both df.columns and col
-    '''
+    '''        
     try:
         if isinstance(df, pd.DataFrame):
             s = set(list(df.columns))
@@ -885,7 +880,29 @@ def col_name(df, col):
         return list(intersect)[0]
     except IndexError:
         return ""
-
+        
+        
+def row_w_DESCRIPTION(filedata):
+    ''' Return the row no. of the row that contains the word DESRIPTION
+    (or the equivalent of, i.e. DESCRIP, Description, etc.).  That is,
+    determine the row that contains the column names.
+    
+    Parameters
+    ----------
+    filedata: str
+        A BOM file that has been read in as a string.
+        
+    Returns
+    -------
+    out: int
+        0 if row one, or 1 if row two. (Only two rows searched.) 
+    '''
+    for c in cfg['descrip']:
+        if c in filedata[0]:
+            return 0
+        else:
+            return 1
+            
 
 def deconstructMultilevelBOM(df, source, top='TOPLEVEL'):
     ''' If the BOM is a multilevel BOM, pull out the BOMs thereof; that is,
@@ -916,10 +933,10 @@ def deconstructMultilevelBOM(df, source, top='TOPLEVEL'):
     top: string
         Top level part number.  This number is automatically generated by the
         bomcheck program in two ways:  1. If df originated from a SolidWorks
-        BOM or from a single level SyteLine BOM, then “top” is derived from
+        BOM or from a single level SyteLine BOM, then Ã¢â‚¬Å“topÃ¢â‚¬Â is derived from
         the filename; e.g. 091828 from the filename 091828_sw.xlsx.  2. If df
         originated from a multilevel BOM, (i.e. SL) then it has a column named
-        “Level” (i.e. the level of subassemblies and parts within subassemblies
+        Ã¢â‚¬Å“LevelÃ¢â‚¬Â (i.e. the level of subassemblies and parts within subassemblies
         relative to the main, top assembly part number).  In this case the
         part number associated with level "0" is assigned to "top".
 
@@ -939,7 +956,7 @@ def deconstructMultilevelBOM(df, source, top='TOPLEVEL'):
     p = None
     df[__pn] = df[__pn].astype('str').str.strip() # make sure pt nos. are "clean"
     df[__pn].replace('', 'no pn from BOM!', inplace=True)
-    
+
     # https://stackoverflow.com/questions/2974022/is-it-possible-to-assign-the-same-value-to-multiple-keys-in-a-dict-object-at-onc
     values = dict.fromkeys((cfg['qty'] + cfg['length_sw']), 0)
     values.update(dict.fromkeys(cfg['descrip'], 'no descrip from BOM!'))
