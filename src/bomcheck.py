@@ -154,7 +154,10 @@ def set_globals():
            'um_sl':     ["UM", "U/M"],
            'level_sl':  ["Level"],
            'itm_sw':    ["ITEM NO."],
-           'length_sw': ["LENGTH", "Length", "L", "SIZE", "AMT", "AMOUNT", "MEAS"]}
+           'length_sw': ["LENGTH", "Length", "L", "SIZE", "AMT", "AMOUNT", "MEAS", "COST"],
+           'i':'i', 'q':'q', 'd':'d', 'u':'u', 
+           'assy':'assy', 'Q':'Q', 'Description':'Description', 'U':'U'          
+          }
     
 
 def getresults(i=1):
@@ -1120,30 +1123,31 @@ def convert_sw_bom_to_sl_format(df):
     values = dict.fromkeys(cfg['part_num'], 'Item')
     values.update(dict.fromkeys(cfg['length_sw'], 'LENGTH'))
     values.update(dict.fromkeys(cfg['descrip'], 'Description'))
-    values.update(dict.fromkeys(cfg['qty'], 'Q'))
+    values.update(dict.fromkeys(cfg['qty'], cfg['Q']))
     df.rename(columns=values, inplace=True)
 
     __len = col_name(df, cfg['length_sw'])
     if __len:  # convert lengths to other unit of measure, i.e. to_um
         ser = df[__len]
-        value = ser.replace('[^\d.]', '', regex=True).apply(str).str.strip('.').astype(float)  # "3.5MM" -> 3.5
-        from_um = ser.apply(str).replace('[\d.]', '', regex=True)  # e.g. "3.5MM" -> "mm"
+        df_extract = ser.str.extract(r'(\W*)([\d.]*)\s*([\w\^]*)') # e.g. '$ 34.4 ft^2' > '$' '34.4' 'ft^2'
+        value = df_extract[1].astype(float)
+        from_um = df_extract[2].str.lower().fillna('')
         from_um.replace('', cfg['from_um'].lower(), inplace=True)  # e.g. "" -> "ft"
         from_um = from_um.str.strip().str.lower()   # e.g. "SQI\n" -> "sqi"
         to_um = from_um.apply(lambda x: cfg['toL_um'].lower() if x.lower() in liquidUMs else
                                        (cfg['toA_um'].lower() if x.lower() in areaUMs else cfg['to_um'].lower()))
         ignore_filter = ~is_in(cfg['ignore'], df['Item'], [])
-        df['U'] = to_um.str.upper().mask(value <= 0.0001, 'EA').mask(~ignore_filter, 'EA')
+        df[cfg['U']] = to_um.str.upper().mask(value <= 0.0001, 'EA').mask(~ignore_filter, 'EA')
         factors = (from_um.map(factorpool) * 1/to_um.map(factorpool)).fillna(-1)
-        q = df['Q'].replace('[^\d]', '', regex=True).apply(str).str.strip('.')  # strip away any text
+        q = df[cfg['Q']].replace('[^\d]', '', regex=True).apply(str).str.strip('.')  # strip away any text
         q = q.replace('', '0').astype(float)  # if any empty strings, set to '0'
         value2 = value * q * factors * ignore_filter
-        df['Q'] = q*(value2<.0001) + value2    # move lengths to the Qty column
+        df[cfg['Q']] = q*(value2<.0001) + value2    # move lengths to the Qty column
     else:
-        df['U'] = 'EA'  # if no length colunm exists then set all units of measure to EA
+        df[cfg['U']] = 'EA'  # if no length colunm exists then set all units of measure to EA
 
-    df = df.reindex(['Op', 'WC','Item', 'Q', 'Description', 'U'], axis=1)  # rename and/or remove columns
-    dd = {'Q': 'sum', 'Description': 'first', 'U': 'first'}   # funtions to apply to next line
+    df = df.reindex(['Op', 'WC','Item', cfg['Q'], 'Description', cfg['U']], axis=1)  # rename and/or remove columns
+    dd = {cfg['Q']: 'sum', 'Description': 'first', cfg['U']: 'first'}   # funtions to apply to next line
     df = df.groupby('Item', as_index=False).aggregate(dd).reindex(columns=df.columns)
 
     if cfg['drop_bool']==True:
@@ -1203,9 +1207,9 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
         dfsl.drop(['Description'], axis=1, inplace=True)
 
     values = dict.fromkeys(cfg['part_num'], 'Item')
-    values.update(dict.fromkeys(cfg['um_sl'], 'U'))
+    values.update(dict.fromkeys(cfg['um_sl'], cfg['U']))
     values.update(dict.fromkeys(cfg['descrip'], 'Description'))
-    values.update(dict.fromkeys(cfg['qty'], 'Q'))
+    values.update(dict.fromkeys(cfg['qty'], cfg['Q']))
     values.update({'Obsolete Date': 'Obsolete'})
     dfsl.rename(columns=values, inplace=True)
 
@@ -1231,45 +1235,45 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
             print(printStr)
 
     dfmerged = pd.merge(dfsw, dfsl, on='Item', how='outer', suffixes=('_sw', '_sl') ,indicator=True)
-    dfmerged.Q_sw.fillna(0, inplace=True)
-    dfmerged.U_sl.fillna('', inplace=True)
+    dfmerged[cfg['Q'] + '_sw'].fillna(0, inplace=True)
+    dfmerged[cfg['U'] + '_sl'].fillna('', inplace=True)
 
-    ###########################################################################
-    # If U/M in SW isn't the same as that in SL, adjust SW's length values    #
-    # so that lengths are per SL's U/M.  Then replace the U/M in the column   #
-    # named U_sw with the updated U/M that matches that in SL.                #
-    from_um = dfmerged.U_sw.str.lower().fillna('')                            #
-    to_um = dfmerged.U_sl.str.lower().fillna('')                              #
-    factors = (from_um.map(factorpool) * 1/to_um.map(factorpool)).fillna(1)   #
-    dfmerged.Q_sw = dfmerged.Q_sw * factors                                   #
-    dfmerged.Q_sw = round(dfmerged.Q_sw, cfg['accuracy'])                     #
-    func = lambda x1, x2:   x1 if (x1 and x2) else x2                         #
-    dfmerged.U_sw = to_um.combine(from_um, func, fill_value='').str.upper()   #
-    ###########################################################################
+    ######################################################################################
+    # If U/M in SW isn't the same as that in SL, adjust SW's length values               #
+    # so that lengths are per SL's U/M.  Then replace the U/M in the column              #
+    # named U_sw with the updated U/M that matches that in SL.                           #
+    from_um = dfmerged[cfg['U'] + '_sw'].str.lower().fillna('')                          #
+    to_um = dfmerged[cfg['U'] + '_sl'].str.lower().fillna('')                            #
+    factors = (from_um.map(factorpool) * 1/to_um.map(factorpool)).fillna(1)              #
+    dfmerged[cfg['Q'] + '_sw'] = dfmerged[cfg['Q'] + '_sw'] * factors                    #
+    dfmerged[cfg['Q'] + '_sw'] = round(dfmerged[cfg['Q'] + '_sw'], cfg['accuracy'])      #
+    func = lambda x1, x2:   x1 if (x1 and x2) else x2                                    #
+    dfmerged[cfg['U'] + '_sw'] = to_um.combine(from_um, func, fill_value='').str.upper() #
+    ######################################################################################
 
     dfmerged.sort_values(by=['Item'], inplace=True)
     filtrI = dfmerged['_merge'].str.contains('both')  # this filter determines if pn in both SW and SL
     maxdiff = .51 / (10**cfg['accuracy'])
-    filtrQ = abs(dfmerged['Q_sw'] - dfmerged['Q_sl']) < maxdiff  # If diff in qty greater than this value, show X
+    filtrQ = abs(dfmerged[cfg['Q'] + '_sw'] - dfmerged[cfg['Q'] + '_sl']) < maxdiff  # If diff in qty greater than this value, show X
     filtrM = dfmerged['Description_sw'].str.split() == dfmerged['Description_sl'].str.split()
-    filtrU = dfmerged['U_sw'].astype('str').str.upper().str.strip() == dfmerged['U_sl'].astype('str').str.upper().str.strip()
+    filtrU = dfmerged[cfg['U'] + '_sw'].astype('str').str.upper().str.strip() == dfmerged[cfg['U'] + '_sl'].astype('str').str.upper().str.strip()
     chkmark = '-'
     err = 'X'
 
-    dfmerged['i'] = filtrI.apply(lambda x: chkmark if x else err)     # X = Item not in SW or SL
-    dfmerged['q'] = filtrQ.apply(lambda x: chkmark if x else err)     # X = Qty differs btwn SW and SL
-    dfmerged['d'] = filtrM.apply(lambda x: chkmark if x else err)     # X = Mtl differs btwn SW & SL
-    dfmerged['u'] = filtrU.apply(lambda x: chkmark if x else err)     # X = U differs btwn SW & SL
-    dfmerged['i'] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged['i'] # duplicate in SL? i-> blank
-    dfmerged['q'] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged['q'] # duplicate in SL? q-> blank
-    dfmerged['d'] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged['d'] # duplicate in SL? d-> blank
-    dfmerged['u'] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged['u'] # duplicate in SL? u-> blank
+    dfmerged[cfg['i']] = filtrI.apply(lambda x: chkmark if x else err)     # X = Item not in SW or SL
+    dfmerged[cfg['q']] = filtrQ.apply(lambda x: chkmark if x else err)     # X = Qty differs btwn SW and SL
+    dfmerged[cfg['d']] = filtrM.apply(lambda x: chkmark if x else err)     # X = Mtl differs btwn SW & SL
+    dfmerged[cfg['u']] = filtrU.apply(lambda x: chkmark if x else err)     # X = U differs btwn SW & SL
+    dfmerged[cfg['i']] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged[cfg['i']] # duplicate in SL? i-> blank
+    dfmerged[cfg['q']] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged[cfg['q']] # duplicate in SL? q-> blank
+    dfmerged[cfg['d']] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged[cfg['d']] # duplicate in SL? d-> blank
+    dfmerged[cfg['u']] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged[cfg['u']] # duplicate in SL? u-> blank
 
-    dfmerged = dfmerged[['Item', 'i', 'q', 'd', 'u', 'Q_sw', 'Q_sl',
-                         'Description_sw', 'Description_sl', 'U_sw', 'U_sl']]
+    dfmerged = dfmerged[['Item', cfg['i'], cfg['q'], cfg['d'], cfg['u'], (cfg['Q'] + '_sw'), (cfg['Q'] + '_sl'),
+                         'Description_sw', 'Description_sl', (cfg['U'] + '_sw'), (cfg['U'] + '_sl')]]
     dfmerged.fillna('', inplace=True)
     dfmerged.set_index('Item', inplace=True)
-    dfmerged.Q_sw.replace(0, '', inplace=True)
+    dfmerged[cfg['Q'] + '_sw'].replace(0, '', inplace=True)
 
     return dfmerged
 
@@ -1313,7 +1317,7 @@ def collect_checked_boms(swdic, sldic):
                                 convert_sw_bom_to_sl_format(dfsw), sldic[key])
         else:
             df = convert_sw_bom_to_sl_format(dfsw)
-            df['Q'] = round(df['Q'], cfg['accuracy'])
+            df[cfg['Q']] = round(df[cfg['Q']], cfg['accuracy'])
             lone_sw_dic[key] = df
     return lone_sw_dic, combined_dic
 
@@ -1364,17 +1368,17 @@ def concat_boms(title_dfsw, title_dfmerged):
     swresults = []
     mrgresults = []
     for t in title_dfsw:
-        t[1]['assy'] = t[0]
+        t[1][cfg['assy']] = t[0]
         dfswDFrames.append(t[1])
     for t in title_dfmerged:
-        t[1]['assy'] = t[0]
+        t[1][cfg['assy']] = t[0]
         dfmergedDFrames.append(t[1])
     if dfswDFrames:
         dfswCCat = pd.concat(dfswDFrames).reset_index()
-        swresults.append(('SW BOMs', dfswCCat.set_index(['assy', 'Op']).sort_index(axis=0)))
+        swresults.append(('SW BOMs', dfswCCat.set_index([cfg['assy'], 'Op']).sort_index(axis=0)))
     if dfmergedDFrames:
         dfmergedCCat = pd.concat(dfmergedDFrames).reset_index()
-        mrgresults.append(('BOM Check', dfmergedCCat.set_index(['assy', 'Item']).sort_index(axis=0)))
+        mrgresults.append(('BOM Check', dfmergedCCat.set_index([cfg['assy'], 'Item']).sort_index(axis=0)))
     return swresults, mrgresults
 
 
@@ -1450,10 +1454,10 @@ def export2excel(dirname, filename, results2export, uname):
     def autosize_excel_columns_df(worksheet, df, offset=0):
         for idx, col in enumerate(df):
             x = 1 # add a little extra width to the Excel column
-            if df.columns[idx] in ['i', 'q', 'd', 'u']:
+            if df.columns[idx] in [cfg['i'], cfg['q'], cfg['d'], cfg['u']]:
                 x = 0
             series = df[col]
-            if df.columns[idx][0] == 'Q':
+            if df.columns[idx][0] == cfg['Q']:
                 max_len = max((
                     series.astype(str).map(len2).max(),
                     len(str(series.name))
@@ -1584,19 +1588,23 @@ set_globals()
 #   1/12 = .08333,          (foot to inches)
 #   Then: 29 * factorpool['mm'] / factorpool['in'] = 0.00328 / .08333 = 1.141
 # Only lower case keys are acceptable.  No digits allowed in keys (like "2" in "ft2")
-factorpool = {'in':1/12,     '"':1/12, 'inch':1/12,  chr(8221):1/12,
-              'ft':1.0,      "'":1.0,  'feet':1.0,  'foot':1.0,  chr(8217):1.0,
+factorpool = {'in':1/12,     '"':1/12, 'inch':1/12,   'inches':1/12, chr(8221):1/12,
+              'ft':1.0,      "'":1.0,  'feet':1.0,    'foot':1.0,    chr(8217):1.0,
               'yrd':3.0,     'yd':3.0, 'yard':3.0,
               'mm': 1/(25.4*12),       'millimeter':1/(25.4*12),
               'cm':10/(25.4*12),       'centimeter':10/(25.4*12),
               'm':1000/(25.4*12),      'meter':1000/(25.4*12), 'mtr':1000/(25.4*12),
-              'sqin':1/144,            'sqi':1/144,
-              'sqft':1,      'sqf':1,  'sqyd':3,   'sqy':3,
-              'sqmm':1/92903.04,       'sqcm':1/929.0304,      'sqm':1/(.09290304),
+              'sqin':1/144,            'sqi':1/144,            'in^2':1/144,
+              'sqft':1,                'sqf':1,                'ft^2':1,  
+              'sqyd':3,                'sqy':3,                'yd^2':3,
+              'sqmm':1/92903.04,       'mm^2':1/92903.04,      
+              'sqcm':1/929.0304,       'cm^2':1/929.0304,      
+              'sqm':1/(.09290304),     'm^2':1/(.09290304),
               'pint':1/8,    'pt':1/8, 'qt':1/4,   'quart':1/4,
               'gal':1.0,     'g':1.0,  'gallon':1.0,
               'ltr':0.2641720524,      'liter':0.2641720524,   'l':0.2641720524}
-areaUMs = set(['sqi', 'sqin','sqf', 'sqft', 'sqyd', 'sqy', 'sqmm', 'sqcm', 'sqm'])
+areaUMs = set(['sqi', 'sqin', 'in^2', 'sqf', 'sqft', 'ft^2' 'sqyd', 'sqy', 'yd^2', 
+               'sqmm', 'mm^2', 'sqcm', 'cm^2', 'sqm', 'm^2'])
 liquidUMs = set(['pint',  'pt', 'quart', 'qt', 'gallon', 'g', 'gal' 'ltr', 'liter', 'l'])
 
 
