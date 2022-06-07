@@ -25,9 +25,10 @@
             <li><a href="#slnotprocessed">SyteLine BOM not processed</a></li>
             <li><a href="#iqdu">Empty i q d u fields</a></li>
             <li><a href="#length">SW's lengths not converted to FT</a></li>
-            <li><a href="#crash_cols">Crash... missing columns</a></li>
-            <li><a href="#config_txt">Unable to open config.txt</a></li>
+            <li><a href="#crash_cols">Program crashed due to missing columns</a></li>
+            <li><a href="#config_txt">Unable to open config.txt file.</a></li>
             <li><a href="#accuracy">What accuracy should lengths be?</a></li>
+            <li><a href="#conflict">Column name conflicts</a></li>
         </ol>
 
         <p id="csv_ok"><b>1. CSV OK?</b> SyteLine sometimes default's to exporting to a CSV (.csv)
@@ -106,16 +107,24 @@
             (The bomcheckgui program automatically creates this file.) Perhaps user
             rights were somehow severed??? Contact the IT manager for help.</p>
 
-        <p id="accuracy"><b>13. What accuracy should lengths be?</b> At <i>File > Settings</i>
-            the decimal place accuracy is set for rounding bomcheck lengths (e.g. .83 ft).
-            An accuracy of 2 is a good number. This means that if two places are shown, then
-            the length is accurate to within &#177;0.06 inches.  This is close enough. Then 
-            if the lengths shown in SolidWorks and SyteLine differ by more than &#177;0.06 
-            inches, then bomcheck will flag this as an error. Of course, a greater level of
-            accuracy can be set.</p>
+        <p id="accuracy"><b>12. What accuracy should lengths be?</b> If you are running
+            the bomcheckgui program, at <i>File > Settings</i> the decimal place accuracy
+            is set for rounding bomcheck lengths (e.g. .83 ft).  An accuracy of 2 (for feet)
+            is a good number. This means that if two places are shown, then the length is
+            accurate to within &#177;0.06 inches.  This is close enough. Then if the lengths
+            shown in SolidWorks and SyteLine differ by more than &#177;0.06 inches, then 
+            bomcheck will flag this as an error. Of course, a greater level of accuracy can be
+            set.</p>
+
+        <p id="conflict"><b>13. Conflicting column names withing the same BOM.</b> 
+            I have a BOM from my ERP program that contains two different column names, either
+            of which could contain part numbers of parts, for example Material and Item.  How
+            does bomcheck resolve which column to get part numbers from?  Adjust the bomcheck.cfg
+            file.  The name that appears first in the list of potential column names for parts
+            will take precedent.</p>
 
         <i>
-            <p style="text-align:right;">last updated: 5/15/2021</p>
+            <p style="text-align:right;">last updated: 6/5/2022</p>
         </i>
 
     </div>

@@ -5,11 +5,16 @@ File initial creation on Sun Nov 18 2018
 
 @author: Kenneth E. Carlton
 
-This program compares two BOMs: one originating from a CAD program like
-SolidWorks (SW) and the other from an ERP program like SyteLine (SL).  
-The structure of the BOMs (headings, structure, etc.) are very unique to a
-particular company.  A configuration file, bomcheck.cfg, can be altered
-to help adapt it to another company.
+This program compares two Bills of Materials (BOMs). One BOM originating from
+a Computer Aided Design (CAD) program like SolidWorks (SW) and the other from
+an Enterprise Resource Planning (ERP) program like SyteLine (SL).  The 
+structure of BOMs (like column names... PART NO., NUMBERO DE PARTE, etc.) are
+unique to a particular company.  A configuration file, named bomcheck.cfg, can
+be altered to help adapt the program to a particular company's needs.
+
+BOMs are extracted from Microsoft Excel files.  Append the characters _sw.xlsx
+to the files that contain SW BOMs.  Append the characters _sl.xlsx to the files
+that contain SL BOMs.
 """
 
 __version__ = '1.8.3'
@@ -120,7 +125,7 @@ def get_bomcheckcfg(pathname):
         printStrs.append(printStr)
         print(printStr)
         return dic
-    config = ConfigParser()
+    config = ConfigParser(delimiters=('='))
     config.read(fn)
     for i in config['integers']:
         dic[i] = int(config['integers'][i])
@@ -148,15 +153,21 @@ def set_globals():
     # default settings for bomcheck.  See bomcheck.cfg are explanations about variables
     cfg = {'accuracy': 2,   'ignore': ['3086-*'], 'drop': ['3*-025'],  'exceptions': [],
            'from_um': 'IN', 'to_um': 'FT', 'toL_um': 'GAL', 'toA_um': 'SQF',   
-           'part_num':  ["PARTNUMBER", "PART NUMBER", "Part Number", "Item", "Material"],
+           'part_num':  ["Material", "PARTNUMBER", "PART NUMBER", "Part Number", "Item"],
            'qty':       ["QTY", "QTY.", "Qty", "Quantity", "Qty Per"],
            'descrip':   ["DESCRIPTION", "Material Description", "Description"],
            'um_sl':     ["UM", "U/M"],
            'level_sl':  ["Level"],
            'itm_sw':    ["ITEM NO."],
            'length_sw': ["LENGTH", "Length", "L", "SIZE", "AMT", "AMOUNT", "MEAS", "COST"],
+           'obs': ['Obsolete Date', 'Obsolete'],
+           # Column names in the results:
            'i':'i', 'q':'q', 'd':'d', 'u':'u', 
-           'assy':'assy', 'Q':'Q', 'Description':'Description', 'U':'U'          
+           'assy':'assy', 'Item':'Item', 'Q':'Q', 
+           'Description':'Description', 'U':'U',
+           # When a SW BOM is converted to a BOM looking like that of SL, these columns and
+           # values thereof are added to the SW BOM, thereby making it look like a SL BOM.
+           'Op':'Op', 'OpValue':'10', 'WC':'WC',  'WCvalue':'PICK'
           }
     
 
@@ -336,11 +347,12 @@ def bomcheck(fn, dic={}, **kwargs):
             Max no. of rows to display when results are 
             output.  (This does not effect results that are
             exported an Excel file.)  Default: None (That 
-            is, all rows are output.  Nothing is truncated.)
+            is, all rows are output, i.e. nothing is 
+            truncated.)
             
         o: str
             Output file name.  If x=True, that is if
-            an Excel file is to be exported to, then give
+            an Excel file is to be exported, then give
             it this name.  Default: 'bomcheck'
 
         u: str
@@ -350,14 +362,13 @@ def bomcheck(fn, dic={}, **kwargs):
             Default: 'unknown'
 
         x: bool
-            It True (or = 1), export results to an Excel
-            file.  The default file name is bomcheck.xlsx.
-            Default: False
+            If True (or = 1), export results to an Excel
+            file.  Default: False
 
     Returns
     =======
 
-    out: list|tuple
+    out: list or tuple
 
         If argument l is set to True:
             return a list of strings.  Each string describes 
@@ -378,16 +389,28 @@ def bomcheck(fn, dic={}, **kwargs):
     Examples
     ========
 
-    >>> # files names starting with 6890
-    >>> bomcheck("folder1/6890*", d=True, u="John Doe")  
+    Evaluate files names starting with 6890 (a forward
+    slash, /, is normally used in a file path in a Linux OS.):
+    
+        >>> bomcheck("folder1/6890*", d=True, u="John Doe")  
 
-    >>> # all files in 'folder1' and in subfolders thereof
-    >>> bomcheck("folder1")
+    Evaluate all files in 'folder1' and in subfolders thereof:
+    
+        >>> bomcheck("folder1")
 
-    >>> # all files, one level deep
-    >>> bomcheck("folder1/*") 
+    Same as above, but evaluate files only one level deep:
+    
+        >>> bomcheck("folder1/*")
+        
+    Evaluate files in a couple of locations:
 
-    >>> bomcheck(["folder1/*", "folder2/*"], d=True)
+        >>> bomcheck(["folder1/*", "folder2/*"], d=True)
+    
+    The \\ character in a Window's directory path can 
+    cause problems.  See this site for some clarity:
+    https://pro.arcgis.com/en/pro-app/2.8/arcpy/get-started/setting-paths-to-data.htm
+    
+        >>> bomcheck("C:\\myprojects\\folder1", c="C:\\mycfgpath\\bomcheck.cfg") 
 
     '''
     global printStrs, cfg, results
@@ -703,9 +726,6 @@ def gatherBOMs_from_fnames(filename):
                     df = df.replace('nan', 0)
                     df.columns = [clean(c) for c in df.columns]
 
-            __q = col_name(df, cfg['qty'])
-            df[__q] = df[__q].astype(float)
-
             if (not (test_for_missing_columns('sw', df, k)) and
                     col_name(df, cfg['level_sl'])):           # if "Level" found if df.columns, return "Level"
                 swdfsdic.update(deconstructMultilevelBOM(df, 'sw', 'TOPLEVEL'))
@@ -873,7 +893,7 @@ def col_name(df, col):
     -------
     out: string
         Name of column that is common to both df.columns and col
-    '''        
+    '''  
     try:
         if isinstance(df, pd.DataFrame):
             s = set(list(df.columns))
@@ -881,7 +901,7 @@ def col_name(df, col):
             s = set(df)
         intersect = s.intersection(col)
         return list(intersect)[0]
-    except IndexError:
+    except IndexError as e:            
         return ""
         
         
@@ -952,9 +972,10 @@ def deconstructMultilevelBOM(df, source, top='TOPLEVEL'):
         numbers for BOMs; and BOM1, BOM2, etc. are pandas DataFrame objects
         that pertain to those part numbers.
     '''
-    __lvl = col_name(df, cfg['level_sl'])
+    __lvl = col_name(df, cfg['level_sl'])  # if not a multilevel BOM from SL, then is empty string, ""
     __itm = col_name(df, cfg['itm_sw'])
     __pn = col_name(df, cfg['part_num'])  # get the column name for pns
+    __descrip = col_name(df, cfg['descrip'])
 
     p = None
     df[__pn] = df[__pn].astype('str').str.strip() # make sure pt nos. are "clean"
@@ -993,8 +1014,8 @@ def deconstructMultilevelBOM(df, source, top='TOPLEVEL'):
             level_pn.append(top)
             if top != "TOPLEVEL":
                 assys.append(top)
-            elif 'Description' in df.columns and lvl == 0:
-                excelTitle.append((row[__pn], row['Description'])) # info for a global variable
+            elif __lvl and lvl == 0:  #  If multilevel BOM from SL, & lvl==0, then Pn not based on file name, but pn at level 0.
+                excelTitle.append((row[__pn], row[__descrip])) # excelTitle is a global variable
         elif row['__Level'] > lvl:
             if p in assys:
                 poplist.append('repeat')
@@ -1091,10 +1112,10 @@ def convert_sw_bom_to_sl_format(df):
     - If the part is a pipe or beam and it is listed multiple times in the BOM,
       the BOM is updated so that only one listing is shown and the lengths
       of the removed listings are added to the remaining listing.
-    - Similar to above, parts such as pipe nipples will show up more that
+    - Similar to above, parts such as pipe nipples often show up more that
       once on a BOM.  Remove the excess listings and add the quantities of
       the removed listings to the remaining listing.
-    - If global variable cfg['drop'] is set to True, off the shelf parts, which
+    - If global variable cfg['drop'] is set to True, off-the-shelf parts, which
       are usually pipe fittings, are removed from the SolidWorks BOM.  (As a
       general rule, off-the-shelf parts are not shown on SyteLine BOMs.)  The
       list that  governs this rule is in a file named drop.py.  Other part nos.
@@ -1120,23 +1141,23 @@ def convert_sw_bom_to_sl_format(df):
     \u2009
     '''
 
-    values = dict.fromkeys(cfg['part_num'], 'Item')
-    values.update(dict.fromkeys(cfg['length_sw'], 'LENGTH'))
-    values.update(dict.fromkeys(cfg['descrip'], 'Description'))
+    values = dict.fromkeys(cfg['part_num'], cfg['Item'])
+    #values.update(dict.fromkeys(cfg['length_sw'], 'LENGTH'))
+    values.update(dict.fromkeys(cfg['descrip'], cfg['Description']))
     values.update(dict.fromkeys(cfg['qty'], cfg['Q']))
     df.rename(columns=values, inplace=True)
 
     __len = col_name(df, cfg['length_sw'])
     if __len:  # convert lengths to other unit of measure, i.e. to_um
-        ser = df[__len]
-        df_extract = ser.str.extract(r'(\W*)([\d.]*)\s*([\w\^]*)') # e.g. '$ 34.4 ft^2' > '$' '34.4' 'ft^2'
+        ser = df[__len].apply(str)
+        df_extract = ser.str.extract(r'(\W*)([\d.]*)\s*([\w\^]*)') # e.g. '34.4 ft^2' > '' '34.4' 'ft^2', or '$34.4' > '$' '34.4' ''
         value = df_extract[1].astype(float)
-        from_um = df_extract[2].str.lower().fillna('')
+        from_um = df_extract[0].str.lower().fillna('') + df_extract[2].str.lower().fillna('') # e.g. '$ft^2; actually '$' or 'ft^2'
         from_um.replace('', cfg['from_um'].lower(), inplace=True)  # e.g. "" -> "ft"
         from_um = from_um.str.strip().str.lower()   # e.g. "SQI\n" -> "sqi"
         to_um = from_um.apply(lambda x: cfg['toL_um'].lower() if x.lower() in liquidUMs else
                                        (cfg['toA_um'].lower() if x.lower() in areaUMs else cfg['to_um'].lower()))
-        ignore_filter = ~is_in(cfg['ignore'], df['Item'], [])
+        ignore_filter = ~is_in(cfg['ignore'], df[cfg['Item']], [])
         df[cfg['U']] = to_um.str.upper().mask(value <= 0.0001, 'EA').mask(~ignore_filter, 'EA')
         factors = (from_um.map(factorpool) * 1/to_um.map(factorpool)).fillna(-1)
         q = df[cfg['Q']].replace('[^\d]', '', regex=True).apply(str).str.strip('.')  # strip away any text
@@ -1146,17 +1167,17 @@ def convert_sw_bom_to_sl_format(df):
     else:
         df[cfg['U']] = 'EA'  # if no length colunm exists then set all units of measure to EA
 
-    df = df.reindex(['Op', 'WC','Item', cfg['Q'], 'Description', cfg['U']], axis=1)  # rename and/or remove columns
-    dd = {cfg['Q']: 'sum', 'Description': 'first', cfg['U']: 'first'}   # funtions to apply to next line
-    df = df.groupby('Item', as_index=False).aggregate(dd).reindex(columns=df.columns)
+    df = df.reindex(['Op', 'WC', cfg['Item'], cfg['Q'], cfg['Description'], cfg['U']], axis=1)  # rename and/or remove columns
+    dd = {cfg['Q']: 'sum', cfg['Description']: 'first', cfg['U']: 'first'}   # funtions to apply to next line
+    df = df.groupby(cfg['Item'], as_index=False).aggregate(dd).reindex(columns=df.columns)
 
     if cfg['drop_bool']==True:
-        filtr3 = is_in(cfg['drop'], df['Item'], cfg['exceptions'])
+        filtr3 = is_in(cfg['drop'], df[cfg['Item']], cfg['exceptions'])
         df.drop(df[filtr3].index, inplace=True)
 
-    df['WC'] = 'PICK'    # WC is a standard column shown in a SL BOM.
-    df['Op'] = 10   # Op is a standard column shown in a SL BOM, usually set to 10
-    df.set_index('Op', inplace=True)
+    df[cfg['WC']] = cfg['WCvalue']    # WC is a standard column shown in a SL BOM.
+    df[cfg['Op']] = cfg['OpValue']   # Op is a standard column shown in a SL BOM, usually set to 10
+    df.set_index(cfg['Op'], inplace=True)
 
     return df
 
@@ -1196,21 +1217,20 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
         printStrs.append(printStr)
         print(printStr)
         sys.exit()
+        
+    # If, e.g., Item & Material (both names of pn cols) found in table, get rid of
+    # the useless col.  First coinciding name from cfg['part_num'] will be used.
+    # Do same for cfg['descrip']
+    for x in [cfg['part_num'], cfg['descrip']]:
+        lst = [c for c in x if c in dfsl.columns]
+        if len(lst)>1:
+            dfsl.drop(lst[1:], axis=1, inplace=True)
 
-    # A BOM can be derived from different locations within SL.  From one location
-    # the `Item` is the part number.  From another `Material` is the part number.
-    # When `Material` is the part number, a useless 'Item' column is also present.
-    # It causes the bomcheck program confusion and the program crashes.  Thus a fix:
-    if 'Item' in dfsl.columns and 'Material' in dfsl.columns:
-        dfsl.drop(['Item'], axis=1, inplace=True)  # the "drop" here is not that in the cfg dictionary
-    if 'Description' in dfsl.columns and 'Material Description' in dfsl.columns:
-        dfsl.drop(['Description'], axis=1, inplace=True)
-
-    values = dict.fromkeys(cfg['part_num'], 'Item')
+    values = dict.fromkeys(cfg['part_num'], cfg['Item'])
     values.update(dict.fromkeys(cfg['um_sl'], cfg['U']))
-    values.update(dict.fromkeys(cfg['descrip'], 'Description'))
+    values.update(dict.fromkeys(cfg['descrip'], cfg['Description']))
     values.update(dict.fromkeys(cfg['qty'], cfg['Q']))
-    values.update({'Obsolete Date': 'Obsolete'})
+    values.update(dict.fromkeys(cfg['obs'], 'Obsolete'))
     dfsl.rename(columns=values, inplace=True)
 
     if 'Obsolete' in dfsl.columns:  # Don't use any obsolete pns (even though shown in the SL BOM)
@@ -1220,9 +1240,9 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     # When pns are input into SyteLine, all the characters of pns should
     # be upper case.  But on occasion people have mistakently used lower case.
     # Correct this and report what pns have been in error.
-    x = dfsl['Item'].copy()
-    dfsl['Item'] = dfsl['Item'].str.upper()  # make characters upper case
-    x_bool =  x != dfsl['Item']
+    x = dfsl[cfg['Item']].copy()
+    dfsl[cfg['Item']] = dfsl[cfg['Item']].str.upper()  # make characters upper case
+    x_bool =  x != dfsl[cfg['Item']]
     x_lst = [i for i in list(x*x_bool) if i]
     if x_lst:
         printStr = ("\nLower case part nos. in SyteLine's BOM have been converted " +
@@ -1234,7 +1254,7 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
             printStrs.append(printStr)
             print(printStr)
 
-    dfmerged = pd.merge(dfsw, dfsl, on='Item', how='outer', suffixes=('_sw', '_sl') ,indicator=True)
+    dfmerged = pd.merge(dfsw, dfsl, on=cfg['Item'], how='outer', suffixes=('_sw', '_sl') ,indicator=True)
     dfmerged[cfg['Q'] + '_sw'].fillna(0, inplace=True)
     dfmerged[cfg['U'] + '_sl'].fillna('', inplace=True)
 
@@ -1251,11 +1271,11 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     dfmerged[cfg['U'] + '_sw'] = to_um.combine(from_um, func, fill_value='').str.upper() #
     ######################################################################################
 
-    dfmerged.sort_values(by=['Item'], inplace=True)
+    dfmerged.sort_values(by=[cfg['Item']], inplace=True)
     filtrI = dfmerged['_merge'].str.contains('both')  # this filter determines if pn in both SW and SL
     maxdiff = .51 / (10**cfg['accuracy'])
     filtrQ = abs(dfmerged[cfg['Q'] + '_sw'] - dfmerged[cfg['Q'] + '_sl']) < maxdiff  # If diff in qty greater than this value, show X
-    filtrM = dfmerged['Description_sw'].str.split() == dfmerged['Description_sl'].str.split()
+    filtrM = dfmerged[cfg['Description'] + '_sw'].str.split() == dfmerged[cfg['Description'] + '_sl'].str.split()
     filtrU = dfmerged[cfg['U'] + '_sw'].astype('str').str.upper().str.strip() == dfmerged[cfg['U'] + '_sl'].astype('str').str.upper().str.strip()
     chkmark = '-'
     err = 'X'
@@ -1264,15 +1284,15 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     dfmerged[cfg['q']] = filtrQ.apply(lambda x: chkmark if x else err)     # X = Qty differs btwn SW and SL
     dfmerged[cfg['d']] = filtrM.apply(lambda x: chkmark if x else err)     # X = Mtl differs btwn SW & SL
     dfmerged[cfg['u']] = filtrU.apply(lambda x: chkmark if x else err)     # X = U differs btwn SW & SL
-    dfmerged[cfg['i']] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged[cfg['i']] # duplicate in SL? i-> blank
-    dfmerged[cfg['q']] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged[cfg['q']] # duplicate in SL? q-> blank
-    dfmerged[cfg['d']] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged[cfg['d']] # duplicate in SL? d-> blank
-    dfmerged[cfg['u']] = ~dfmerged['Item'].duplicated(keep=False) * dfmerged[cfg['u']] # duplicate in SL? u-> blank
+    dfmerged[cfg['i']] = ~dfmerged[cfg['Item']].duplicated(keep=False) * dfmerged[cfg['i']] # duplicate in SL? i-> blank
+    dfmerged[cfg['q']] = ~dfmerged[cfg['Item']].duplicated(keep=False) * dfmerged[cfg['q']] # duplicate in SL? q-> blank
+    dfmerged[cfg['d']] = ~dfmerged[cfg['Item']].duplicated(keep=False) * dfmerged[cfg['d']] # duplicate in SL? d-> blank
+    dfmerged[cfg['u']] = ~dfmerged[cfg['Item']].duplicated(keep=False) * dfmerged[cfg['u']] # duplicate in SL? u-> blank
 
-    dfmerged = dfmerged[['Item', cfg['i'], cfg['q'], cfg['d'], cfg['u'], (cfg['Q'] + '_sw'), (cfg['Q'] + '_sl'),
-                         'Description_sw', 'Description_sl', (cfg['U'] + '_sw'), (cfg['U'] + '_sl')]]
+    dfmerged = dfmerged[[cfg['Item'], cfg['i'], cfg['q'], cfg['d'], cfg['u'], (cfg['Q'] + '_sw'), (cfg['Q'] + '_sl'),
+                         cfg['Description'] + '_sw', cfg['Description'] + '_sl', (cfg['U'] + '_sw'), (cfg['U'] + '_sl')]]
     dfmerged.fillna('', inplace=True)
-    dfmerged.set_index('Item', inplace=True)
+    dfmerged.set_index(cfg['Item'], inplace=True)
     dfmerged[cfg['Q'] + '_sw'].replace(0, '', inplace=True)
 
     return dfmerged
@@ -1375,10 +1395,10 @@ def concat_boms(title_dfsw, title_dfmerged):
         dfmergedDFrames.append(t[1])
     if dfswDFrames:
         dfswCCat = pd.concat(dfswDFrames).reset_index()
-        swresults.append(('SW BOMs', dfswCCat.set_index([cfg['assy'], 'Op']).sort_index(axis=0)))
+        swresults.append(('SW BOMs', dfswCCat.set_index([cfg['assy'], cfg['Op']]).sort_index(axis=0)))
     if dfmergedDFrames:
         dfmergedCCat = pd.concat(dfmergedDFrames).reset_index()
-        mrgresults.append(('BOM Check', dfmergedCCat.set_index([cfg['assy'], 'Item']).sort_index(axis=0)))
+        mrgresults.append(('BOM Check', dfmergedCCat.set_index([cfg['assy'], cfg['Item']]).sort_index(axis=0)))
     return swresults, mrgresults
 
 
@@ -1403,20 +1423,20 @@ def export2excel(dirname, filename, results2export, uname):
         the number of BOMs analyzed, and if bomcheck's b (sheets) option was
         invoked or not.  Each tuple has two items.  The  first item of a tuple
         is a string and is the name to be assigned to the tab of the Excel
-        worksheet.  It is typically an assembly part number.  The second  item
-        is a BOM (a DataFrame object).  The list of tuples consists of:
+        worksheet.  It is an assy no. if the b option has been invoked.  The
+        second item is a BOM (a DataFrame object). The list of tuples consists of:
 
         *1* SolidWorks BOMs that have been converted to SyteLine format.  SW
         BOMs will only occur if no corresponding SL BOM was found.
 
         *2* Merged SW/SL BOMs.
 
-        That is, if c=1, the form will be:
+        That is, if b=1, the form will be:
 
         - [('2730-2019-544_sw', df1), ('080955', df2),
           ('6890-080955-1', df3), ('0300-2019-533', df4), ...]
 
-        and if c=0, the form will be:
+        and if b=0, the form will be:
 
         - [('SW BOMs', dfForSWboms), ('BOM Check', dfForMergedBoms)]
 
@@ -1531,7 +1551,6 @@ def export2excel(dirname, filename, results2export, uname):
     else:
         bomheader = '&C&A'
 
-
     if ok2go:
         try:
             with pd.ExcelWriter(fn) as writer:
@@ -1587,7 +1606,7 @@ set_globals()
 #   1/(25.4*12) = 0.00328   (inches to feet)
 #   1/12 = .08333,          (foot to inches)
 #   Then: 29 * factorpool['mm'] / factorpool['in'] = 0.00328 / .08333 = 1.141
-# Only lower case keys are acceptable.  No digits allowed in keys (like "2" in "ft2")
+# Only lower case keys are acceptable.
 factorpool = {'in':1/12,     '"':1/12, 'inch':1/12,   'inches':1/12, chr(8221):1/12,
               'ft':1.0,      "'":1.0,  'feet':1.0,    'foot':1.0,    chr(8217):1.0,
               'yrd':3.0,     'yd':3.0, 'yard':3.0,
@@ -1600,8 +1619,9 @@ factorpool = {'in':1/12,     '"':1/12, 'inch':1/12,   'inches':1/12, chr(8221):1
               'sqmm':1/92903.04,       'mm^2':1/92903.04,      
               'sqcm':1/929.0304,       'cm^2':1/929.0304,      
               'sqm':1/(.09290304),     'm^2':1/(.09290304),
-              'pint':1/8,    'pt':1/8, 'qt':1/4,   'quart':1/4,
-              'gal':1.0,     'g':1.0,  'gallon':1.0,
+              'pint':1/8,  'pt':1/8,   'qt':1/4,               'quart':1/4,
+              'gal':1.0,   'g':1.0,    'gallon':1.0,
+              '$':1.0,     'usd':1.0,  'dols.':1.0,  'dols':1.0,  'dol.':1.0,  'dol':1.0,
               'ltr':0.2641720524,      'liter':0.2641720524,   'l':0.2641720524}
 areaUMs = set(['sqi', 'sqin', 'in^2', 'sqf', 'sqft', 'ft^2' 'sqyd', 'sqy', 'yd^2', 
                'sqmm', 'mm^2', 'sqcm', 'cm^2', 'sqm', 'm^2'])
