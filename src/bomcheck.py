@@ -17,7 +17,7 @@ to the files that contain SW BOMs.  Append the characters _sl.xlsx to the files
 that contain SL BOMs.
 """
 
-__version__ = '1.8.4'
+__version__ = '1.8.5'
 __author__ = 'Kenneth E. Carlton'
 
 #import pdb
