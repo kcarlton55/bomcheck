@@ -132,7 +132,6 @@ def get_bomcheckcfg(pathname):
     for l in config['lists']:
         lst = config['lists'][l].split(',')
         dic[l] = [i.strip() for i in lst]  # strip leading and trailing spaces from str
-        #dic[l] = config['lists'][l].split(',')
     for s in config['single_values']:
         dic[s] = config['single_values'][s]
     return dic        
@@ -177,6 +176,7 @@ def getresults(i=1):
     SW/SL BOMs. If i = 2, return a tuple of two items:
     (getresults(0), getresults(1))'''
     # This function gets results from the global variable "results".
+    # results is created within the function "bomcheck".
     r = []
     r.append(None) if not results[0] else r.append(results[0][0][1])
     r.append(None) if not results[1] else r.append(results[1][0][1])
@@ -230,13 +230,17 @@ def main():
     parser.add_argument('-f', '--followlinks', action='store_false', default=False,
                         help='Follow symbolic links when searching for files to process.  ' +
                         "  (MS Windows doesn't honor this option.)")
+    parser.add_argument('-s', '--startexcel', action='store_true', default=False,
+                        help='Automatically open the Excel file that bomcheck creates.  ' +
+                        'The --excel (-x) switch must active for this switch ' +
+                        'to take effect.  Only works on Microsoft OS')
     parser.add_argument('-p', '--pause', help='Pause the program just before the program ' +
                         'the program would normally close after completing its work.',
                         default=False, action='store_true')
     parser.add_argument('-v', '--version', action='version', version=__version__,
                         help="Show program's version number and exit")
-    parser.add_argument('-x', '--excel', help='Create Excel file showing check results.',
-                        default=False, action='store_true')
+    parser.add_argument('-x', '--excel', help='Create a MS Excel file that shows ' +
+                        'check results.', default=False, action='store_true')
 
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
@@ -354,6 +358,12 @@ def bomcheck(fn, dic={}, **kwargs):
             Output file name.  If x=True, that is if
             an Excel file is to be exported, then give
             it this name.  Default: 'bomcheck'
+            
+        s: bool
+            startexcel.  Automatically open the Excel file
+            that bomcheck creates.  The Excel arg, x, must
+            be set to True.  Microsoft Excel must be on
+            your system.
 
         u: str
             Username.  This will be fed to the export2exel 
@@ -433,6 +443,7 @@ def bomcheck(fn, dic={}, **kwargs):
     m = kwargs.get('m', None)
     outputFileName = kwargs.get('o', 'bomcheck')
     x = (dic.get('excel') if dic.get('excel') else kwargs.get('x', False))
+    cfg['s'] = (dic.get('startexcel') if dic.get('startexcel') else kwargs.get('s', False))
     
     # If dbdic is in kwargs, it comes from bomcheckgui.
     # Variables therefrom take precedence.
@@ -482,11 +493,11 @@ def bomcheck(fn, dic={}, **kwargs):
     for k, v in merged_sw2sl.items():
         title_dfmerged.append((k, v))
 
-    if title_dfsw:
-        printStr = '\nNo matching SyteLine BOMs found for these SolidWorks files:\n'
-        printStr += '\n'.join(list(map(lambda x: '    ' + x[0], title_dfsw))) + '\n'
-        printStrs.append(printStr)
-        print(printStr)
+    #if title_dfsw:
+    #    printStr = '\nNo matching SyteLine BOMs found for these SolidWorks files:\n'
+    #    printStr += '\n'.join(list(map(lambda x: '    ' + x[0], title_dfsw))) + '\n'
+    #    printStrs.append(printStr)
+    #    print(printStr)
 
     if b == False:                 # concat_boms is a bomcheck function
         title_dfsw, title_dfmerged = concat_boms(title_dfsw, title_dfmerged)
@@ -513,10 +524,10 @@ def bomcheck(fn, dic={}, **kwargs):
             input("Press enter to exit")
 
     if title_dfsw or title_dfmerged:
-        print('calculation done')
+        print('calculation done') 
     else:
         print('program produced no results')
-
+ 
     if l:
         return printStrs
     else:
@@ -712,11 +723,14 @@ def gatherBOMs_from_fnames(filename):
                 df = pd.read_csv(temp, na_values=[' '], skiprows=skiprows, sep='$',
                                      encoding='iso8859_1', engine='python')
                 df = df.astype(str).applymap(clean) # if ITEM NO. col exists, and itms like 8.1, 8.2, make sure they are strings
+                df[col_name(df, cfg['descrip'])].fillna('*** description empty ***', inplace=True)
                 df = df.replace('nan', 0)
                 df.columns = [clean(c) for c in df.columns]
                 temp.close()
             elif file_extension.lower() == '.xlsx' or file_extension.lower() == '.xls':
                 df = pd.read_excel(v, na_values=[' '], skiprows=1).applymap(clean)
+                # following line added 9/1/22.  Fill NaN in descrip field with " ":
+                df[col_name(df, cfg['descrip'])].fillna('*** description empty ***', inplace=True)
                 df = df.astype(str)
                 df = df.replace('nan', 0)
                 df.columns = [clean(c) for c in df.columns]
@@ -1452,6 +1466,7 @@ def export2excel(dirname, filename, results2export, uname):
 
      \u2009
     '''
+    
     global printStrs
 
     def len2(s):
@@ -1585,7 +1600,7 @@ def export2excel(dirname, filename, results2export, uname):
                 printStrs.append(printStr)
                 print(printStr)
 
-            if sys.platform[:3] == 'win':  # Open bomcheck.xlsx in Excel when on Windows platform
+            if sys.platform[:3] == 'win' and cfg['s']:  # Open bomcheck.xlsx in Excel when on Windows platform
                 try:
                     os.startfile(os.path.abspath(fn))
                 except:
