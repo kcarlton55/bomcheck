@@ -16,14 +16,11 @@
         <h1 id="top">Troubleshooting</h1>
 
         <ol>
-            <li><a href="#csv_ok">CSV OK?</a></li>
-            <li><a href="#csv_2_excel">CSV to Excel compare?</a></li>
-            <li><a href="#csv_crash">Using CSV causes program to crash</a></li>
             <li><a href="#multilevel">Multilevel BOMs</a></li>
             <li><a href="#swnotprocessed">SolidWorks BOM not processed</a></li>
             <li><a href="#swnotprocessed2">Assembly pn in Syteline, but SolidWorks BOM not processed.</a></li>
             <li><a href="#slnotprocessed">SyteLine BOM not processed</a></li>
-            <li><a href="#iqdu">Empty i q d u fields</a></li>
+            <li><a href="#iqdu">Empty I Q D U fields</a></li>
             <li><a href="#length">SW's lengths not converted to FT</a></li>
             <li><a href="#crash_cols">Program crashed due to missing columns</a></li>
             <li><a href="#config_txt">Unable to open config.txt file.</a></li>
@@ -31,21 +28,7 @@
             <li><a href="#conflict">Column name conflicts</a></li>
         </ol>
 
-        <p id="csv_ok"><b>1. CSV OK?</b> SyteLine sometimes default's to exporting to a CSV (.csv)
-            format instead of to an Excel (.xlsx) format. Can a CSV file be used? Yes,
-            however the Excel format is more reliable. Use that.</p>
-
-        <p id="csv_2_excel"><b>2. CSV to Excel compare?</b> Can an Excel BOM (.xlsx) be compared to a CSV (.csv) BOM?
-            Yes</p>
-
-        <p id="csv_crash"><b>3. Using CSV causes program to crash.</b> The program crashed when when I
-            tried using a CSV format. What can I do? As stated esrlier, use the .xlsx format
-            instead. Character encoding in CSV files can differ depending on the program that
-            generated the CSV file... even if the extension is <i>.csv</i>. The character encoding
-            cannot be seen by human eyes by opening up and looking at the CSV file.
-            Bomcheck sometimes can't correctly interpret the various forms of encoding.</p>
-
-        <p id="multilevel"><b>4. Multilevel BOMs. </b> SolidWorks BOMs are sometimes multilevel (subassemblies
+        <p id="multilevel"><b>1. Multilevel BOMs. </b> SolidWorks BOMs are sometimes multilevel (subassemblies
             within the main assembly), and the BOMs from SyteLine can be also. Can
             bomcheck handle these? Yes. In fact, a subassembly in a subassembly in a
             subassembly, and so forth, can exist. Bomcheck handles any level of
@@ -58,46 +41,45 @@
             like 0, 1, 2, 2.1, 2.2, 2.2.1, 2.2.2, etc. These formats are standard for
             SolidWorks and Syteline.</p>
 
-        <p id="swnotprocessed"><b>5. SolidWorks BOM not processed.</b> A SolidWorks BOM I submitted wasn't
-            compared to a SyteLine BOM. The only thing that happend is that the BOM was
-            transformed to look like a BOM from SyteLine. What happened? Answer: no
-            SyteLine BOM was found to compare it to the SolidWorks BOM.</p>
+        <p id="swnotprocessed"><b>2. SolidWorks BOM not processed.</b> A SolidWorks BOM I 
+            submitted wasn't compared to a SyteLine BOM. The only thing that happend is 
+            that the BOM was transformed to look like a BOM from SyteLine. What happened?
+            Answer: no SyteLine BOM was found to compare it to the SolidWorks BOM.</p>
 
-        <p id="swnotprocessed2"><b>6. Assembly pn in Syteline, but SolidWorks BOM not processed.</b> I
-            have a particular assembly/subassembly BOM entered into
+        <p id="swnotprocessed2"><b>3. Assembly pn in Syteline, but SolidWorks BOM not
+            processed.</b> I have a particular assembly/subassembly BOM entered into
             SyteLine but the bomcheck program reports that that it cannot find the BOM.
             Why? For that particular assembly, the parts of that assembly have not
             been entered yet into SyteLine.</p>
 
-        <p id="slnotprocessed"><b>7. SyteLine BOM not processed.</b> A SyteLine BOM was submitted but
-            nothing happened to indicate that the BOM had even been looked at. What
-            happened? Answer: bomcheck ignores all BOMs from SyteLine for which it can't
-            find a SolidWorks BOM to compare it to.</p>
+        <p id="slnotprocessed"><b>4. SyteLine BOM not processed.</b> A SyteLine BOM was 
+            submitted but nothing happened to indicate that the BOM had even been looked
+            at. What happened? Answer: bomcheck ignores all BOMs from SyteLine for which
+            it can't find a SolidWorks BOM to compare it to.</p>
 
-        <p id="iqdu"><b>8. Empty i q d u fields.</b> The i, q, d, and u values that indicate
-            pass/fail results are shown empty (&nbsp; &nbsp; &nbsp; &nbsp;) for a particular
-            part number. Aren't dashes and/or Xs (---- or --X-, etc.) supposed to be shown?
-            Yes, there should be a dashes or Xs in the i, q, d, u fields. These fields
-            being empty indicates that a part number is repeated in the SyteLine BOM.
-            Duplicate part numbers should not be in a SyteLine BOM.</p>
+        <p id="iqdu"><b>5. Empty I Q D U fields.</b> The I, Q, D, and U values that indicate
+            pass/fail results are shown empty (&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;) for
+            a particular part number.&nbsp; Dashes and Xs (‒‒‒‒ or ‒‒X‒, etc.) should be shown.
+            If this is not the case, then it indicates that a part number is repeated in
+            the SyteLine BOM.  Duplicate part numbers should not be in a SyteLine BOM!</p>
 
-        <p id="length"><b>9. SW's lengths not converted to FT.</b> A part length in SolidWorks
+        <p id="length"><b>6. SW's lengths not converted to FT.</b> A part length in SolidWorks
             did not convert of feet in order to compare to a length in SyteLine. Why not?
             In the bom check you'll see that the unit of measure for length from SolidWorks
             is EA when it should be FT. This means that the length column is not shown on
             the SolidWorks BOM as it should be.</p>
 
-        <p id="crash_cols"><b>10. Crash... missing columns.</b> Bomcheck crashed complaining of
-            missing columns. What went wrong? Answer: several things could have happened.
-            A SyteLine BOM may have been mistakenly labeled as as SolidWorks BOM (had _sw.xlsx
-            extension). A SolidWorks BOM may have been labeled as a SyteLine BOM (had
-            a _sl.xlsx extension). The column names for a SolidWorks BOM may not be on
+        <p id="crash_cols"><b>7. Crash... missing columns.</b> Bomcheck crashed complaining
+            of missing columns. What went wrong? Answer: several things could have happened.
+            A SyteLine BOM may have been mistakenly labeled as as SolidWorks BOM (had 
+            _sw.xlsx extension). A SolidWorks BOM may have been labeled as a SyteLine BOM
+            (had a _sl.xlsx extension). The column names for a SolidWorks BOM may not be on
             the second row of the SW Excel sheet (Dekker's SW BOMs has the assembly
             part number on the the first row). The column names for a SyteLine BOM
             are not on the first row. In short, the arrangement of the BOM in the
             Excel sheet is not in it's normal arrangement.</p>
 
-        <p id="config_txt"><b>11. Unable to open config.txt (bomcheckgui only)</b> 
+        <p id="config_txt"><b>8. Unable to open config.txt (bomcheckgui only)</b> 
             The program reports that it cannot open up a file named config.txt. What is that
             about? Answer: Whenever a user makes a settings change (File > Settings), 
             bomcheckgui remembers those settings for future use by saving those settings in a
@@ -107,7 +89,7 @@
             (The bomcheckgui program automatically creates this file.) Perhaps user
             rights were somehow severed??? Contact the IT manager for help.</p>
 
-        <p id="accuracy"><b>12. What accuracy should lengths be?</b> If you are running
+        <p id="accuracy"><b>9. What accuracy should lengths be?</b> If you are running
             the bomcheckgui program, at <i>File > Settings</i> the decimal place accuracy
             is set for rounding bomcheck lengths (e.g. .83 ft).  An accuracy of 2 (for feet)
             is a good number. This means that if two places are shown, then the length is
@@ -116,7 +98,7 @@
             bomcheck will flag this as an error. Of course, a greater level of accuracy can be
             set.</p>
 
-        <p id="conflict"><b>13. Conflicting column names withing the same BOM.</b> 
+        <p id="conflict"><b>10. Conflicting column names withing the same BOM.</b> 
             I have a BOM from my ERP program that contains two different column names, either
             of which could contain part numbers of parts, for example Material and Item.  How
             does bomcheck resolve which column to get part numbers from?  Adjust the bomcheck.cfg

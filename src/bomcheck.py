@@ -7,7 +7,7 @@ File initial creation on Sun Nov 18 2018
 
 This program compares two Bills of Materials (BOMs). One BOM originating from
 a Computer Aided Design (CAD) program like SolidWorks (SW) and the other from
-an Enterprise Resource Planning (ERP) program like SyteLine (SL).  The 
+an Enterprise Resource Planning (ERP) program like SyteLine (SL).  The
 structure of BOMs (like column names... PART NO., NUMBERO DE PARTE, etc.) are
 unique to a particular company.  A configuration file, named bomcheck.cfg, can
 be altered to help adapt the program to a particular company's needs.
@@ -30,7 +30,7 @@ import re
 from datetime import datetime
 import fnmatch
 import ast
-from configparser import ConfigParser
+from configparser import RawConfigParser
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', None)  # was pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
@@ -45,18 +45,18 @@ def get_version():
 def getcfg():
     ''' Return the value of "cfg".  cfg shows configuration
     variables and values thereof that are applied to
-    bomcheck when it is run. For example, the variable 
+    bomcheck when it is run. For example, the variable
     "accuracy" is the no. of decimal places that length
     values are rounded to.  (See the function "setcfg")
-    
+
     Returns
     =======
-    
+
     out: dictionary
-    
+
     Examples
     ========
-    
+
     getcfg()
     '''
     return cfg
@@ -65,23 +65,23 @@ def getcfg():
 def setcfg(**kwargs):
     ''' Set configuration variables that effect how bomcheck
     operates.  For example, set the unit of measure that
-    length values are calculated to.  Run the function 
-    getcfg() to see the names of variables that can be set.  
+    length values are calculated to.  Run the function
+    getcfg() to see the names of variables that can be set.
     Open the file bomcheck.cfg to see an explanation of the
-    variables.  
-    
-    The object type that a variable holds (list, string, 
+    variables.
+
+    The object type that a variable holds (list, string,
     etc.) should be like that seen via the getcfg()
     function, else bomcheck could crash (correcting is just
-    a matter rerunning setcfg with the correct values).  
-    
-    Values can be set to something more permanent by 
+    a matter rerunning setcfg with the correct values).
+
+    Values can be set to something more permanent by
     altering the file bomcheck.cfg.
-    
+
     Examples
     ========
-    
-    setcfg(drop=["3*-025", "3*-008"], accuracy=4) 
+
+    setcfg(drop=["3*-025", "3*-008"], accuracy=4)
     '''
     global cfg
     if not kwargs:
@@ -91,15 +91,15 @@ def setcfg(**kwargs):
     else:
         cfg.update(kwargs)
 
-              
+
 def get_bomcheckcfg(pathname):
     ''' Get configuration settings from the file bomcheck.cfg.
-    
+
     Parameters
     ==========
     pathname: str
         pathname of the config file, e.g. r"C:\\folder\\bomcheck.cfg"
-        
+
     Returns
     =======
     out: dict
@@ -116,7 +116,7 @@ def get_bomcheckcfg(pathname):
                     '2.  MS Windows running bomcheck:  r"C:\\folder\\bomcheck.cfg"\n'
                     '                             or:  "C:\\\\folder\\\\bomcheck.cfg"\n'
                     '                             or:  "C:/folder/bomcheck.cfg"\n'
-                    '3.  Linux/Mac  running bomcheckgui: /home/ken/bomcheck.cfg\n' 
+                    '3.  Linux/Mac  running bomcheckgui: /home/ken/bomcheck.cfg\n'
                     '4.  Linux/Mac  running bomcheck:   "/home/ken/bomcheck.cfg"\n\n'
                     '(The \\ character is a special "escape" character for the \n'
                     'programming language used for bomcheck.  Using the r character \n'
@@ -125,7 +125,8 @@ def get_bomcheckcfg(pathname):
         printStrs.append(printStr)
         print(printStr)
         return dic
-    config = ConfigParser(delimiters=('='))
+    config = RawConfigParser(delimiters=('='))
+    config.optionxform = lambda option: option  # keys will not be converted to lower case.  ref: https://docs.python.org/3/library/configparser.html
     config.read(fn)
     for i in config['integers']:
         dic[i] = int(config['integers'][i])
@@ -134,9 +135,9 @@ def get_bomcheckcfg(pathname):
         dic[l] = [i.strip() for i in lst]  # strip leading and trailing spaces from str
     for s in config['single_values']:
         dic[s] = config['single_values'][s]
-    return dic        
-        
-        
+    return dic
+
+
 def set_globals():
     ''' Create a global variables including the primary one named cfg.
     cfg is a dictionary containing settings used by this program.
@@ -151,7 +152,7 @@ def set_globals():
 
     # default settings for bomcheck.  See bomcheck.cfg are explanations about variables
     cfg = {'accuracy': 2,   'ignore': ['3086-*'], 'drop': ['3*-025'],  'exceptions': [],
-           'from_um': 'IN', 'to_um': 'FT', 'toL_um': 'GAL', 'toA_um': 'SQF',   
+           'from_um': 'IN', 'to_um': 'FT', 'toL_um': 'GAL', 'toA_um': 'SQF',
            'part_num':  ["Material", "PARTNUMBER", "PART NUMBER", "Part Number", "Item"],
            'qty':       ["QTY", "QTY.", "Qty", "Quantity", "Qty Per"],
            'descrip':   ["DESCRIPTION", "Material Description", "Description"],
@@ -160,22 +161,21 @@ def set_globals():
            'itm_sw':    ["ITEM NO."],
            'length_sw': ["LENGTH", "Length", "L", "SIZE", "AMT", "AMOUNT", "MEAS", "COST"],
            'obs': ['Obsolete Date', 'Obsolete'],
-           # Column names in the results:
-           'i':'i', 'q':'q', 'd':'d', 'u':'u', 
-           'assy':'assy', 'Item':'Item', 'Q':'Q', 
+           # Column names shown in the results (for a given key, one value only):
+           'assy':'assy', 'Item':'Item', 'iqdu':'IQDU', 'Q':'Q',
            'Description':'Description', 'U':'U',
            # When a SW BOM is converted to a BOM looking like that of SL, these columns and
            # values thereof are added to the SW BOM, thereby making it look like a SL BOM.
            'Op':'Op', 'OpValue':'10', 'WC':'WC',  'WCvalue':'PICK'
           }
-    
+
 
 def getresults(i=1):
     ''' If i = 0, return a dataframe containing SW's BOMs for which no matching
     SL BOMs were found.  If i = 1, return a dataframe containing compared
     SW/SL BOMs. If i = 2, return a tuple of two items:
     (getresults(0), getresults(1))'''
-    # This function gets results from the global variable "results".
+    # This function gets results from the global variable named "results".
     # results is created within the function "bomcheck".
     r = []
     r.append(None) if not results[0] else r.append(results[0][0][1])
@@ -222,9 +222,9 @@ def main():
                         'corresponding SolidWorks BOMs found are ignored.')
     parser.add_argument('-b', '--sheets', action='store_true', default=False,
                         help='Break up results across multiple sheets in the ' +
-                        'Excel file that is output.') 
+                        'Excel file that is output.')
     parser.add_argument('-c', '--cfgpathname', help='pathname where configuration file ' +
-                        'resides (e.g. r"C\\folder\\bomcheck.cfg"', default='') , 
+                        'resides (e.g. r"C\\folder\\bomcheck.cfg"', default='') ,
     parser.add_argument('-d', '--drop_bool', action='store_true', default=False,
                         help='Ignore 3*-025 pns, i.e. do not use in the bom check')
     parser.add_argument('-f', '--followlinks', action='store_false', default=False,
@@ -246,24 +246,24 @@ def main():
         parser.print_help(sys.stderr)
         sys.exit(1)
     args = parser.parse_args()
-    
+
     bomcheck(args.filename, vars(args))
 
 
 def bomcheck(fn, dic={}, **kwargs):
     '''
     This is the primary function of the bomcheck program
-    and acts as a hub for other functions within the 
+    and acts as a hub for other functions within the
     bomcheck module.
 
-    This function will handle single and multilevel BOMs 
-    that are derived from SW and/or SL.  For multilevel 
-    BOMs, subassemblies will automatically be extracted 
+    This function will handle single and multilevel BOMs
+    that are derived from SW and/or SL.  For multilevel
+    BOMs, subassemblies will automatically be extracted
     from the top level BOM.
 
-    Any BOMs from SW files found for which no matching SL 
+    Any BOMs from SW files found for which no matching SL
     file is found will be converted into a SyteLine like
-    BOM format.  If a SL BOM is present for which no 
+    BOM format.  If a SL BOM is present for which no
     corresponding SW BOM is found, the SW file is ignored;
     that is, no output is shown for this SW file.
 
@@ -271,94 +271,89 @@ def bomcheck(fn, dic={}, **kwargs):
     =========
 
     fn: string or list
-        *  Files constaining BOMs from SolidWorks and/or 
-           SyteLine.  Files from Solidworks must end with 
+        *  Files constaining BOMs from SolidWorks and/or
+           SyteLine.  Files from Solidworks must end with
            _sw.xlsx or _sw.csv.  Files from SyteLine must
            end with _sl.xlsx or _sl.csv.
-        *  An asterisk, *, matches any characters.  E.g. 
-           "6890-083544-*" will match 6890-083544-1_sw.xlsx, 
-           6890-083544-2_sw.xlsx, etc.        
+        *  An asterisk, *, matches any characters.  E.g.
+           "6890-083544-*" will match 6890-083544-1_sw.xlsx,
+           6890-083544-2_sw.xlsx, etc.
         *  fn can be a directory name, in which case files
            in that directory, and subdirectories thereof,
            will be analized.
-        *  If a list is given, then it is a list of 
+        *  If a list is given, then it is a list of
            filenames and/or directories.
-        *  PNs shown in filenames must correspond, e.g. 
-           099238_sw.xlsx and 099238_sl.xlsx.  Exception: 
+        *  PNs shown in filenames must correspond, e.g.
+           099238_sw.xlsx and 099238_sl.xlsx.  Exception:
            BOM from SyteLine is a multilevel BOM.
 
     dic: dictionary
         default: {} (i.e. an empty dictionary).  This
         variable is used ONLY if the function "main" is used
-        to run the bomcheck program; that is "main" itself 
-        puts it in. This happens when the bomcheck program 
-        is run from the command line.  If so, the values 
-        from "main" for the keys "drop", "sheets", 
-        "from_um", "to_um", etc. will have been put into 
+        to run the bomcheck program; that is "main" itself
+        puts it in. This happens when the bomcheck program
+        is run from the command line.  If so, the values
+        from "main" for the keys "drop", "sheets",
+        "from_um", "to_um", etc. will have been put into
         dic.  DO NOT PUT IN VALUES FOR DIC MANUALLY!
 
     kwargs: dictionary
         Here is an example of entering arguments into the
         bomcheck function:
-        
+
         bomcheck("6890*", c=r"C:\bomcheck.cfg", d=1, x=1)
-        
+
         The program will gather the c=r"C:\bomchk.cfg", d=1,
-        and x=1, and put them into what's called a 
+        and x=1, and put them into what's called a
         dictionary, i.e. {c:"C:\bomchk.cfg", d:1, x=1}; and
         then assign that dictionary to the kwargs argument.
-        c, d, and x are called "keys".  "C:\bomchk.cfg", 1, 
+        c, d, and x are called "keys".  "C:\bomchk.cfg", 1,
         and 1 are values for those keys.  If no keys and
         their vaules are entered, bomcheck will use its own
-        defaults.  The key/value pairs must go after the 
+        defaults.  The key/value pairs must go after the
         fn argument, i.e. after "6899*" in this case.
-    
+
         The keys in kwargs that will be recognized are
         listed below.  Any other keys will be ignored.
 
         b:  bool
-            If True (or = 1), break up results across 
+            If True (or = 1), break up results across
             multiple sheets within the Excel bomcheck.xlsx
             file.  Default: False
-            
-        c:  str 
-            Pathname of the file bomcheck.cfg. For MS 
+
+        c:  str
+            Pathname of the file bomcheck.cfg. For MS
             Windows, the format should look like this:
-            r"C:\\folder\\bomcheck.cfg".  The leadin r 
-            character means 'raw'.  It is needed to 
-            correctly read a file path in windows.  For a 
+            r"C:\\folder\\bomcheck.cfg".  The leadin r
+            character means 'raw'.  It is needed to
+            correctly read a file path in windows.  For a
             unix-like operating system, something like this:
-            "/home/ken/docs/bomcheck.cfg" 
-            
+            "/home/ken/docs/bomcheck.cfg"
+
         d: bool
             If True (or = 1), make use of the list named
             "drop".  The list "drop" is either defined
             internally within the bomcheck program itself,
             or overridden by the "drop" list defined in the
             bomcheck.cfg file.  Default: False
-            
+
         f: bool
             If True (or = 1), follow symbolic links when
             searching for files to process.  (Doesn't work
             when using MS Windows.)  Default: False
-            
-        l: bool
-            If True (or = 1), export a list of errors, if 
-            any, that occured during the bomcheck.  
-            Default: False
-            
+
         m: int
-            Max no. of rows to display when results are 
+            Max no. of rows to display when results are
             output.  (This does not effect results that are
-            exported an Excel file.)  Default: None (That 
-            is, all rows are output, i.e. nothing is 
+            exported an Excel file.)  Default: None (That
+            is, all rows are output, i.e. nothing is
             truncated.)
-            
+
         o: str
             Output file name.  If x=True, that is if
             an Excel file is to be exported, then give
             it this name.  Default: 'bomcheck'
-            
+
         s: bool
             startexcel.  Automatically open the Excel file
             that bomcheck creates.  The Excel arg, x, must
@@ -366,9 +361,9 @@ def bomcheck(fn, dic={}, **kwargs):
             your system.
 
         u: str
-            Username.  This will be fed to the export2exel 
+            Username.  This will be fed to the export2exel
             function so that a username will be placed
-            into  the footer of the bomcheck.xlsx file.  
+            into  the footer of the bomcheck.xlsx file.
             Default: 'unknown'
 
         x: bool
@@ -378,73 +373,65 @@ def bomcheck(fn, dic={}, **kwargs):
     Returns
     =======
 
-    out: list or tuple
-
-        If argument l is set to True:
-            return a list of strings.  Each string describes 
-            an error that occurred during the bomcheck.  If
-            no errors occurred, return [], i.e. an empty 
-            string. (bomcheckgui automatically sets 
-            l = True).
-        Else:
-            Return a tuple of two items that contains 
-            bomcheck results.  Each of the two items of the 
-            tuple is a Pandas dataframe object.
-            *  The first dataframe shows SolidWorks BOMs for
-               which no SyteLine BOMs were found to compare
-               them to.  
-            *  The second dataframe is SW to SL BOM 
-               comparisons.
+    out: tuple
+        Return a tuple containing three items.  Items are:
+            0: SolidWorks BOMs with no matching SyteLine BOM
+               found.
+            1: SolidWorks vs. SyteLine BOM comparisons.
+            2: List of errors that occured during bomchecks'
+               execution.
+        For items 0 and 1, either "None" is returned or a
+        pandas dataframe object.  For item 2, either [] is
+        returned or a list of strings.
 
     Examples
     ========
 
     Evaluate files names starting with 6890 (a forward
     slash, /, is normally used in a file path in a Linux OS.):
-    
-        >>> bomcheck("folder1/6890*", d=True, u="John Doe")  
+
+        >>> bomcheck("folder1/6890*", d=True, u="John Doe")
 
     Evaluate all files in 'folder1' and in subfolders thereof:
-    
+
         >>> bomcheck("folder1")
 
     Same as above, but evaluate files only one level deep:
-    
+
         >>> bomcheck("folder1/*")
-        
+
     Evaluate files in a couple of locations:
 
         >>> bomcheck(["folder1/*", "folder2/*"], d=True)
-    
-    The \\ character in a Window's directory path can 
+
+    The \\ character in a Window's directory path can
     cause problems.  See this site for some clarity:
     https://pro.arcgis.com/en/pro-app/2.8/arcpy/get-started/setting-paths-to-data.htm
-    
-        >>> bomcheck("C:\\myprojects\\folder1", c="C:\\mycfgpath\\bomcheck.cfg") 
+
+        >>> bomcheck("C:\\myprojects\\folder1", c="C:\\mycfgpath\\bomcheck.cfg")
 
     '''
     global printStrs, cfg, results
     printStrs = []
     results = [None, None]
-    
+
     c = dic.get('cfgpathname')    # if from the command line, e.g. bomcheck or python bomcheck.py
     if c: cfg.update(get_bomcheckcfg(c))
     c = kwargs.get('c')           # if from an arg of the bomcheck() function.
     if c: cfg.update(get_bomcheckcfg(c))
-    
+
     # Set settings
     b = (dic.get('sheets') if dic.get('sheets') else kwargs.get('b', False))
     cfg['drop_bool'] = (dic.get('drop_bool') if dic.get('drop_bool')
                         else kwargs.get('d', False))
     f = kwargs.get('f', False)
-    l = kwargs.get('l', False) 
     p = dic.get('pause', False)
     u = kwargs.get('u', 'unknown')
     m = kwargs.get('m', None)
     outputFileName = kwargs.get('o', 'bomcheck')
     x = (dic.get('excel') if dic.get('excel') else kwargs.get('x', False))
     cfg['s'] = (dic.get('startexcel') if dic.get('startexcel') else kwargs.get('s', False))
-    
+
     # If dbdic is in kwargs, it comes from bomcheckgui.
     # Variables therefrom take precedence.
     if 'dbdic' in kwargs:
@@ -460,20 +447,19 @@ def bomcheck(fn, dic={}, **kwargs):
         if uexceptions:
             cfg['exceptions'] = uexceptions.split()
         outputFileName = dbdic.get('file2save2', 'bomcheck')
-        cfg['overwrite'] = dbdic.get('overwrite', False)
+        cfg['overwrite'] = dbdic.get('overwrite', True)
         cfg['accuracy'] = dbdic.get('accuracy', 2)
         cfg['from_um'] = dbdic.get('from_um', 'in')
         cfg['to_um'] = dbdic.get('to_um', 'FT')
         u = dbdic.get('author', 'unknown')
     else:
         cfg['overwrite'] = False
-        
+
     if isinstance(fn, str) and fn.startswith('[') and fn.endswith(']'):
-        # fn = eval(fn)  # change a string to a list
         fn = ast.literal_eval(fn)  # change a string to a list
     elif isinstance(fn, str):
         fn = [fn]
-        
+
     pd.set_option('display.max_rows', m)
 
     fn = get_fnames(fn, followlinks=f)  # get filenames with any extension.
@@ -491,13 +477,7 @@ def bomcheck(fn, dic={}, **kwargs):
 
     title_dfmerged = []            # Create a list of tuples: [(title, mergedbom)... ]
     for k, v in merged_sw2sl.items():
-        title_dfmerged.append((k, v))
-
-    #if title_dfsw:
-    #    printStr = '\nNo matching SyteLine BOMs found for these SolidWorks files:\n'
-    #    printStr += '\n'.join(list(map(lambda x: '    ' + x[0], title_dfsw))) + '\n'
-    #    printStrs.append(printStr)
-    #    print(printStr)
+        title_dfmerged.append((k, v))  # e.g. {assynum1:bomdf1, ... assynumn:bomdfn}
 
     if b == False:                 # concat_boms is a bomcheck function
         title_dfsw, title_dfmerged = concat_boms(title_dfsw, title_dfmerged)
@@ -524,14 +504,11 @@ def bomcheck(fn, dic={}, **kwargs):
             input("Press enter to exit")
 
     if title_dfsw or title_dfmerged:
-        print('calculation done') 
+        print('calculation done')
     else:
         print('program produced no results')
- 
-    if l:
-        return printStrs
-    else:
-        return getresults(2)
+
+    return getresults(0), getresults(1), printStrs
 
 
 def get_fnames(fn, followlinks=False):
@@ -560,8 +537,7 @@ def get_fnames(fn, followlinks=False):
         filenames can have any type of extension.
     '''
     if isinstance(fn, str) and fn.startswith('[') and fn.endswith(']'):
-            #fn = eval(fn)  # if fn a string like "['fname1', 'fname2', ...]", convert to a list
-            fn = ast.literal_eval(fn)  # if fn a string like "['fname1', 'fname2', ...]", convert to a list
+        fn = ast.literal_eval(fn)  # if fn a string like "['fname1', 'fname2', ...]", convert to a list
     elif isinstance(fn, str):
         fn = [fn]   # fn a string like "fname1", convert to a list like [fname1]
 
@@ -605,7 +581,7 @@ def make_csv_file_stable(filename, sep='$'):
         line are changed to dollar signs except for any commas in the
         DESCRIPTION field.
     '''
-    with open(filename, encoding="ISO-8859-1") as f:
+    with open(filename, encoding='utf_16') as f:  #9/20/22. was ISO-8895-1, but caused errors.  Try utf_16
         data1 = f.readlines()
     for d in cfg['descrip']:
         if d in data1[0]:
@@ -618,7 +594,7 @@ def make_csv_file_stable(filename, sep='$'):
     # This is the no. of commas that should be in each row.
     n1 = data1[r].count(',')
     n2 = data1[r].upper().find(desc)  # locaton of the word DESCRIPTION within that row.
-    n3 = data1[r][:n2].count(',')  # number of commas before the word DESCRIPTION   
+    n3 = data1[r][:n2].count(',')  # number of commas before the word DESCRIPTION
     data2 = list(map(lambda x: x.replace(',', '$') , data1)) # replace ALL commas with $
     data = []
     for row in data2:
@@ -633,20 +609,20 @@ def make_csv_file_stable(filename, sep='$'):
             data.append(row)
     return data
 
-    
+
 def clean(s):
     ''' Remove end of line characters, \\n, from a string.
-    
+
     Parameters
     ==========
     s: str | other
         The string from which any \\n characters are to be removed.  If s
         is not a string, such as an int or float, it is ignored.
-        
+
     Returns
     =======
     out: str | other
-         If s is a string, and \\n, or multiples of, are in s, then s is 
+         If s is a string, and \\n, or multiples of, are in s, then s is
          returned less the \\n charaters.  Otherwise return the original
          value of s no matter what type of object it is.
     '''
@@ -655,14 +631,14 @@ def clean(s):
     else:
         return s
 
-    
+
 def gatherBOMs_from_fnames(filename):
     ''' Gather all SolidWorks and SyteLine BOMs derived from "filename".
     "filename" can be a string containing wildcards, e.g. 6890-085555-*, which
     allows the capture of multiple files; or "filename" can be a list of such
     strings.  These files (BOMs) will be converted to Pandas DataFrame objects.
 
-    Only files prefixed with _sw.xlsx, _sw.csv, _sl.xlsx, or _sl.csv will be
+    Only files suffixed with _sw.xlsx, _sw.csv, _sl.xlsx, or _sl.csv will be
     chosen; others are discarded.  These files will then be converted into two
     python dictionaries.  One dictionary will contain SolidWorks BOMs only, and
     the other will contain only SyteLine BOMs.
@@ -745,7 +721,7 @@ def gatherBOMs_from_fnames(filename):
                 swdfsdic.update(deconstructMultilevelBOM(df, 'sw', 'TOPLEVEL'))
             elif not test_for_missing_columns('sw', df, k):
                 swdfsdic.update(deconstructMultilevelBOM(df, 'sw', k))
-        except ZeroDivisionError as e:
+        except ZeroDivisionError:
             printStr =  ('\nError processing file: ' + v + '\nIt has been excluded from the BOM check.\n')
             printStrs.append(printStr)
             print(printStr)
@@ -756,7 +732,6 @@ def gatherBOMs_from_fnames(filename):
             if file_extension.lower() == '.csv' or file_extension.lower() == '.txt':
                 try:
                     df = pd.read_csv(v, na_values=[' '], engine='python',
-                                     #skiprows=cfg['skiprows_sl'],
                                      encoding='utf-16', sep='\t')
                 except UnicodeError:
                     printStr = ("\nError 204.\n\n."
@@ -769,14 +744,18 @@ def gatherBOMs_from_fnames(filename):
                     printStrs.append(printStr)
                     print(printStr)
                     sys.exit(1)
-            elif file_extension.lower() == '.xlsx' or file_extension.lower == '.xls':
-                df = pd.read_excel(v, na_values=[' '])  #, skiprows=cfg['skiprows_sl'])
+
+            elif file_extension.lower() == '.xlsx':
+                df = pd.read_excel(v, na_values=[' '])
+            elif file_extension.lower() == '.xls':
+                df = pd.read_excel(v, engine='xlrd', na_values=[' '])
 
             if (not (test_for_missing_columns('sl', df, k)) and
                     col_name(df, cfg['level_sl'])):
                 sldfsdic.update(deconstructMultilevelBOM(df, 'sl', 'TOPLEVEL'))
             elif not test_for_missing_columns('sl', df, k):
                 sldfsdic.update(deconstructMultilevelBOM(df, 'sl', k))
+
 
         except:
             printStr = ('\nError 201.\n\n' + ' processing file: ' + v +
@@ -827,6 +806,7 @@ def test_for_missing_columns(bomtype, df, pn, printerror=True):
         required_columns = [cfg['qty'], cfg['descrip'],
                             cfg['part_num'], cfg['um_sl']]
 
+
     missing = []
     for r in required_columns:
         if isinstance(r, str) and r not in df.columns:
@@ -835,18 +815,20 @@ def test_for_missing_columns(bomtype, df, pn, printerror=True):
             missing.append(' or '.join(test_alternative_column_names(r, df.columns)))
     if missing and bomtype=='sw' and printerror:
         printStr = ('\nEssential BOM columns missing.  SolidWorks requires a BOM header\n' +
-              'to be in place.  This BOM will not be processed:\n\n' +
+              'to be in place.  This BOM will not be processed:\n' +
               '    missing: ' + ' ,'.join(missing) +  '\n' +
-              '    missing in: ' + pn + '\n')
-        printStrs.append(printStr)
-        print(printStr)
+              '    missing in: ' + pn + '_sw\n')
+        if not printStr in printStrs:
+            printStrs.append(printStr)
+            print(printStr)
         return True
     elif missing and printerror:
         printStr = ('\nEssential BOM columns missing.  This BOM will not be processed:\n' +
-                    '    missing: ' + ' ,'.join(missing) +  '\n\n' +
-                    '    missing in: ' + pn + '\n')
-        printStrs.append(printStr)
-        print(printStr)
+                    '    missing: ' + ' ,'.join(missing) +  '\n' +
+                    '    missing in: ' + pn + '_sl\n')
+        if not printStr in printStrs:
+            printStrs.append(printStr)
+            print(printStr)
         return True
     elif missing:
         return True
@@ -887,11 +869,11 @@ def test_alternative_column_names(tpl, lst):
 def col_name(df, col):
     '''
     Find one common name from the list of column names derived from the
-    DataFrame, df, and the list of names from col.  For example, if 
-    list(df.columns) is [ITEM NO., QTY, LENGTH, DESCRIPTION, PART NUMBER]; and 
+    DataFrame, df, and the list of names from col.  For example, if
+    list(df.columns) is [ITEM NO., QTY, LENGTH, DESCRIPTION, PART NUMBER]; and
     col is [PARTNUMBER, PART NUMBER, Part Number, Item, Material], then return
     PART NUMBER because it is common to both lists.
-    
+
     Parameters
     ----------
     df: Pandas DataFrame or list
@@ -907,7 +889,7 @@ def col_name(df, col):
     -------
     out: string
         Name of column that is common to both df.columns and col
-    '''  
+    '''
     try:
         if isinstance(df, pd.DataFrame):
             s = set(list(df.columns))
@@ -915,31 +897,31 @@ def col_name(df, col):
             s = set(df)
         intersect = s.intersection(col)
         return list(intersect)[0]
-    except IndexError as e:            
+    except IndexError as e:
         return ""
-        
-        
+
+
 def row_w_DESCRIPTION(filedata):
     ''' Return the row no. of the row that contains the word DESRIPTION
     (or the equivalent of, i.e. DESCRIP, Description, etc.).  That is,
     determine the row that contains the column names.
-    
+
     Parameters
     ----------
     filedata: str
         A BOM file that has been read in as a string.
-        
+
     Returns
     -------
     out: int
-        0 if row one, or 1 if row two. (Only two rows searched.) 
+        0 if row one, or 1 if row two. (Only two rows searched.)
     '''
     for c in cfg['descrip']:
         if c in filedata[0]:
             return 0
         else:
             return 1
-            
+
 
 def deconstructMultilevelBOM(df, source, top='TOPLEVEL'):
     ''' If the BOM is a multilevel BOM, pull out the BOMs thereof; that is,
@@ -1013,7 +995,7 @@ def deconstructMultilevelBOM(df, source, top='TOPLEVEL'):
         df['__Level'] = df[__lvl].astype(float).astype(int)
     else:
         df['__Level'] = 0
-        
+
     # Take the the column named "__Level" and create a new column: "Level_pn".
     # Instead of the level at which a part exists within an assembly, like
     # "__Level" which contains integers like [0, 1, 2, 2, 1], "Level_pn" contains
@@ -1129,12 +1111,9 @@ def convert_sw_bom_to_sl_format(df):
     - Similar to above, parts such as pipe nipples often show up more that
       once on a BOM.  Remove the excess listings and add the quantities of
       the removed listings to the remaining listing.
-    - If global variable cfg['drop'] is set to True, off-the-shelf parts, which
-      are usually pipe fittings, are removed from the SolidWorks BOM.  (As a
-      general rule, off-the-shelf parts are not shown on SyteLine BOMs.)  The
-      list that  governs this rule is in a file named drop.py.  Other part nos.
-      may be added to this list as required.  (see the function set_globals
-      for more information)
+    - If global variable cfg['drop'] is set to True, then part no. (items)
+      listed in the variable cfg['drop'] will not be shown in the output
+      results.
     - Column titles are changed to match those of SyteLine and thus will allow
       merging to a SyteLine BOM.
 
@@ -1154,9 +1133,7 @@ def convert_sw_bom_to_sl_format(df):
 
     \u2009
     '''
-
     values = dict.fromkeys(cfg['part_num'], cfg['Item'])
-    #values.update(dict.fromkeys(cfg['length_sw'], 'LENGTH'))
     values.update(dict.fromkeys(cfg['descrip'], cfg['Description']))
     values.update(dict.fromkeys(cfg['qty'], cfg['Q']))
     df.rename(columns=values, inplace=True)
@@ -1179,6 +1156,7 @@ def convert_sw_bom_to_sl_format(df):
         value2 = value * q * factors * ignore_filter
         df[cfg['Q']] = q*(value2<.0001) + value2    # move lengths to the Qty column
     else:
+        df[cfg['Q']] = df[cfg['Q']].astype(float)  # If elements strings, 'sum' adds like '2' + '1' = '21'.  But want 2 + 1 = 3
         df[cfg['U']] = 'EA'  # if no length colunm exists then set all units of measure to EA
 
     df = df.reindex(['Op', 'WC', cfg['Item'], cfg['Q'], cfg['Description'], cfg['U']], axis=1)  # rename and/or remove columns
@@ -1193,13 +1171,14 @@ def convert_sw_bom_to_sl_format(df):
     df[cfg['Op']] = cfg['OpValue']   # Op is a standard column shown in a SL BOM, usually set to 10
     df.set_index(cfg['Op'], inplace=True)
 
+
     return df
 
 
 def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
-    '''This function takes in one SW BOM and one SL BOM and then merges them.
-    This merged BOM shows the BOM check allowing differences between the
-    SW and SL BOMs to be easily seen.
+    '''This function takes in one SW BOM and one SL BOM and merges them. The
+    newly created merged BOM allows for a side by side comparison of the SW/SL
+    BOMs so that differences between the two can be easily distinguished.
 
     A set of columns in the output are labeled i, q, d, and u.  Xs at a row in
     any of these columns indicate something didn't match up between the SW
@@ -1231,47 +1210,34 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
         printStrs.append(printStr)
         print(printStr)
         sys.exit()
-        
-    # If, e.g., Item & Material (both names of pn cols) found in table, get rid of
-    # the useless col.  First coinciding name from cfg['part_num'] will be used.
-    # Do same for cfg['descrip']
+
+    # In dfsl if, for example, Item & Material (both names of pn cols) found
+    # in table, get rid of the useless col.  First coinciding name from
+    # cfg['part_num'] will be used.  Do same for cfg['descrip']
     for x in [cfg['part_num'], cfg['descrip']]:
         lst = [c for c in x if c in dfsl.columns]
         if len(lst)>1:
             dfsl.drop(lst[1:], axis=1, inplace=True)
 
-    values = dict.fromkeys(cfg['part_num'], cfg['Item'])
-    values.update(dict.fromkeys(cfg['um_sl'], cfg['U']))
+    values = dict.fromkeys(cfg['part_num'], cfg['Item'])  # type(cfg['Item']) is a str
+    values.update(dict.fromkeys(cfg['um_sl'], cfg['U']))  # type(cfg['U']) also a str
     values.update(dict.fromkeys(cfg['descrip'], cfg['Description']))
     values.update(dict.fromkeys(cfg['qty'], cfg['Q']))
     values.update(dict.fromkeys(cfg['obs'], 'Obsolete'))
-    dfsl.rename(columns=values, inplace=True)
+    dfsl.rename(columns=values, inplace=True) # rename columns so proper comparison can be made
 
     if 'Obsolete' in dfsl.columns:  # Don't use any obsolete pns (even though shown in the SL BOM)
         filtr4 = dfsl['Obsolete'].notnull()
         dfsl.drop(dfsl[filtr4].index, inplace=True)    # https://stackoverflow.com/questions/13851535/how-to-delete-rows-from-a-pandas-dataframe-based-on-a-conditional-expression
 
-    # When pns are input into SyteLine, all the characters of pns should
-    # be upper case.  But on occasion people have mistakently used lower case.
-    # Correct this and report what pns have been in error.
-    x = dfsl[cfg['Item']].copy()
-    dfsl[cfg['Item']] = dfsl[cfg['Item']].str.upper()  # make characters upper case
-    x_bool =  x != dfsl[cfg['Item']]
-    x_lst = [i for i in list(x*x_bool) if i]
-    if x_lst:
-        printStr = ("\nLower case part nos. in SyteLine's BOM have been converted " +
-                    "to upper case for \nthis BOM check:\n")
-        printStrs.append(printStr)
-        print(printStr)
-        for y in x_lst:
-            printStr = '    ' + y + '  changed to  ' + y.upper() + '\n'
-            printStrs.append(printStr)
-            print(printStr)
+    if cfg['drop_bool']==True:
+       filtr3 = is_in(cfg['drop'], dfsl[cfg['Item']], cfg['exceptions'])
+       dfsl.drop(dfsl[filtr3].index, inplace=True)
 
     dfmerged = pd.merge(dfsw, dfsl, on=cfg['Item'], how='outer', suffixes=('_sw', '_sl') ,indicator=True)
     dfmerged[cfg['Q'] + '_sw'].fillna(0, inplace=True)
     dfmerged[cfg['U'] + '_sl'].fillna('', inplace=True)
-    
+
     ######################################################################################
     # If U/M in SW isn't the same as that in SL, adjust SW's length values               #
     # so that lengths are per SL's U/M.  Then replace the U/M in the column              #
@@ -1279,7 +1245,7 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     from_um = dfmerged[cfg['U'] + '_sw'].str.lower().fillna('')                          #
     to_um = dfmerged[cfg['U'] + '_sl'].str.lower().fillna('')                            #
     factors = (from_um.map(factorpool) * 1/to_um.map(factorpool)).fillna(1)              #
-    dfmerged[cfg['Q'] + '_sw'] = dfmerged[cfg['Q'] + '_sw'].astype(float) * factors                    #
+    dfmerged[cfg['Q'] + '_sw'] = dfmerged[cfg['Q'] + '_sw'].astype(float) * factors      #
     dfmerged[cfg['Q'] + '_sw'] = round(dfmerged[cfg['Q'] + '_sw'], cfg['accuracy'])      #
     func = lambda x1, x2:   x1 if (x1 and x2) else x2                                    #
     dfmerged[cfg['U'] + '_sw'] = to_um.combine(from_um, func, fill_value='').str.upper() #
@@ -1289,21 +1255,22 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     filtrI = dfmerged['_merge'].str.contains('both')  # this filter determines if pn in both SW and SL
     maxdiff = .51 / (10**cfg['accuracy'])
     filtrQ = abs(dfmerged[cfg['Q'] + '_sw'].astype(float) - dfmerged[cfg['Q'] + '_sl']) < maxdiff  # If diff in qty greater than this value, show X
-    filtrM = dfmerged[cfg['Description'] + '_sw'].str.split() == dfmerged[cfg['Description'] + '_sl'].str.split()
+    filtrD = dfmerged[cfg['Description'] + '_sw'].str.upper().str.split() == dfmerged[cfg['Description'] + '_sl'].str.upper().str.split()
     filtrU = dfmerged[cfg['U'] + '_sw'].astype('str').str.upper().str.strip() == dfmerged[cfg['U'] + '_sl'].astype('str').str.upper().str.strip()
-    chkmark = '-'
-    err = 'X'
+    _pass = '\u2012' #   character name: figure dash
+    _fail = 'X'
 
-    dfmerged[cfg['i']] = filtrI.apply(lambda x: chkmark if x else err)     # X = Item not in SW or SL
-    dfmerged[cfg['q']] = filtrQ.apply(lambda x: chkmark if x else err)     # X = Qty differs btwn SW and SL
-    dfmerged[cfg['d']] = filtrM.apply(lambda x: chkmark if x else err)     # X = Mtl differs btwn SW & SL
-    dfmerged[cfg['u']] = filtrU.apply(lambda x: chkmark if x else err)     # X = U differs btwn SW & SL
-    dfmerged[cfg['i']] = ~dfmerged[cfg['Item']].duplicated(keep=False) * dfmerged[cfg['i']] # duplicate in SL? i-> blank
-    dfmerged[cfg['q']] = ~dfmerged[cfg['Item']].duplicated(keep=False) * dfmerged[cfg['q']] # duplicate in SL? q-> blank
-    dfmerged[cfg['d']] = ~dfmerged[cfg['Item']].duplicated(keep=False) * dfmerged[cfg['d']] # duplicate in SL? d-> blank
-    dfmerged[cfg['u']] = ~dfmerged[cfg['Item']].duplicated(keep=False) * dfmerged[cfg['u']] # duplicate in SL? u-> blank
+    i = filtrI.apply(lambda x: _pass if x else _fail)     # _fail = Item not in SW or SL
+    q = filtrQ.apply(lambda x: _pass if x else _fail)     # _fail = Qty differs btwn SW and SL
+    d = filtrD.apply(lambda x: _pass if x else _fail)     # _fail = Mtl differs btwn SW & SL
+    u = filtrU.apply(lambda x: _pass if x else _fail)     # _fail = U differs btwn SW & SL
+    i = ~dfmerged[cfg['Item']].duplicated(keep=False) * i # duplicate in SL? i-> blank
+    q = ~dfmerged[cfg['Item']].duplicated(keep=False) * q # duplicate in SL? q-> blank
+    d = ~dfmerged[cfg['Item']].duplicated(keep=False) * d # duplicate in SL? d-> blank
+    u = ~dfmerged[cfg['Item']].duplicated(keep=False) * u # duplicate in SL? u-> blank
+    dfmerged[cfg['iqdu']] = i + q + d + u
 
-    dfmerged = dfmerged[[cfg['Item'], cfg['i'], cfg['q'], cfg['d'], cfg['u'], (cfg['Q'] + '_sw'), (cfg['Q'] + '_sl'),
+    dfmerged = dfmerged[[cfg['Item'], cfg['iqdu'], (cfg['Q'] + '_sw'), (cfg['Q'] + '_sl'),
                          cfg['Description'] + '_sw', cfg['Description'] + '_sl', (cfg['U'] + '_sw'), (cfg['U'] + '_sl')]]
     dfmerged.fillna('', inplace=True)
     dfmerged.set_index(cfg['Item'], inplace=True)
@@ -1434,9 +1401,9 @@ def export2excel(dirname, filename, results2export, uname):
 
     results2export: list
         List of tuples.  The number of tuples in the list varies according to
-        the number of BOMs analyzed, and if bomcheck's b (sheets) option was
-        invoked or not.  Each tuple has two items.  The  first item of a tuple
-        is a string and is the name to be assigned to the tab of the Excel
+        the number of BOMs analyzed, and if bomcheck's "b" (i.e. sheets) option
+        was invoked or not.  Each tuple has two items.  The  first item of a
+        tuple is a string and is the name to be assigned to the tab of the Excel
         worksheet.  It is an assy no. if the b option has been invoked.  The
         second item is a BOM (a DataFrame object). The list of tuples consists of:
 
@@ -1466,7 +1433,7 @@ def export2excel(dirname, filename, results2export, uname):
 
      \u2009
     '''
-    
+
     global printStrs
 
     def len2(s):
@@ -1489,19 +1456,11 @@ def export2excel(dirname, filename, results2export, uname):
     def autosize_excel_columns_df(worksheet, df, offset=0):
         for idx, col in enumerate(df):
             x = 1 # add a little extra width to the Excel column
-            if df.columns[idx] in [cfg['i'], cfg['q'], cfg['d'], cfg['u']]:
-                x = 0
             series = df[col]
-            if df.columns[idx][0] == cfg['Q']:
-                max_len = max((
-                    series.astype(str).map(len2).max(),
-                    len(str(series.name))
-                )) + x
-            else:
-                max_len = max((
-                    series.astype(str).map(len).max(),
-                    len(str(series.name))
-                )) + x
+            max_len = max((
+                series.astype(str).map(len).max(),
+                len(str(series.name))
+            )) + x
             worksheet.set_column(idx+offset, idx+offset, max_len)
 
     def definefn(dirname, filename, i=0):
@@ -1629,16 +1588,16 @@ factorpool = {'in':1/12,     '"':1/12, 'inch':1/12,   'inches':1/12, chr(8221):1
               'cm':10/(25.4*12),       'centimeter':10/(25.4*12),
               'm':1000/(25.4*12),      'meter':1000/(25.4*12), 'mtr':1000/(25.4*12),
               'sqin':1/144,            'sqi':1/144,            'in^2':1/144,
-              'sqft':1,                'sqf':1,                'ft^2':1,  
+              'sqft':1,                'sqf':1,                'ft^2':1,
               'sqyd':3,                'sqy':3,                'yd^2':3,
-              'sqmm':1/92903.04,       'mm^2':1/92903.04,      
-              'sqcm':1/929.0304,       'cm^2':1/929.0304,      
+              'sqmm':1/92903.04,       'mm^2':1/92903.04,
+              'sqcm':1/929.0304,       'cm^2':1/929.0304,
               'sqm':1/(.09290304),     'm^2':1/(.09290304),
               'pint':1/8,  'pt':1/8,   'qt':1/4,               'quart':1/4,
               'gal':1.0,   'g':1.0,    'gallon':1.0,
               '$':1.0,     'usd':1.0,  'dols.':1.0,  'dols':1.0,  'dol.':1.0,  'dol':1.0,
               'ltr':0.2641720524,      'liter':0.2641720524,   'l':0.2641720524}
-areaUMs = set(['sqi', 'sqin', 'in^2', 'sqf', 'sqft', 'ft^2' 'sqyd', 'sqy', 'yd^2', 
+areaUMs = set(['sqi', 'sqin', 'in^2', 'sqf', 'sqft', 'ft^2' 'sqyd', 'sqy', 'yd^2',
                'sqmm', 'mm^2', 'sqcm', 'cm^2', 'sqm', 'm^2'])
 liquidUMs = set(['pint',  'pt', 'quart', 'qt', 'gallon', 'g', 'gal' 'ltr', 'liter', 'l'])
 
