@@ -1137,8 +1137,10 @@ def convert_sw_bom_to_sl_format(df):
     values.update(dict.fromkeys(cfg['descrip'], cfg['Description']))
     values.update(dict.fromkeys(cfg['qty'], cfg['Q']))
     df.rename(columns=values, inplace=True)
+    df[cfg['Item']] = df[cfg['Item']].str.upper()
 
     __len = col_name(df, cfg['length_sw'])
+
     if __len:  # convert lengths to other unit of measure, i.e. to_um
         ser = df[__len].apply(str)
         df_extract = ser.str.extract(r'(\W*)([\d.]*)\s*([\w\^]*)') # e.g. '34.4 ft^2' > '' '34.4' 'ft^2', or '$34.4' > '$' '34.4' ''
@@ -1155,6 +1157,7 @@ def convert_sw_bom_to_sl_format(df):
         q = q.replace('', '0').astype(float)  # if any empty strings, set to '0'
         value2 = value * q * factors * ignore_filter
         df[cfg['Q']] = q*(value2<.0001) + value2    # move lengths to the Qty column
+
     else:
         df[cfg['Q']] = df[cfg['Q']].astype(float)  # If elements strings, 'sum' adds like '2' + '1' = '21'.  But want 2 + 1 = 3
         df[cfg['U']] = 'EA'  # if no length colunm exists then set all units of measure to EA
@@ -1170,7 +1173,6 @@ def convert_sw_bom_to_sl_format(df):
     df[cfg['WC']] = cfg['WCvalue']    # WC is a standard column shown in a SL BOM.
     df[cfg['Op']] = cfg['OpValue']   # Op is a standard column shown in a SL BOM, usually set to 10
     df.set_index(cfg['Op'], inplace=True)
-
 
     return df
 
@@ -1225,6 +1227,7 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     values.update(dict.fromkeys(cfg['qty'], cfg['Q']))
     values.update(dict.fromkeys(cfg['obs'], 'Obsolete'))
     dfsl.rename(columns=values, inplace=True) # rename columns so proper comparison can be made
+    dfsl[cfg['Item']] = dfsl[cfg['Item']].str.upper()
 
     if 'Obsolete' in dfsl.columns:  # Don't use any obsolete pns (even though shown in the SL BOM)
         filtr4 = dfsl['Obsolete'].notnull()
