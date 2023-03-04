@@ -704,19 +704,15 @@ def gatherBOMs_from_fnames(filename):
                 df.columns = [clean(c) for c in df.columns]
                 temp.close()
             elif file_extension.lower() == '.xlsx' or file_extension.lower() == '.xls':
-                df = pd.read_excel(v, na_values=[' '], skiprows=1).applymap(clean)
-                # following line added 9/1/22.  Fill NaN in descrip field with " ":
-                df[col_name(df, cfg['descrip'])].fillna('*** description empty ***', inplace=True)
-                df = df.astype(str)
-                df = df.replace('nan', 0)
-                df.columns = [clean(c) for c in df.columns]
-                if test_for_missing_columns('sw', df, '', printerror=False):
-                    df = pd.read_excel(v, na_values=[' ']).applymap(clean)
+                df = pd.read_excel(v, na_values=[' ']).applymap(clean)
+                if df.columns[1] == 'Unnamed: 1':
+                    df = pd.read_excel(v, na_values=[' '], skiprows=1).applymap(clean)
+                    # following line added 9/1/22.  Fill NaN in descrip field with " ":
+                    if col_name(df, cfg['descrip']):
+                        df[col_name(df, cfg['descrip'])].fillna('*** description empty ***', inplace=True)
                     df = df.astype(str)
                     df = df.replace('nan', 0)
-                    df.columns = [clean(c) for c in df.columns]
-
-            if (not (test_for_missing_columns('sw', df, k)) and
+            if (not (test_for_missing_columns('sw', df, k) ) and
                     col_name(df, cfg['level_sl'])):           # if "Level" found if df.columns, return "Level"
                 swdfsdic.update(deconstructMultilevelBOM(df, 'sw', 'TOPLEVEL'))
             elif not test_for_missing_columns('sw', df, k):
@@ -744,7 +740,6 @@ def gatherBOMs_from_fnames(filename):
                     printStrs.append(printStr)
                     print(printStr)
                     sys.exit(1)
-
             elif file_extension.lower() == '.xlsx':
                 df = pd.read_excel(v, na_values=[' '])
             elif file_extension.lower() == '.xls':
@@ -755,8 +750,6 @@ def gatherBOMs_from_fnames(filename):
                 sldfsdic.update(deconstructMultilevelBOM(df, 'sl', 'TOPLEVEL'))
             elif not test_for_missing_columns('sl', df, k):
                 sldfsdic.update(deconstructMultilevelBOM(df, 'sl', k))
-
-
         except:
             printStr = ('\nError 201.\n\n' + ' processing file: ' + v +
                         '\nIt has been excluded from the BOM check.\n')
@@ -764,7 +757,7 @@ def gatherBOMs_from_fnames(filename):
             print(printStr)
     try:
         df = pd.read_clipboard(engine='python', na_values=[' '])
-        if not test_for_missing_columns('sl', df, 'BOMfromClipboard', printerror=False):
+        if not test_for_missing_columns('sl', df, 'BOMfromClipboard', showErrMsg=False):
             sldfsdic.update(deconstructMultilevelBOM(df, 'sl', 'TOPLEVEL'))
     except:
         pass
@@ -773,12 +766,10 @@ def gatherBOMs_from_fnames(filename):
     return dirname, swdfsdic, sldfsdic
 
 
-def test_for_missing_columns(bomtype, df, pn, printerror=True):
+def test_for_missing_columns(bomtype, df, pn):
     ''' SolidWorks and SyteLine BOMs require certain essential columns to be
     present.  This function looks at those BOMs that are within df to see if
     any required columns are missing.  If found, print to screen.
-
-    calls: test_alternative_column_names
 
     Parameters
     ==========
@@ -805,65 +796,27 @@ def test_for_missing_columns(bomtype, df, pn, printerror=True):
     else: # 'for sl bom'
         required_columns = [cfg['qty'], cfg['descrip'],
                             cfg['part_num'], cfg['um_sl']]
-
-
     missing = []
     for r in required_columns:
-        if isinstance(r, str) and r not in df.columns:
-            missing.append(r)
-        elif isinstance(r, list) and test_alternative_column_names(r, df.columns):
-            missing.append(' or '.join(test_alternative_column_names(r, df.columns)))
-    if missing and bomtype=='sw' and printerror:
-        printStr = ('\nEssential BOM columns missing.  SolidWorks requires a BOM header\n' +
-              'to be in place.  This BOM will not be processed:\n' +
-              '    missing: ' + ' ,'.join(missing) +  '\n' +
-              '    missing in: ' + pn + '_sw\n')
+        if not col_name(df, r):
+            m = ', '.join(r)                     # e.g. ['QTY', 'Qty', 'Qty Per'] -> "QTY, Qty, Qty Per"
+            m = ', or '.join(m.rsplit(', ', 1))  # e.g. "QTY, Qty, Qty Per" ->  "QTY, Qty, or Qty Per"
+            missing.append(m)
+    if missing:
+        jm = ';\n    '.join(missing)
+        s = ''
+        _is = 'is'
+        if len(missing) > 1:
+            s = 's'
+            _is = 'are'
+        printStr = ('\nBOM column{0} missing. This BOM will not be processed:\n    {1}'
+                     '_{2}\nColumn{3} missing {4}:\n    {5}\n'.format(s, pn, bomtype, s, _is, jm))
         if not printStr in printStrs:
             printStrs.append(printStr)
             print(printStr)
-        return True
-    elif missing and printerror:
-        printStr = ('\nEssential BOM columns missing.  This BOM will not be processed:\n' +
-                    '    missing: ' + ' ,'.join(missing) +  '\n' +
-                    '    missing in: ' + pn + '_sl\n')
-        if not printStr in printStrs:
-            printStrs.append(printStr)
-            print(printStr)
-        return True
-    elif missing:
         return True
     else:
         return False
-
-
-def test_alternative_column_names(tpl, lst):
-    ''' tpl contains alternative names for a required column in a bom.  If
-    none of the names in tpl match a name in lst, return tpl so that the
-    user can be notified that one of those alternative names should have been
-    present.  On the other hand, if a match was found, return None.
-
-    Parameters
-    ==========
-    tpl: tuple or list
-        Each item of tpl is a string.  Each item is an alternative column name,
-        e.g. ("Qty", "Quantity")
-
-    lst: list
-        A list of the required columns that a bom must have in order for a bom
-        check to be correctly completed.
-
-    Returns
-    =======
-    out: tpl|None
-        If no match found, return the same tuple, tpl, that was an input
-        parameter.  Else return None
-    '''
-    flag = True
-    for t in tpl:
-        if t in lst:
-            flag = False  # A required column name was found in the tuple, so good to proceed with bom check
-    if flag:
-        return tpl  # one of the tuple items is a required column.  Report that one or the other is missing
 
 
 def col_name(df, col):
