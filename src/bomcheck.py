@@ -17,15 +17,14 @@ to the files that contain SW BOMs.  Append the characters _sl.xlsx to the files
 that contain SL BOMs.
 """
 
-__version__ = '1.8.7'
+__version__ = '1.9'
 __author__ = 'Kenneth E. Carlton'
 
-#import pdb
+import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
 import os
-import tempfile
 import re
 from datetime import datetime
 import fnmatch
@@ -41,6 +40,7 @@ pd.set_option('display.width', 200)
 def get_version():
     return __version__
 
+version = get_version
 
 def getcfg():
     ''' Return the value of "cfg".  cfg shows configuration
@@ -188,7 +188,7 @@ def getresults(i=1):
         print('i = 0, 1, or 2 only')
         return None
 
-
+    
 def main():
     '''This fuction allows this bomcheck.py program to be run from the command
     line.  It is started automatically (via the "if __name__=='__main__'"
@@ -213,8 +213,8 @@ def main():
                         description='Program compares SolidWorks BOMs to SyteLine BOMs.  ' +
                         'Output is sent to a Microsoft Excel spreadsheet.')
     parser.add_argument('filename', help='Name of file containing a BOM.  Name ' +
-                        'must end with _sw.xlsx, _sl.xlsx. _sw.csv, or ' +
-                        '_sl.csv.  Enclose filename in quote marks!  An asterisk, i.e. *, ' +
+                        'must end with _sw.xlsx, or _sl.xlsx.  ' +
+                        'Enclose filename in quote marks!  An asterisk, i.e. *, ' +
                         'is a wild card character.  Examples: "6890-*", "*".  ' +
                         'Or if filename is instead a directory, all _sw and _sl files ' +
                         'in that directory and subdirectories thereof will be ' +
@@ -271,10 +271,10 @@ def bomcheck(fn, dic={}, **kwargs):
     =========
 
     fn: string or list
-        *  Files constaining BOMs from SolidWorks and/or
+        *  Files containing BOMs from SolidWorks and/or
            SyteLine.  Files from Solidworks must end with
-           _sw.xlsx or _sw.csv.  Files from SyteLine must
-           end with _sl.xlsx or _sl.csv.
+           _sw.xlsx.  Files from SyteLine must end with
+           _sl.xlsx.
         *  An asterisk, *, matches any characters.  E.g.
            "6890-083544-*" will match 6890-083544-1_sw.xlsx,
            6890-083544-2_sw.xlsx, etc.
@@ -491,7 +491,7 @@ def bomcheck(fn, dic={}, **kwargs):
                 printStr = ('\nNotice 203\n\n' +
                             'No SolidWorks files found to process.  (Lone SyteLine\n' +
                             'BOMs will be ignored.)  Make sure file names end with\n' +
-                            '_sw.xlsx, _sw.csv, _sl.xlsx, or _sl.csv.\n')
+                            '_sw.xlsx or _sl.xlsx.\n')
                 printStrs.append(printStr)
                 print(printStr)
         except PermissionError:
@@ -559,95 +559,22 @@ def get_fnames(fn, followlinks=False):
     return _fn2
 
 
-def make_csv_file_stable(filename, sep='$'):
-    ''' Except for any commas in a parts DESCRIPTION, replace all commas
-    in a csv file with a $ character.  Commas will sometimes exist in a
-    DESCRIPTION field, e.g, "TANK, 60GAL".  But commas are intended to be field
-    delimeters; commas in a DESCRIPTION field are not.  Excess commas in
-    a line from a csv file will cause a program crash.  Remedy: change those
-    commas meant to be delimiters to a dollor sign character, $.
-
-    Parmeters
-    =========
-
-    filename: string
-        Name of SolidWorks csv file to process.
-
-    Returns
-    =======
-
-    out: list
-        A list of all the lines (rows) in filename is returned.  Commas in each
-        line are changed to dollar signs except for any commas in the
-        DESCRIPTION field.
-    '''
-    with open(filename, encoding='utf_16') as f:  #9/20/22. was ISO-8895-1, but caused errors.  Try utf_16
-        data1 = f.readlines()
-    for d in cfg['descrip']:
-        if d in data1[0]:
-            r = 0
-            desc = d
-        elif d in data1[1]:
-            r = 1
-            desc = d
-    # n1 = number of commas the line of "filename" where column header names are located.
-    # This is the no. of commas that should be in each row.
-    n1 = data1[r].count(',')
-    n2 = data1[r].upper().find(desc)  # locaton of the word DESCRIPTION within that row.
-    n3 = data1[r][:n2].count(',')  # number of commas before the word DESCRIPTION
-    data2 = list(map(lambda x: x.replace(',', '$') , data1)) # replace ALL commas with $
-    data = []
-    for row in data2:
-        n4 = row.count(sep)
-        if n4 != n1:
-            # n5 = location of 1st "sep" character within the DESCRIPTION field
-            #      that should actually be a , character
-            n5 = row.replace(sep, '?', n3).find(sep) # replace n3 "sep" chars w/ "?" character.  Then do "find"
-            # replace those "sep" chars that should be "," chars in the DESCRIPTION field:
-            data.append(row[:n5] + row[n5:].replace(sep, ',', (n4-n1))) # n4-n1: no. commas needed
-        else:
-            data.append(row)
-    return data
-
-
-def clean(s):
-    ''' Remove end of line characters, \\n, from a string.
-
-    Parameters
-    ==========
-    s: str | other
-        The string from which any \\n characters are to be removed.  If s
-        is not a string, such as an int or float, it is ignored.
-
-    Returns
-    =======
-    out: str | other
-         If s is a string, and \\n, or multiples of, are in s, then s is
-         returned less the \\n charaters.  Otherwise return the original
-         value of s no matter what type of object it is.
-    '''
-    if isinstance(s, str) and ('\n' in s):
-        return s.replace('\n', '')
-    else:
-        return s
-
-
 def gatherBOMs_from_fnames(filename):
     ''' Gather all SolidWorks and SyteLine BOMs derived from "filename".
     "filename" can be a string containing wildcards, e.g. 6890-085555-*, which
     allows the capture of multiple files; or "filename" can be a list of such
     strings.  These files (BOMs) will be converted to Pandas DataFrame objects.
 
-    Only files suffixed with _sw.xlsx, _sw.csv, _sl.xlsx, or _sl.csv will be
-    chosen; others are discarded.  These files will then be converted into two
-    python dictionaries.  One dictionary will contain SolidWorks BOMs only, and
-    the other will contain only SyteLine BOMs.
+    Only files suffixed with _sw.xlsx or _sl.xlsx will be chosen.  Others are
+    discarded.  These files will then be converted into two python
+    dictionaries.  One dictionary will contain SolidWorks BOMs only, and the
+    other will contain only SyteLine BOMs.
 
     If a filename has a BOM containing a multiple level BOM, then the
     subassembly BOMs will be extracted from that BOM and be added to the
     dictionaries.
 
-    calls: make_csv_file_stable, deconstructMultilevelBOM, test_for_missing_columns
+    calls:  deconstructMultilevelBOM, test_for_missing_columns
 
     Parmeters
     =========
@@ -689,24 +616,14 @@ def gatherBOMs_from_fnames(filename):
     for k, v in swfilesdic.items():
         try:
             _, file_extension = os.path.splitext(v)
-            if file_extension.lower() == '.csv' or file_extension.lower() == '.txt':
-                data = make_csv_file_stable(v)
-                skiprows = row_w_DESCRIPTION(data)
-                temp = tempfile.TemporaryFile(mode='w+t')
-                for d in data:
-                    temp.write(d)
-                temp.seek(0)
-                df = pd.read_csv(temp, na_values=[' '], skiprows=skiprows, sep='$',
-                                     encoding='iso8859_1', engine='python')
-                df = df.astype(str).applymap(clean) # if ITEM NO. col exists, and itms like 8.1, 8.2, make sure they are strings
-                df[col_name(df, cfg['descrip'])].fillna('*** description empty ***', inplace=True)
-                df = df.replace('nan', 0)
-                df.columns = [clean(c) for c in df.columns]
-                temp.close()
-            elif file_extension.lower() == '.xlsx' or file_extension.lower() == '.xls':
-                df = pd.read_excel(v, na_values=[' ']).applymap(clean)
+            if file_extension.lower() == '.xlsx' or file_extension.lower() == '.xls':
+                df = pd.read_excel(v, na_values=[' '])
+                df.columns = df.columns.str.replace(r'\n', '', regex=True)
+                df.replace(r'\n',' ', regex=True, inplace=True)
                 if df.columns[1] == 'Unnamed: 1':
-                    df = pd.read_excel(v, na_values=[' '], skiprows=1).applymap(clean)
+                    df = pd.read_excel(v, na_values=[' '], skiprows=1)
+                    df.columns = df.columns.str.replace(r'\n', '', regex=True)
+                    df.replace(r'\n',' ', regex=True, inplace=True)
                     # following line added 9/1/22.  Fill NaN in descrip field with " ":
                     if col_name(df, cfg['descrip']):
                         df[col_name(df, cfg['descrip'])].fillna('*** description empty ***', inplace=True)
@@ -725,22 +642,7 @@ def gatherBOMs_from_fnames(filename):
     for k, v in slfilesdic.items():
         try:
             _, file_extension = os.path.splitext(v)
-            if file_extension.lower() == '.csv' or file_extension.lower() == '.txt':
-                try:
-                    df = pd.read_csv(v, na_values=[' '], engine='python',
-                                     encoding='utf-16', sep='\t')
-                except UnicodeError:
-                    printStr = ("\nError 204.\n\n."
-                                "Probable cause: This program expects Unicode text encoding from\n"
-                                "a csv file.  The file " + v + " does not have this.  The\n"
-                                "correct way to achieve a functional csv file is:\n\n"
-                                '    From Excel, save the file as type “Unicode Text (*.txt)", and then\n'
-                                '    change the file extension from txt to csv.\n\n'
-                                "On the other hand, easiest solution: use an Excel file instead.\n")
-                    printStrs.append(printStr)
-                    print(printStr)
-                    sys.exit(1)
-            elif file_extension.lower() == '.xlsx':
+            if file_extension.lower() == '.xlsx':
                 df = pd.read_excel(v, na_values=[' '])
             elif file_extension.lower() == '.xls':
                 df = pd.read_excel(v, engine='xlrd', na_values=[' '])
@@ -792,7 +694,7 @@ def test_for_missing_columns(bomtype, df, pn):
     global printStrs
     if bomtype == 'sw':
         required_columns = [cfg['qty'], cfg['descrip'],
-                            cfg['part_num']]
+                            cfg['part_num'], cfg['itm_sw']]
     else: # 'for sl bom'
         required_columns = [cfg['qty'], cfg['descrip'],
                             cfg['part_num'], cfg['um_sl']]
@@ -1127,7 +1029,7 @@ def convert_sw_bom_to_sl_format(df):
     df[cfg['Op']] = cfg['OpValue']   # Op is a standard column shown in a SL BOM, usually set to 10
     df.set_index(cfg['Op'], inplace=True)
 
-    return df
+    return df.applymap(lambda x: x.strip() if type(x)==str else x)
 
 
 def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
@@ -1232,7 +1134,7 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     dfmerged.set_index(cfg['Item'], inplace=True)
     dfmerged[cfg['Q'] + '_sw'].replace(0, '', inplace=True)
 
-    return dfmerged
+    return dfmerged.applymap(lambda x: x.strip() if type(x)==str else x)
 
 
 def collect_checked_boms(swdic, sldic):
