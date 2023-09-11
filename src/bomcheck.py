@@ -5,22 +5,25 @@ File initial creation on Sun Nov 18 2018
 
 @author: Kenneth E. Carlton
 
-This program compares two Bills of Materials (BOMs). One BOM originating from
-a Computer Aided Design (CAD) program like SolidWorks (SW) and the other from
-an Enterprise Resource Planning (ERP) program like SyteLine (SL).  The
-structure of BOMs (like column names... PART NO., NUMBERO DE PARTE, etc.) are
-unique to a particular company.  A configuration file, named bomcheck.cfg, can
-be altered to help adapt the program to a particular company's needs.
+This program compares two Bills of Materials (BOMs). One BOM
+originating from a Computer Aided Design (CAD) program like
+SolidWorks (SW) and the other from an Enterprise Resource
+Planning (ERP) program like SyteLine (SL).  The structure of
+BOMs (like column names... PART NO., NUMBERO DE PARTE, etc.)
+are unique to a particular company.  A configuration file,
+named bomcheck.cfg, can be altered to help adapt the program
+to a particular company's needs.
 
-BOMs are extracted from Microsoft Excel files.  Append the characters _sw.xlsx
-to the files that contain SW BOMs.  Append the characters _sl.xlsx to the files
-that contain SL BOMs.
+BOMs are extracted from Microsoft Excel files.  Append the
+characters _sw.xlsx to the files that contain SW BOMs.
+Append the characters _sl.xlsx to the files that contain ERP
+BOMs.
 """
 
 __version__ = '1.9'
 __author__ = 'Kenneth E. Carlton'
 
-import pdb # use with pdb.set_trace()
+#import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -29,7 +32,8 @@ import re
 from datetime import datetime
 import fnmatch
 import ast
-from configparser import RawConfigParser
+import tomllib
+#from configparser import RawConfigParser
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', None)  # was pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
@@ -92,50 +96,51 @@ def setcfg(**kwargs):
         cfg.update(kwargs)
 
 
-def get_bomcheckcfg(pathname):
-    ''' Get configuration settings from the file bomcheck.cfg.
+def get_bomcheckcfg(filename):
+    ''' Load a toml file (https://toml.io/en/). A user of
+    the bomcheck program can open up 'filename' with a text
+    editor program such as notepad, and edit it to adjust
+    how the bomcheck program behaves.
+
+    (Note: backslash characters have a special function in
+    Python known as excape characters. Don't use them in
+    filename.  Instead replace backslash characters with
+    forwardslash characters.  Python accepts this.
+    Reference:
+    https://sites.pitt.edu/~naraehan/python3/file_path_cwd.html)
 
     Parameters
     ==========
-    pathname: str
-        pathname of the config file, e.g. r"C:\\folder\\bomcheck.cfg"
+
+    filename: str
+        name of the file containing user settings, e.g.
+        bomcheck.cfg
 
     Returns
     =======
+
     out: dict
-         dictionary of values derived from bomcheck.cfg.
+        dictionary of settings
     '''
     global printStrs
-    dic = {}
-    fn = os.path.abspath(pathname)
-    if not os.path.isfile(fn):
-        printStr = ('\n\n---------------------------------------------------------\n'
-                    'The config file could not be found at:\n\n        ' + fn + '\n\n'
-                    'The pathname that you enter should look like this:\n\n'
-                    '1.  MS Windows running bomcheckgui: C:\\folder\\bomcheck.cfg\n'
-                    '2.  MS Windows running bomcheck:  r"C:\\folder\\bomcheck.cfg"\n'
-                    '                             or:  "C:\\\\folder\\\\bomcheck.cfg"\n'
-                    '                             or:  "C:/folder/bomcheck.cfg"\n'
-                    '3.  Linux/Mac  running bomcheckgui: /home/ken/bomcheck.cfg\n'
-                    '4.  Linux/Mac  running bomcheck:   "/home/ken/bomcheck.cfg"\n\n'
-                    '(The \\ character is a special "escape" character for the \n'
-                    'programming language used for bomcheck.  Using the r character \n'
-                    'or using \\\\ are work-arounds to allow using the \\ character.)\n'
-                    '---------------------------------------------------------\n\n')
-        printStrs.append(printStr)
-        print(printStr)
-        return dic
-    config = RawConfigParser(delimiters=('='))
-    config.optionxform = lambda option: option  # keys will not be converted to lower case.  ref: https://docs.python.org/3/library/configparser.html
-    config.read(fn)
-    for i in config['integers']:
-        dic[i] = int(config['integers'][i])
-    for l in config['lists']:
-        lst = config['lists'][l].split(',')
-        dic[l] = [i.strip() for i in lst]  # strip leading and trailing spaces from str
-    for s in config['single_values']:
-        dic[s] = config['single_values'][s]
-    return dic
+    try:
+        with open(filename, 'rb') as f:
+            tomldata = tomllib.load(f)
+            return tomldata
+    except OSError as e:
+        printStr = f"\n{e}\n"
+        if not printStr in printStrs:
+            printStrs.append(printStr)
+            print(printStr)
+        return {}
+    except tomllib.TOMLDecodeError as e:
+        printStr = (f"\nYour {filename} file is not configured correctly.  It will be "
+              "ignored.\nIs probably a missing bracket, quotation mark, comma,"
+              f" etc.\n({e})\n")
+        if not printStr in printStrs:
+            printStrs.append(printStr)
+            print(printStr)
+        return
 
 
 def set_globals():
@@ -160,7 +165,7 @@ def set_globals():
            'level_sl':  ["Level"],
            'itm_sw':    ["ITEM NO."],
            'length_sw': ["LENGTH", "Length", "L", "SIZE", "AMT", "AMOUNT", "MEAS", "COST"],
-           'obs': ['Obsolete Date', 'Obsolete'],
+           'obs': ['Obsolete Date', 'Obsolete'], 'del_whitespace': True,
            # Column names shown in the results (for a given key, one value only):
            'assy':'assy', 'Item':'Item', 'iqdu':'IQDU', 'Q':'Q',
            'Description':'Description', 'U':'U',
@@ -171,9 +176,10 @@ def set_globals():
 
 
 def getresults(i=1):
-    ''' If i = 0, return a dataframe containing SW's BOMs for which no matching
-    SL BOMs were found.  If i = 1, return a dataframe containing compared
-    SW/SL BOMs. If i = 2, return a tuple of two items:
+    ''' If i = 0, return a dataframe containing SW's BOMs
+    for which no matching SL BOMs were found.  If i = 1,
+    return a dataframe containing compared SW/SL BOMs. If
+    i = 2, return a tuple of two items:
     (getresults(0), getresults(1))'''
     # This function gets results from the global variable named "results".
     # results is created within the function "bomcheck".
@@ -188,11 +194,12 @@ def getresults(i=1):
         print('i = 0, 1, or 2 only')
         return None
 
-    
+
 def main():
-    '''This fuction allows this bomcheck.py program to be run from the command
-    line.  It is started automatically (via the "if __name__=='__main__'"
-    command at the bottom of this file) when bomecheck.py is run.
+    '''This fuction allows this bomcheck.py program to be
+    run from the command line.  It is started automatically
+    (via the "if __name__=='__main__'" command at the bottom
+    of this file) when bomecheck.py is run.
 
     calls: bomcheck
 
@@ -272,70 +279,64 @@ def bomcheck(fn, dic={}, **kwargs):
 
     fn: string or list
         *  Files containing BOMs from SolidWorks and/or
-           SyteLine.  Files from Solidworks must end with
-           _sw.xlsx.  Files from SyteLine must end with
+           ERP.  Files from Solidworks must end with
+           _sw.xlsx.  Files from ERP must end with
            _sl.xlsx.
-        *  An asterisk, *, matches any characters.  E.g.
-           "6890-083544-*" will match 6890-083544-1_sw.xlsx,
-           6890-083544-2_sw.xlsx, etc.
-        *  fn can be a directory name, in which case files
-           in that directory, and subdirectories thereof,
-           will be analized.
-        *  If a list is given, then it is a list of
+           >>>  An asterisk, *, matches any characters. E.g.
+                *083544* will match 6890-083544-1_sw.xlsx
+                 6890-083544_sl.xlsx, and 6430-083544_sw.xlsx
+        *  fn can also be a directory name, in which case
+           files in that directory, and subdirectories
+           thereof, will be analized.
+        *  If instead a list is given, then it is a list of
            filenames and/or directories.
-        *  PNs shown in filenames must correspond, e.g.
-           099238_sw.xlsx and 099238_sl.xlsx.  Exception:
-           BOM from SyteLine is a multilevel BOM.
+        *  Note: PNs shown in filenames must correspond for
+           a comparison to occur; e.g. 099238_sw.xlsx and
+           099238_sl.xlsx.  An exception to this is if the
+           BOM is from an ERP multilevel BOM.
 
     dic: dictionary
-        default: {} (i.e. an empty dictionary).  This
-        variable is used ONLY if the function "main" is used
-        to run the bomcheck program; that is "main" itself
-        puts it in. This happens when the bomcheck program
-        is run from the command line.  If so, the values
-        from "main" for the keys "drop", "sheets",
-        "from_um", "to_um", etc. will have been put into
-        dic.  DO NOT PUT IN VALUES FOR DIC MANUALLY!
+        default: {}, i.e. an empty dictionary.  Do not
+        assign values to dic.  dic is only used internally
+        by the bomcheck program when bomcheck is run from a
+        command line terminal.
 
     kwargs: dictionary
-        Here is an example of entering arguments into the
-        bomcheck function:
+        Here is an example of entering kwargs arguments
+        into the bomcheck function:
 
-        bomcheck("6890*", c=r"C:\bomcheck.cfg", d=1, x=1)
+        bomcheck("6890*", c="C:/bomcheck.cfg", d=1, x=1)
 
-        The program will gather the c=r"C:\bomchk.cfg", d=1,
-        and x=1, and put them into what's called a
-        dictionary, i.e. {c:"C:\bomchk.cfg", d:1, x=1}; and
-        then assign that dictionary to the kwargs argument.
-        c, d, and x are called "keys".  "C:\bomchk.cfg", 1,
-        and 1 are values for those keys.  If no keys and
-        their vaules are entered, bomcheck will use its own
-        defaults.  The key/value pairs must go after the
-        fn argument, i.e. after "6899*" in this case.
-
-        The keys in kwargs that will be recognized are
-        listed below.  Any other keys will be ignored.
+        In this case the first value, *6890*, is assigned
+        to variable fn, and the remaining variables
+        c="C:/bomcheck.cfg" (note: use a forward slash
+        instead of of backslash), d=1, and x=1,
+        are put into a python dictionary object in
+        key:value pairs, e.g. {c:"C:/bomcheck.cfg", d:1,
+        x=1}. That dictionary is then delivered to the
+        bomcheck program.  Other keys and types of
+        values that those keys can accept are:
 
         b:  bool
             If True (or = 1), break up results across
-            multiple sheets within the Excel bomcheck.xlsx
-            file.  Default: False
+            multiple sheets within the output Excel
+            file bomcheck.xlsx.  Default: False
 
         c:  str
             Pathname of the file bomcheck.cfg. For MS
             Windows, the format should look like this:
-            r"C:\\folder\\bomcheck.cfg".  The leadin r
-            character means 'raw'.  It is needed to
-            correctly read a file path in windows.  For a
-            unix-like operating system, something like this:
-            "/home/ken/docs/bomcheck.cfg"
+            "C:/myfolder/bomcheck.cfg".  That it, use
+            a forward slash instead of a backslash.
+            Otherwise the file will not be read. For a
+            unix-like operating system, like this:
+            "/home/ken/bomcheck.cfg"
 
         d: bool
             If True (or = 1), make use of the list named
             "drop".  The list "drop" is either defined
             internally within the bomcheck program itself,
-            or overridden by the "drop" list defined in the
-            bomcheck.cfg file.  Default: False
+            Look in the file bomcheck.cfg for more
+            information about drop. Default: False
 
         f: bool
             If True (or = 1), follow symbolic links when
@@ -350,20 +351,21 @@ def bomcheck(fn, dic={}, **kwargs):
             truncated.)
 
         o: str
-            Output file name.  If x=True, that is if
-            an Excel file is to be exported, then give
-            it this name.  Default: 'bomcheck'
+            Output file name.  x has to be set to True
+            for this to function.  The output file name
+            cannot be a path name; that is, it cannot
+            contain / or \\ characters.  Default: bomcheck
 
         s: bool
-            startexcel.  Automatically open the Excel file
-            that bomcheck creates.  The Excel arg, x, must
-            be set to True.  Microsoft Excel must be on
-            your system.
+            Automatically open the Excel file that bomcheck
+            creates.  The Excel arg, x, must be set to True,
+            and Microsoft Excel must be on your system.
 
         u: str
             Username.  This will be fed to the export2exel
             function so that a username will be placed
-            into  the footer of the bomcheck.xlsx file.
+            into the footer of the bomcheck.xlsx file.
+            E.g. kencarlton.
             Default: 'unknown'
 
         x: bool
@@ -375,40 +377,47 @@ def bomcheck(fn, dic={}, **kwargs):
 
     out: tuple
         Return a tuple containing three items.  Items are:
-            0: SolidWorks BOMs with no matching SyteLine BOM
-               found.
-            1: SolidWorks vs. SyteLine BOM comparisons.
-            2: List of errors that occured during bomchecks'
-               execution.
-        For items 0 and 1, either "None" is returned or a
-        pandas dataframe object.  For item 2, either [] is
-        returned or a list of strings.
+        0: A pandas dataframe containing SolidWorks BOMs for
+           which with no matching SyteLine BOMs were found.
+           If no BOMs exist, None is returned.
+        1: A pandas dataframe showing a side-by-side
+           comparison of SolidWorks BOMs and ERP BOMs. If
+           not BOMs exist, None is returned.
+        2: A python list object containing a list of errors
+           that occured during bomchecks' execution.  If no
+           errors occured, then an empty string is returned.
 
     Examples
     ========
 
-    Evaluate files names starting with 6890 (a forward
-    slash, /, is normally used in a file path in a Linux OS.):
+    Evaluate files names starting with 6890 (on a Windows
+    operating system, replace backslashes with a forward
+    slashes, /):
 
-        >>> bomcheck("folder1/6890*", d=True, u="John Doe")
+        >>> bomcheck("C:/folder1/6890*", d=True, x=True,
+                     u="kcarlton"
+                     c="C:/mydocuments/bomcheck.cfg")
 
-    Evaluate all files in 'folder1' and in subfolders thereof:
+    String values, like folder1/6890* and kcarlton, must
+    be surrounded by quotation marks.
 
-        >>> bomcheck("folder1")
+    Evaluate all files in folder1 and in subfolders thereof:
+
+        >>> bomcheck("C:folder1")
 
     Same as above, but evaluate files only one level deep:
 
-        >>> bomcheck("folder1/*")
+        >>> bomcheck("C:folder1/*")
 
     Evaluate files in a couple of locations:
 
-        >>> bomcheck(["folder1/*", "folder2/*"], d=True)
+        >>> bomcheck(["C:/folder1/*", "C:/folder2/*"], d=True)
 
     The \\ character in a Window's directory path can
-    cause problems.  See this site for some clarity:
+    cause problems.  See this site for more information:
     https://pro.arcgis.com/en/pro-app/2.8/arcpy/get-started/setting-paths-to-data.htm
 
-        >>> bomcheck("C:\\myprojects\\folder1", c="C:\\mycfgpath\\bomcheck.cfg")
+        >>> bomcheck("C:/myprojects/folder1", c="C:/mycfgpath/bomcheck.cfg")
 
     '''
     global printStrs, cfg, results
@@ -512,28 +521,33 @@ def bomcheck(fn, dic={}, **kwargs):
 
 
 def get_fnames(fn, followlinks=False):
-    ''' Interpret fn to get a list of filenames based on fn's value.
+    ''' Interpret fn to get a list of filenames based on
+    fn's value.
 
     Parameters
     ----------
     fn: str or list
-        fn is a filename or a list of filenames.  A filename can also be a
-        directory name.  Example 1, strings: "C:/myfile_.xlsx", "C:/dirname",
-        or "['filename1', 'filename2', 'dirname1' ...]". Example 2, list:
-        ["filename1", "filename2", "dirname1", "dirname2"].  When a a directory
-        name is given, filenames are gathered from that directory and from
-        subdirectories thereof.
+        fn is a filename or a list of filenames.  A filename
+        can also be a directory name.  Example 1, strings:
+        "C:/myfile_.xlsx", "C:/dirname", or "['filename1',
+        'filename2', 'dirname1' ...]". Example 2, list:
+        ["filename1", "filename2", "dirname1", "dirname2"].
+        When a a directory name is given, filenames are
+        gathered from that directory and from subdirectories
+        thereof.
     followlinks: Boolean, optional
-        If True, follow symbolic links. If a link is to a direcory, then
-        filenames are gathered from that directory and from subdirectories
-        thereof.  The default is False.
+        If True, follow symbolic links. If a link is to a
+        direcory, then filenames are gathered from that
+        directory and from subdirectories thereof.  The
+        default is False.
 
     Returns
     -------
     _fn: list
-        A list of filenames, e.g. ["filename1", "filename2", ...].  Each value
-        in the list is a string.  Each string is the name of a file.  The
-        filename can be a pathname, e.g. "C:/dir1/dir2/filename".  The
+        A list of filenames, e.g. ["filename1", "filename2",
+        ...].  Each value in the list is a string.  Each
+        string is the name of a file.  The filename can be
+        a pathname, e.g. "C:/dir1/dir2/filename".  The
         filenames can have any type of extension.
     '''
     if isinstance(fn, str) and fn.startswith('[') and fn.endswith(']'):
@@ -560,19 +574,22 @@ def get_fnames(fn, followlinks=False):
 
 
 def gatherBOMs_from_fnames(filename):
-    ''' Gather all SolidWorks and SyteLine BOMs derived from "filename".
-    "filename" can be a string containing wildcards, e.g. 6890-085555-*, which
-    allows the capture of multiple files; or "filename" can be a list of such
-    strings.  These files (BOMs) will be converted to Pandas DataFrame objects.
+    ''' Gather all SolidWorks and SyteLine BOMs derived from
+    "filename".  "filename" can be a string containing
+    wildcards, e.g. 6890-085555-*, which allows the capture
+    of multiple files; or "filename" can be a list of such
+    strings.  These files (BOMs) will be converted to Pandas
+    DataFrame objects.
 
-    Only files suffixed with _sw.xlsx or _sl.xlsx will be chosen.  Others are
-    discarded.  These files will then be converted into two python
-    dictionaries.  One dictionary will contain SolidWorks BOMs only, and the
-    other will contain only SyteLine BOMs.
+    Only files suffixed with _sw.xlsx or _sl.xlsx will be
+    chosen.  Others are discarded.  These files will then be
+    converted into two python dictionaries.  One dictionary
+    will contain SolidWorks BOMs only, and the other will
+    contain only SyteLine BOMs.
 
-    If a filename has a BOM containing a multiple level BOM, then the
-    subassembly BOMs will be extracted from that BOM and be added to the
-    dictionaries.
+    If a filename has a BOM containing a multiple level BOM,
+    then the subassembly BOMs will be extracted from that
+    BOM and be added to the dictionaries.
 
     calls:  deconstructMultilevelBOM, test_for_missing_columns
 
@@ -586,15 +603,18 @@ def gatherBOMs_from_fnames(filename):
     =======
 
     out: tuple
-        The output tuple contains three items.  The first is the directory
-        corresponding to the first file in the filename list.  If this
-        directory is an empty string, then it refers to the current working
-        directory.  The remainder of the tuple items are two python
-        dictionaries. The first dictionary contains SolidWorks BOMs, and the
-        second contains SyteLine BOMs.  The keys for these two dictionaries
-        are part nos. of assemblies derived from the filenames (e.g. 085952
-        from 085953_sw.xlsx), or derived from subassembly part numbers of a
-        file containing multilevel BOM.
+        The output tuple contains three items.  The first is
+        the directory corresponding to the first file in the
+        filename list.  If this directory is an empty
+        string, then it refers to the current working
+        directory.  The remainder of the tuple items are two
+        python dictionaries. The first dictionary contains
+        SolidWorks BOMs, and the second contains SyteLine
+        BOMs.  The keys for these two dictionaries are part
+        nos. of assemblies derived from the filenames (e.g.
+        085952 from 085953_sw.xlsx), or derived from
+        subassembly part numbers of a file containing
+        multilevel BOM.
     '''
     dirname = '.'  # to this will assign the name of 1st directory a _sw is found in
     global printStrs
@@ -647,6 +667,10 @@ def gatherBOMs_from_fnames(filename):
             elif file_extension.lower() == '.xls':
                 df = pd.read_excel(v, engine='xlrd', na_values=[' '])
 
+            # SyteLine version 10 puts in an unwanted line.  Deal with it:
+            if isinstance(df.iloc[0,0], str) and df.iloc[0,0][:11] == 'Group Item:':
+                df.drop([0], inplace=True)
+
             if (not (test_for_missing_columns('sl', df, k)) and
                     col_name(df, cfg['level_sl'])):
                 sldfsdic.update(deconstructMultilevelBOM(df, 'sl', 'TOPLEVEL'))
@@ -669,9 +693,11 @@ def gatherBOMs_from_fnames(filename):
 
 
 def test_for_missing_columns(bomtype, df, pn):
-    ''' SolidWorks and SyteLine BOMs require certain essential columns to be
-    present.  This function looks at those BOMs that are within df to see if
-    any required columns are missing.  If found, print to screen.
+    ''' SolidWorks and SyteLine BOMs require certain
+    essential columns to be present.  This function
+    looks at those BOMs that are within df to see if
+    any required columns are missing.  If found,
+    print to screen.
 
     Parameters
     ==========
@@ -723,27 +749,31 @@ def test_for_missing_columns(bomtype, df, pn):
 
 def col_name(df, col):
     '''
-    Find one common name from the list of column names derived from the
-    DataFrame, df, and the list of names from col.  For example, if
-    list(df.columns) is [ITEM NO., QTY, LENGTH, DESCRIPTION, PART NUMBER]; and
-    col is [PARTNUMBER, PART NUMBER, Part Number, Item, Material], then return
-    PART NUMBER because it is common to both lists.
+    Find one common name from the list of column names
+    derived from the DataFrame, df, and the list of names
+    from col.  For example, if list(df.columns) is [ITEM
+    NO., QTY, LENGTH, DESCRIPTION, PART NUMBER]; and col
+    is [PARTNUMBER, PART NUMBER, Part Number, Item,
+    Material], then return PART NUMBER because it is
+    common to both lists.
 
     Parameters
     ----------
     df: Pandas DataFrame or list
-        If a DataFrame, then df.columns will be extracted and it will be
-        converted to a list.  If df is instead simply a list, it is a list
-        of column names.
+        If a DataFrame, then df.columns will be extracted
+        and it will be converted to a list.  If df is
+        instead simply a list, it is a list of column
+        names.
 
     col: list
-        List of column names that will be compared to the list of column
-        names from df (i.e. from df.columns)
+        List of column names that will be compared to the
+        list of column names from df (i.e. from df.columns)
 
     Returns
     -------
     out: string
-        Name of column that is common to both df.columns and col
+        Name of column that is common to both df.columns
+        and col
     '''
     try:
         if isinstance(df, pd.DataFrame):
@@ -757,9 +787,10 @@ def col_name(df, col):
 
 
 def row_w_DESCRIPTION(filedata):
-    ''' Return the row no. of the row that contains the word DESRIPTION
-    (or the equivalent of, i.e. DESCRIP, Description, etc.).  That is,
-    determine the row that contains the column names.
+    ''' Return the row no. of the row that contains the word
+    DESRIPTION (or the equivalent of, i.e. DESCRIP,
+    Description, etc.).  That is, determine the row that
+    contains the column names.
 
     Parameters
     ----------
@@ -769,7 +800,8 @@ def row_w_DESCRIPTION(filedata):
     Returns
     -------
     out: int
-        0 if row one, or 1 if row two. (Only two rows searched.)
+        0 if row one, or 1 if row two. (Only two rows
+        searched.)
     '''
     for c in cfg['descrip']:
         if c in filedata[0]:
@@ -779,49 +811,57 @@ def row_w_DESCRIPTION(filedata):
 
 
 def deconstructMultilevelBOM(df, source, top='TOPLEVEL'):
-    ''' If the BOM is a multilevel BOM, pull out the BOMs thereof; that is,
-    pull out the main assembly and the subassemblies thereof.  These
-    assys/subassys are placed in a python dictionary and returned.  If df is
-    a single level BOM, a dictionary with one item is returned.
+    ''' If the BOM is a multilevel BOM, pull out the BOMs
+    thereof; that is, pull out the main assembly and the
+    subassemblies thereof.  These assys/subassys are placed
+    in a python dictionary and returned.  If df is a single
+    level BOM, a dictionary with one item is returned.
 
-    For this function to pull out subassembly BOMs from a SyteLine BOM, the
-    column named Level must exist in the SyteLine BOM.  It contains integers
-    indicating the level of a subassemby within the BOM; e.g. 1, 2, 3, 2, 3,
-    3, 3, 4, 4, 2.  Only multilevel SyteLine BOMs contain this column.
-    On the other hand for this function to  pull out subassemblies from a
-    SolidWorks BOM, the column ITEM NO. (see set_globals() for other optional
-    names) must exist and contain values that indicate which values are
-    subassemblies; e.g, with item numbers like "1, 2, 2.1, 2.2, 3, 4, etc.,
-    items 2.1 and 2.2 are members of the item number 2 subassembly.
+    For this function to pull out subassembly BOMs from an
+    ERP BOM, the column named Level must exist in the ERP
+    BOM.  It contains integers indicating the level of a
+    subassemby within the BOM; e.g. 1, 2, 3, 2, 3, 3, 3, 4,
+    4, 2.  Only multilevel ERP BOMs contain this column.
+    On the other hand for this function to  pull out
+    subassemblies from a SolidWorks BOM, the column ITEM NO.
+    (see set_globals() for other optional names) must exist
+    and contain values that indicate which values are
+    subassemblies; e.g, with item numbers like "1, 2, 2.1,
+    2.2, 3, 4, etc., items 2.1 and 2.2 are members of the
+    item number 2 subassembly.
 
     Parmeters
     =========
 
     df: Pandas DataFrame
-        The DataFrame is that of a SolidWorks or SyteLine BOM.
+        The DataFrame is that of a SolidWorks or ERP BOM.
 
     source: string
-        Choices for source are "sw" or "sl".  That is, is the BOM being
-        deconstructed from SolidWorks or SyteLine.
+        Choices for source are "sw" or "sl".  That is, is
+        the BOM being deconstructed from SolidWorks or ERP.
 
     top: string
-        Top level part number.  This number is automatically generated by the
-        bomcheck program in two ways:  1. If df originated from a SolidWorks
-        BOM or from a single level SyteLine BOM, then “top" is derived from
-        the filename; e.g. 091828 from the filename 091828_sw.xlsx.  2. If df
-        originated from a multilevel BOM, (i.e. SL) then it has a column named
-        “Level" (i.e. the level of subassemblies and parts within subassemblies
-        relative to the main, top assembly part number).  In this case the
-        part number associated with level "0" is assigned to "top".
+        Top level part number.  This number is automatically
+        generated by the bomcheck program in two ways:
+        1. If df originated from a SolidWorks BOM or from a
+        single level SyteLine BOM, then “top" is derived
+        from the filename; e.g. 091828 from the filename
+        091828_sw.xlsx.  2. If df originated from a
+        multilevel BOM, (i.e. SL) then it has a column named
+        “Level" (i.e. the level of subassemblies and parts
+        within subassemblies relative to the main, top
+        assembly part number).  In this case the part number
+        associated with level "0" is assigned to "top".
 
     Returns
     =======
 
     out: python dictionary
-        The dictionary has the form {assypn1: BOM1, assypn2: BOM2, ...},
-        where assypn1, assypn2, etc. are string objects and are the part
-        numbers for BOMs; and BOM1, BOM2, etc. are pandas DataFrame objects
-        that pertain to those part numbers.
+        The dictionary has the form {assypn1: BOM1,
+        assypn2: BOM2, ...}, where assypn1, assypn2, etc.
+        are string objects and are the part numbers for
+        BOMs; and BOM1, BOM2, etc. are pandas DataFrame
+        objects that pertain to those part numbers.
     '''
     __lvl = col_name(df, cfg['level_sl'])  # if not a multilevel BOM from SL, then is empty string, ""
     __itm = col_name(df, cfg['itm_sw'])
@@ -892,20 +932,24 @@ def deconstructMultilevelBOM(df, source, top='TOPLEVEL'):
 
 
 def is_in(find, series, xcept):
-    '''Argument "find" is a list of strings that are glob expressions.  The
-    Pandas Series "series" will be evaluated to see if any members of find
-    exists as substrings within each member of series.  Glob expressions are
-    strings like '3086-*-025' or *2020*.  '3086-*-025' for example will match
-    '3086-0050-025' and '3086-0215-025'.
+    '''Argument "find" is a list of strings that are glob
+    expressions.  The Pandas Series "series" will be
+    evaluated to see if any members of find exists as
+    substrings within each member of series.  Glob
+    expressions are strings like '3086-*-025' or *2020*.
+    '3086-*-025' for example will match'3086-0050-025'
+    and '3086-0215-025'.
 
-    The output of the is_in function is a Pandas Series.  Each member of the
-    Series is True or False depending on whether a substring has been found
-    or not.
+    The output of the is_in function is a Pandas Series.
+    Each member of the Series is True or False depending on
+    whether a substring has been found or not.
 
-    xcept is a list of exceptions to those in the find list.  For example, if
-    '3086-*-025' is in the find list and '3086-3*-025' is in the xcept list,
-    then series members like '3086-0515-025' or '3086-0560-025' will return
-    a True, and '3086-3050-025' or '3086-3060-025' will return a False.
+    xcept is a list of exceptions to those in the find list.
+    For example, if '3086-*-025' is in the find list and
+    '3086-3*-025' is in the xcept list, then series members
+    like '3086-0515-025' or '3086-0560-025' will return a
+    True, and '3086-3050-025' or '3086-3060-025' will
+    return a False.
 
     For reference, glob expressions are explained at:
     https://en.wikipedia.org/wiki/Glob_(programming)
@@ -926,7 +970,8 @@ def is_in(find, series, xcept):
     =======
 
     out: Pandas Series, dtype: bool
-        Each item is True or False depending on whether a match was found or not
+        Each item is True or False depending on whether a
+        match was found or not
     '''
     if not isinstance(find, list):
         find = [find]
@@ -953,24 +998,27 @@ def is_in(find, series, xcept):
 
 
 def convert_sw_bom_to_sl_format(df):
-    '''Take a SolidWorks BOM and restructure it to be like that of a SyteLine
-    BOM.  That is, the following is done:
+    '''Take a SolidWorks BOM and restructure it to be like
+    that of a SyteLine BOM.  That is, the following is done:
 
-    - For parts with a length provided, the length is converted from from_um to
-      to_um (see the function main for a definition of these variables).
-      Typically the unit of measure in a SolidWorks BOM is inches, and in
+    - For parts with a length provided, the length is
+      converted from from_um to to_um (see the function main
+      for a definition of these variables). Typically the
+      unit of measure in a SolidWorks BOM is inches, and in
       SyteLine, feet.
-    - If the part is a pipe or beam and it is listed multiple times in the BOM,
-      the BOM is updated so that only one listing is shown and the lengths
-      of the removed listings are added to the remaining listing.
-    - Similar to above, parts such as pipe nipples often show up more that
-      once on a BOM.  Remove the excess listings and add the quantities of
-      the removed listings to the remaining listing.
-    - If global variable cfg['drop'] is set to True, then part no. (items)
-      listed in the variable cfg['drop'] will not be shown in the output
-      results.
-    - Column titles are changed to match those of SyteLine and thus will allow
-      merging to a SyteLine BOM.
+    - If the part is a pipe or beam and it is listed
+      multiple times in the BOM, the BOM is updated so that
+      only one listing is shown and the lengths of the
+      removed listings are added to the remaining listing.
+    - Similar to above, parts such as pipe nipples often
+      show up more that once on a BOM.  Remove the excess
+      listings and add the quantities of the removed
+      listings to the remaining listing.
+    - If global variable cfg['drop'] is set to True, then
+      part no. (items) listed in the variable cfg['drop']
+      will not be shown in the output results.
+    - Column titles are changed to match those of SyteLine
+      and thus will allow merging to a SyteLine BOM.
 
     calls: create_um_factors
 
@@ -984,9 +1032,8 @@ def convert_sw_bom_to_sl_format(df):
     =======
 
     out: pandas DataFrame
-        A SolidWorks BOM with a structure like that of SyteLine.
+        A SolidWorks BOM with a structure like that of ERP.
 
-    \u2009
     '''
     values = dict.fromkeys(cfg['part_num'], cfg['Item'])
     values.update(dict.fromkeys(cfg['descrip'], cfg['Description']))
@@ -1021,6 +1068,10 @@ def convert_sw_bom_to_sl_format(df):
     dd = {cfg['Q']: 'sum', cfg['Description']: 'first', cfg['U']: 'first'}   # funtions to apply to next line
     df = df.groupby(cfg['Item'], as_index=False).aggregate(dd).reindex(columns=df.columns)
 
+    df = df.applymap(lambda x: x.strip() if type(x)==str else x)  # " BASEPLATE 095000  " -> "BASEPLATE 095000"
+    if cfg['del_whitespace']:
+        df[cfg['Item']] = df[cfg['Item']].str.replace(' ', '')
+
     if cfg['drop_bool']==True:
         filtr3 = is_in(cfg['drop'], df[cfg['Item']], cfg['exceptions'])
         df.drop(df[filtr3].index, inplace=True)
@@ -1029,19 +1080,21 @@ def convert_sw_bom_to_sl_format(df):
     df[cfg['Op']] = cfg['OpValue']   # Op is a standard column shown in a SL BOM, usually set to 10
     df.set_index(cfg['Op'], inplace=True)
 
-    return df.applymap(lambda x: x.strip() if type(x)==str else x)
+    return df
 
 
 def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
-    '''This function takes in one SW BOM and one SL BOM and merges them. The
-    newly created merged BOM allows for a side by side comparison of the SW/SL
-    BOMs so that differences between the two can be easily distinguished.
+    '''This function takes in one SW BOM and one ERP BOM and
+    merges them. The newly created merged BOM allows for a
+    side by side comparison of the SW/ERP BOMs so that
+    differences between the two can be easily distinguished.
 
-    A set of columns in the output are labeled i, q, d, and u.  Xs at a row in
-    any of these columns indicate something didn't match up between the SW
-    and SL BOMs.  An X in the i column means the SW and SL Items (i.e. pns)
-    don't match.  q means quantity, d means description, u means unit of
-    measure.
+    A set of columns in the output are labeled i, q, d, and
+    u.  Xs at a row in any of these columns indicate
+    something didn't match up between the SW and ERP BOMs.
+    An X in the i column means the SW and ERP Items
+    (i.e. pns) don't match.  q means quantity, d means
+    description, u means unit of measure.
 
     Parmeters
     =========
@@ -1056,10 +1109,9 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     =======
 
     df_merged: Pandas DataFrame
-        df_merged is a DataFrame that shows a side-by-side comparison of a
-        SolidWorks BOM to a SyteLine BOM.
+        df_merged is a DataFrame that shows a side-by-side
+        comparison of a SolidWorks BOM to a ERP BOM.
 
-    \u2009
     '''
     global printStrs
     if not str(type(dfsw))[-11:-2] == 'DataFrame':
@@ -1138,9 +1190,10 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
 
 
 def collect_checked_boms(swdic, sldic):
-    ''' Match SolidWorks assembly nos. to those from SyteLine and then merge
-    their BOMs to create a BOM check.  For any SolidWorks BOMs for which no
-    SyteLine BOM was found, put those in a separate dictionary for output.
+    ''' Match SolidWorks assembly nos. to those from ERP and
+    then merge their BOMs to create a BOM check.  For any
+    SolidWorks BOMs for which no ERP BOM was found, put
+    those in a separate dictionary for output.
 
     calls: convert_sw_bom_to_sl_format, compare_a_sw_bom_to_a_sl_bom
 
@@ -1148,79 +1201,93 @@ def collect_checked_boms(swdic, sldic):
     ==========
 
     swdic: dictionary
-        Dictionary of SolidWorks BOMs.  Dictionary keys are strings and they
-        are of assembly part numbers.  Dictionary values are pandas DataFrame
-        objects which are BOMs for those assembly pns.
+        Dictionary of SolidWorks BOMs.  Dictionary keys are
+        strings and they are of assembly part numbers.
+        Dictionary values are pandas DataFrame objects which
+        are BOMs for those assembly pns.
 
     sldic: dictionary
-        Dictionary of SyteLine BOMs.  Dictionary keys are strings and they
-        are of assembly part numbers.  Dictionary values are pandas DataFrame
-        objects which are BOMs for those assembly pns.
+        Dictionary of ERP BOMs.  Dictionary keys are strings
+        and they are of assembly part numbers.  Dictionary
+        values are pandas DataFrame objects which are BOMs
+        for those assembly pns.
 
     Returns
     =======
 
     out: tuple
-        The output tuple contains two values: 1.  Dictionary containing
-        SolidWorks BOMs for which no matching SyteLine BOM was found.  The
-        BOMs have been converted to a SyteLine like format.  Keys of the
-        dictionary are assembly part numbers.  2.  Dictionary of merged
-        SolidWorks and SyteLine BOMs, thus creating a BOM check.  Keys for the
-        dictionary are assembly part numbers.
+        The output tuple contains two values: 1.  Dictionary
+        containing SolidWorks BOMs for which no matching ERP
+        BOM was found.  The BOMs have been converted to a
+        ERP like format.  Keys of the dictionary are
+        assembly part numbers.  2.  Dictionary of merged
+        SolidWorks and ERP BOMs, thus creating a BOM check.
+        Keys for the dictionary are assembly part numbers.
+
     '''
     lone_sw_dic = {}  # sw boms with no matching sl bom found
     combined_dic = {}   # sl bom found for given sw bom.  Then merged
     for key, dfsw in swdic.items():
-        if key in sldic:
-            combined_dic[key] = compare_a_sw_bom_to_a_sl_bom(
-                                convert_sw_bom_to_sl_format(dfsw), sldic[key])
+        key2 = key.replace(' ', '') if cfg['del_whitespace'] else key
+        if key2 in sldic:
+            combined_dic[key2] = compare_a_sw_bom_to_a_sl_bom(
+                                convert_sw_bom_to_sl_format(dfsw), sldic[key2])
         else:
             df = convert_sw_bom_to_sl_format(dfsw)
             df[cfg['Q']] = round(df[cfg['Q']].astype(float), cfg['accuracy'])
-            lone_sw_dic[key] = df
+            lone_sw_dic[key2] = df
     return lone_sw_dic, combined_dic
 
 
 def concat_boms(title_dfsw, title_dfmerged):
-    ''' Concatenate all the SW BOMs into one long list (if there are any SW
-    BOMs without a matching SL BOM being found), and concatenate all the
-    merged SW/SL BOMs into another long list.
+    ''' Concatenate all the SW BOMs into one long list
+    (if there are any SW BOMs without a matching ERP BOM
+    being found), and concatenate all the merged SW/ERP
+    BOMs into another long list.
 
-    Each BOM, before concatenation, will get a new column added: assy.  Values
-    for assy will all be the same for a given BOM: the pn (a string) of the BOM.
-    BOMs are then concatenated.  Finally Pandas set_index function will applied
-    to the assy column resulting in the ouput being categorized by the assy pn.
+    Each BOM, before concatenation, will get a new column
+    added: assy.  Values for assy will all be the same for
+    a given BOM: the pn (a string) of the BOM. BOMs are then
+    concatenated.  Finally Pandas set_index function will
+    applied to the assy column resulting in the ouput being
+    categorized by the assy pn.
 
 
     Parameters
     ==========
 
     title_dfsw: list
-        A list of tuples, each tuple has two items: a string and a DataFrame.
-        The string is the assy pn for the DataFrame.  The DataFrame is that
-        derived from a SW BOM.
+        A list of tuples, each tuple has two items: a string
+        and a DataFrame.  The string is the assy pn for the
+        DataFrame.  The DataFrame is that derived from a SW
+        BOM.
 
     title_dfmerged: list
-        A list of tuples, each tuple has two items: a string and a DataFrame.
-        The string is the assy pn for the DataFrame.  The DataFrame is that
-        derived from a merged SW/SL BOM.
+        A list of tuples, each tuple has two items: a string
+        and a DataFrame.  The string is the assy pn for the
+        DataFrame.  The DataFrame is that derived from a
+        merged SW/ERP BOM.
 
     Returns
     =======
 
     out: tuple
-        The output is a tuple comprised of two items.  Each item is a list.
-        Each list contains one item: a tuple.  The structure has the form:
+        The output is a tuple comprised of two items.  Each
+        item is a list. Each list contains one item: a
+        tuple.  The structure has the form:
 
             ``out = ([("SW BOMS", DataFrame1)], [("BOM Check", DataFrame2)])``
 
         Where...
-            "SW BOMS" is the title. (when c=True in the bomcheck function, the
-            title will be an assembly part no.).
-            DataFrame1 = SW BOMs that have been concatenated together.
+            "SW BOMS" is the title. (when c=True in the
+            bomcheck function, the title will be an assembly
+            part no.).  DataFrame1 = SW BOMs that have been
+            concatenated together.
 
             "BOM Check" is another title.
-            DataFrame2 = Merged SW/SL BOMs that have been concatenated together.
+            DataFrame2 = Merged SW/SL BOMs that have been
+            concatenated together.
+
     '''
     dfswDFrames = []
     dfmergedDFrames = []
@@ -1242,33 +1309,39 @@ def concat_boms(title_dfsw, title_dfmerged):
 
 
 def export2excel(dirname, filename, results2export, uname):
-    '''Export to an Excel file the results of all the BOM checks.
+    '''Export to an Excel file the results of all the BOM
+    checks.
 
-    calls: len2, autosize_excel_columns, autosize_excel_column_df, definefn...
-    (these functions are defined internally within the export2exel function)
+    calls: len2, autosize_excel_columns,
+    autosize_excel_column_df, definefn... (these functions
+    are defined internally within the export2exel function)
 
     Parmeters
     =========
 
     dirname: string
-        The directory to which the Excel file that this function generates
-        will be sent.
+        The directory to which the Excel file that this
+        function generates will be sent.
 
     filename: string
         The name of the Excel file.
 
     results2export: list
-        List of tuples.  The number of tuples in the list varies according to
-        the number of BOMs analyzed, and if bomcheck's "b" (i.e. sheets) option
-        was invoked or not.  Each tuple has two items.  The  first item of a
-        tuple is a string and is the name to be assigned to the tab of the Excel
-        worksheet.  It is an assy no. if the b option has been invoked.  The
-        second item is a BOM (a DataFrame object). The list of tuples consists of:
+        List of tuples.  The number of tuples in the list
+        varies according to the number of BOMs analyzed, and
+        if bomcheck's "b" (i.e. sheets) option was invoked
+        or not.  Each tuple has two items.  The  first item
+        of a tuple is a string and is the name to be
+        assigned to the tab of the Excel worksheet.  It is
+        an assy no. if the b option has been invoked.  The
+        second item is a BOM (a DataFrame object).
+        The list of tuples consists of:
 
-        *1* SolidWorks BOMs that have been converted to SyteLine format.  SW
-        BOMs will only occur if no corresponding SL BOM was found.
+        *1* SolidWorks BOMs that have been converted to
+        ERP format.  SW BOMs will only occur if no
+        corresponding ERP BOM was found.
 
-        *2* Merged SW/SL BOMs.
+        *2* Merged SW/ERP BOMs.
 
         That is, if b=1, the form will be:
 
@@ -1289,16 +1362,17 @@ def export2excel(dirname, filename, results2export, uname):
     out: None
         An Excel file will result named bomcheck.xlsx.
 
-     \u2009
     '''
 
     global printStrs
 
     def len2(s):
-        ''' Extract from within a string either a decimal number truncated to two
-        decimal places, or an int value; then return the length of that substring.
-        Why used?  Q_sw, Q_sl, Q, converted to string, are on ocasion something
-        like 3.1799999999999997.  This leads to wrong length calc using len.'''
+        ''' Extract from within a string either a decimal
+        number truncated to two decimal places, or an int
+        value; then return the length of that substring.
+        Why used?  Q_sw, Q_sl, Q, converted to string, are
+        on ocasion something like 3.1799999999999997.  This
+        leads to wrong length calc using len.'''
         match = re.search(r"\d*\.\d\d|\d+", s)
         if match:
             return len(match.group())
@@ -1306,8 +1380,8 @@ def export2excel(dirname, filename, results2export, uname):
             return 0
 
     def autosize_excel_columns(worksheet, df):
-        ''' Adjust column width of an Excel worksheet (ref.: https://stackoverflow.com/questions/
-            17326973/is-there-a-way-to-auto-adjust-excel-column-widths-with-pandas-excelwriter)'''
+        ''' Adjust column width of an Excel worksheet
+            (ref.: https://stackoverflow.com/questions/17326973/is-there-a-way-to-auto-adjust-excel-column-widths-with-pandas-excelwriter)'''
         autosize_excel_columns_df(worksheet, df.index.to_frame())
         autosize_excel_columns_df(worksheet, df, offset=df.index.nlevels)
 
@@ -1322,8 +1396,9 @@ def export2excel(dirname, filename, results2export, uname):
             worksheet.set_column(idx+offset, idx+offset, max_len)
 
     def definefn(dirname, filename, i=0):
-        ''' If bomcheck.xlsx slready exists, return bomcheck(1).xlsx.  If that
-        exists, return bomcheck(2).xlsx...  and so forth.'''
+        ''' If bomcheck.xlsx slready exists, return
+        bomcheck(1).xlsx.  If that exists, return
+        bomcheck(2).xlsx...  and so forth.'''
         global printStrs
         d, f = os.path.split(filename)
         f, e = os.path.splitext(f)
@@ -1412,6 +1487,7 @@ def export2excel(dirname, filename, results2export, uname):
                 except Exception as e:
                     msg = (str(e) + '.  (Minor error caused by Colab.  Can be ignored.)')
                     #print(msg)
+
                 writer.save()
                 printStr = "\nCreated file: " + fn + '\n'
                 printStrs.append(printStr)
