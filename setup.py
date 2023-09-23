@@ -24,7 +24,7 @@ setup(
         'Intended Audience :: Manufacturing',
         'Intended Audience :: End Users/Desktop',
         'Operating System :: OS Independent',],
-    install_requires = ['pandas>=1.2', 'openpyxl>=3.0', 'xlrd>=1.2.0', 'xlsxwriter>=1.1'],
+    install_requires = ['pandas>=1.2', 'toml>=0.10'],
     url='https://github.com/kcarlton55/bomcheck',
     author='Kenneth Edward Carlton',
     author_email='kencarlton55@gmail.com',

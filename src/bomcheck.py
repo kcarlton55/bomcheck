@@ -422,7 +422,6 @@ def bomcheck(fn, dic={}, **kwargs):
         cfg['accuracy'] = dbdic.get('accuracy', 2)
         cfg['from_um'] = dbdic.get('from_um', 'in')
         cfg['to_um'] = dbdic.get('to_um', 'FT')
-        u = dbdic.get('author', 'unknown')
     else:
         cfg['overwrite'] = False
 
