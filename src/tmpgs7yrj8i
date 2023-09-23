@@ -9,10 +9,10 @@ This program compares two Bills of Materials (BOMs). One BOM
 originating from a Computer Aided Design (CAD) program like
 SolidWorks (SW) and the other from an Enterprise Resource
 Planning (ERP) program like SyteLine (SL).  The structure of
-BOMs (e.g. column names like PART NO. or NUMBERO DE PARTE,
-etc.) are unique to a particular company.  A configuration
-file, named bomcheck.cfg, can be altered to help adapt the
-program to a particular company's needs.
+BOMs (like column names... PART NO., NUMBERO DE PARTE, etc.)
+are unique to a particular company.  A configuration file,
+named bomcheck.cfg, can be altered to help adapt the program
+to a particular company's needs.
 
 BOMs are extracted from Microsoft Excel files.  Append the
 characters _sw.xlsx to the files that contain SW BOMs.
@@ -23,14 +23,17 @@ BOMs.
 __version__ = '1.9.1'
 __author__ = 'Kenneth E. Carlton'
 
-#import pdb # use with pdb.set_trace()
+import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
 import os
+import re
+from datetime import datetime
 import fnmatch
 import ast
 import tomllib
+#from configparser import RawConfigParser
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', None)  # was pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
@@ -223,19 +226,28 @@ def main():
                         'Or if filename is instead a directory, all _sw and _sl files ' +
                         'in that directory and subdirectories thereof will be ' +
                         'gathered.  BOMs gathered from _sl files without ' +
-                        'corresponding SolidWorks BOMs being found are ignored.')
+                        'corresponding SolidWorks BOMs found are ignored.')
+    parser.add_argument('-b', '--sheets', action='store_true', default=False,
+                        help='Break up results across multiple sheets in the ' +
+                        'Excel file that is output.')
     parser.add_argument('-c', '--cfgpathname', help='pathname where configuration file ' +
-                        'resides (e.g. C:/folder1/folder2/bomcheck.cfg.  Note: use ' +
-                        "forward slashes.  Backslashes won't work") ,
+                        'resides (e.g. r"C\\folder\\bomcheck.cfg"', default='') ,
     parser.add_argument('-d', '--drop_bool', action='store_true', default=False,
                         help='Ignore 3*-025 pns, i.e. do not use in the bom check')
     parser.add_argument('-f', '--followlinks', action='store_false', default=False,
                         help='Follow symbolic links when searching for files to process.  ' +
                         "  (MS Windows doesn't honor this option.)")
+    parser.add_argument('-s', '--startexcel', action='store_true', default=False,
+                        help='Automatically open the Excel file that bomcheck creates.  ' +
+                        'The --excel (-x) switch must active for this switch ' +
+                        'to take effect.  Only works on Microsoft OS')
+    parser.add_argument('-p', '--pause', help='Pause the program just before the program ' +
+                        'the program would normally close after completing its work.',
+                        default=False, action='store_true')
     parser.add_argument('-v', '--version', action='version', version=__version__,
                         help="Show program's version number and exit")
-    parser.add_argument('-x', '--excel', help='Export results to a csv file ' +
-                        'that can be opened by Excel', default=False, action='store_true')
+    parser.add_argument('-x', '--excel', help='Create a MS Excel file that shows ' +
+                        'check results.', default=False, action='store_true')
 
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
@@ -305,6 +317,11 @@ def bomcheck(fn, dic={}, **kwargs):
         bomcheck program.  Other keys and types of
         values that those keys can accept are:
 
+        b:  bool
+            If True (or = 1), break up results across
+            multiple sheets within the output Excel
+            file bomcheck.xlsx.  Default: False
+
         c:  str
             Pathname of the file bomcheck.cfg. For MS
             Windows, the format should look like this:
@@ -312,7 +329,7 @@ def bomcheck(fn, dic={}, **kwargs):
             a forward slash instead of a backslash.
             Otherwise the file will not be read. For a
             unix-like operating system, like this:
-            "/home/ken/bomcheck.cfg"/
+            "/home/ken/bomcheck.cfg"
 
         d: bool
             If True (or = 1), make use of the list named
@@ -327,7 +344,11 @@ def bomcheck(fn, dic={}, **kwargs):
             when using MS Windows.)  Default: False
 
         m: int
-            Display only m rows of the results to the user.
+            Max no. of rows to display when results are
+            output.  (This does not effect results that are
+            exported an Excel file.)  Default: None (That
+            is, all rows are output, i.e. nothing is
+            truncated.)
 
         o: str
             Output file name.  x has to be set to True
@@ -335,9 +356,21 @@ def bomcheck(fn, dic={}, **kwargs):
             cannot be a path name; that is, it cannot
             contain / or \\ characters.  Default: bomcheck
 
+        s: bool
+            Automatically open the Excel file that bomcheck
+            creates.  The Excel arg, x, must be set to True,
+            and Microsoft Excel must be on your system.
+
+        u: str
+            Username.  This will be fed to the export2exel
+            function so that a username will be placed
+            into the footer of the bomcheck.xlsx file.
+            E.g. kencarlton.
+            Default: 'unknown'
+
         x: bool
-            If True (or = 1), export results to a csv file
-            that Excel can open.  Default: False
+            If True (or = 1), export results to an Excel
+            file.  Default: False
 
     Returns
     =======
@@ -380,7 +413,8 @@ def bomcheck(fn, dic={}, **kwargs):
 
         >>> bomcheck(["C:/folder1/*", "C:/folder2/*"], d=True)
 
-    The \\ character can cause problems.  See this site for more information:
+    The \\ character in a Window's directory path can
+    cause problems.  See this site for more information:
     https://pro.arcgis.com/en/pro-app/2.8/arcpy/get-started/setting-paths-to-data.htm
 
         >>> bomcheck("C:/myprojects/folder1", c="C:/mycfgpath/bomcheck.cfg")
@@ -396,12 +430,16 @@ def bomcheck(fn, dic={}, **kwargs):
     if c: cfg.update(get_bomcheckcfg(c))
 
     # Set settings
+    b = (dic.get('sheets') if dic.get('sheets') else kwargs.get('b', False))
     cfg['drop_bool'] = (dic.get('drop_bool') if dic.get('drop_bool')
                         else kwargs.get('d', False))
     f = kwargs.get('f', False)
+    p = dic.get('pause', False)
+    u = kwargs.get('u', 'unknown')
     m = kwargs.get('m', None)
     outputFileName = kwargs.get('o', 'bomcheck')
     x = (dic.get('excel') if dic.get('excel') else kwargs.get('x', False))
+    cfg['s'] = (dic.get('startexcel') if dic.get('startexcel') else kwargs.get('s', False))
 
     # If dbdic is in kwargs, it comes from bomcheckgui.
     # Variables therefrom take precedence.
@@ -450,13 +488,14 @@ def bomcheck(fn, dic={}, **kwargs):
     for k, v in merged_sw2sl.items():
         title_dfmerged.append((k, v))  # e.g. {assynum1:bomdf1, ... assynumn:bomdfn}
 
-    title_dfsw, title_dfmerged = concat_boms(title_dfsw, title_dfmerged)
-    results = title_dfsw, title_dfmerged
+    if b == False:                 # concat_boms is a bomcheck function
+        title_dfsw, title_dfmerged = concat_boms(title_dfsw, title_dfmerged)
+        results = title_dfsw, title_dfmerged
 
     if x:
         try:
             if title_dfsw or title_dfmerged:
-                export2excel(dirname, outputFileName, title_dfsw + title_dfmerged)
+                export2excel(dirname, outputFileName, title_dfsw + title_dfmerged, u)
             else:
                 printStr = ('\nNotice 203\n\n' +
                             'No SolidWorks files found to process.  (Lone SyteLine\n' +
@@ -469,6 +508,9 @@ def bomcheck(fn, dic={}, **kwargs):
                         'Cause unknown')
             printStrs.append(printStr)
             print(printStr)
+
+    if p == True:
+            input("Press enter to exit")
 
     if title_dfsw or title_dfmerged:
         print('calculation done')
@@ -751,7 +793,7 @@ def col_name(df, col):
             s = set(df)
         intersect = s.intersection(col)
         return list(intersect)[0]
-    except IndexError:
+    except IndexError as e:
         return ""
 
 
@@ -1277,7 +1319,206 @@ def concat_boms(title_dfsw, title_dfmerged):
     return swresults, mrgresults
 
 
-def export2excel(dirname, filename, results2export):
+def export2excel(dirname, filename, results2export, uname):
+    '''Export to an Excel file the results of all the BOM
+    checks.
+
+    calls: len2, autosize_excel_columns,
+    autosize_excel_column_df, definefn... (these functions
+    are defined internally within the export2exel function)
+
+    Parmeters
+    =========
+
+    dirname: string
+        The directory to which the Excel file that this
+        function generates will be sent.
+
+    filename: string
+        The name of the Excel file.
+
+    results2export: list
+        List of tuples.  The number of tuples in the list
+        varies according to the number of BOMs analyzed, and
+        if bomcheck's "b" (i.e. sheets) option was invoked
+        or not.  Each tuple has two items.  The  first item
+        of a tuple is a string and is the name to be
+        assigned to the tab of the Excel worksheet.  It is
+        an assy no. if the b option has been invoked.  The
+        second item is a BOM (a DataFrame object).
+        The list of tuples consists of:
+
+        *1* SolidWorks BOMs that have been converted to
+        ERP format.  SW BOMs will only occur if no
+        corresponding ERP BOM was found.
+
+        *2* Merged SW/ERP BOMs.
+
+        That is, if b=1, the form will be:
+
+        - [('2730-2019-544_sw', df1), ('080955', df2),
+          ('6890-080955-1', df3), ('0300-2019-533', df4), ...]
+
+        and if b=0, the form will be:
+
+        - [('SW BOMs', dfForSWboms), ('BOM Check', dfForMergedBoms)]
+
+
+    uname : string
+        Username to attach to the footer of the Excel file.
+
+    Returns
+    =======
+
+    out: None
+        An Excel file will result named bomcheck.xlsx.
+
+    '''
+
+    global printStrs
+
+    def len2(s):
+        ''' Extract from within a string either a decimal
+        number truncated to two decimal places, or an int
+        value; then return the length of that substring.
+        Why used?  Q_sw, Q_sl, Q, converted to string, are
+        on ocasion something like 3.1799999999999997.  This
+        leads to wrong length calc using len.'''
+        match = re.search(r"\d*\.\d\d|\d+", s)
+        if match:
+            return len(match.group())
+        else:
+            return 0
+
+    def autosize_excel_columns(worksheet, df):
+        ''' Adjust column width of an Excel worksheet
+            (ref.: https://stackoverflow.com/questions/17326973/is-there-a-way-to-auto-adjust-excel-column-widths-with-pandas-excelwriter)'''
+        autosize_excel_columns_df(worksheet, df.index.to_frame())
+        autosize_excel_columns_df(worksheet, df, offset=df.index.nlevels)
+
+    def autosize_excel_columns_df(worksheet, df, offset=0):
+        for idx, col in enumerate(df):
+            x = 1 # add a little extra width to the Excel column
+            series = df[col]
+            max_len = max((
+                series.astype(str).map(len).max(),
+                len(str(series.name))
+            )) + x
+            worksheet.set_column(idx+offset, idx+offset, max_len)
+
+    def definefn(dirname, filename, i=0):
+        ''' If bomcheck.xlsx slready exists, return
+        bomcheck(1).xlsx.  If that exists, return
+        bomcheck(2).xlsx...  and so forth.'''
+        global printStrs
+        d, f = os.path.split(filename)
+        f, e = os.path.splitext(f)
+        if d:
+            dirname = d   # if user specified a directory, use it instead
+        if e and not e.lower()=='.xlsx':
+            printStr = '\n(Output filename extension needs to be .xlsx' + '\nProgram aborted.\n'
+            printStrs.append(printStr)
+            print(printStr)
+            sys.exit(0)
+        else:
+            e = '.xlsx'
+        if i == 0:
+            fn = os.path.join(dirname, f+e)
+        else:
+            fn = os.path.join(dirname, f+ '(' + str(i) + ')'+e)
+        if os.path.exists(fn):
+            return definefn(dirname, filename, i+1)
+        else:
+            return fn
+
+    ok2go = True
+    if cfg['overwrite']:
+        fn = os.path.join(dirname, filename + '.xlsx')
+        if os.path.exists(fn):
+            try:
+                os.remove(fn)
+            except Exception as e:
+                printStr = ('\nOverwrite of output file failed.' +
+                            '\nPossibly the current file is open in Excel.' +
+                            '\n' + str(e) + '\n')
+                printStrs.append(printStr)
+                ok2go = False
+    else:
+        fn = definefn(dirname, filename)
+
+    if uname != 'unknown':
+        username = uname
+    elif os.getenv('USERNAME'):
+        username = os.getenv('USERNAME')  # Works only on MS Windows
+    else:
+        username = 'unknown'
+
+    localtime_now = datetime.now()
+    time = localtime_now.strftime("%m-%d-%Y %I:%M %p")
+
+    comment1 = 'This workbook created ' + time + ' by ' + username + '.  '
+    comment2 = 'The drop list was NOT employed for this BOM check.  '
+    bomfooter = '&LCreated ' + time + ' by ' + username + '&CPage &P of &N'
+    if cfg['drop_bool']:
+        comment2 = ('The drop list was employed for this BOM check:  '
+                    + 'drop = ' + str(cfg['drop']) +  ', exceptions = ' + str(cfg['exceptions']))
+        bomfooter = bomfooter + '&Rdrop: yes'
+
+    if excelTitle and len(excelTitle) == 1:
+        bomheader = '&C&A: ' + excelTitle[0][0] + ', ' + excelTitle[0][1]
+    else:
+        bomheader = '&C&A'
+
+    if ok2go:
+        try:
+            with pd.ExcelWriter(fn) as writer:
+                for r in results2export:
+                    sheetname = r[0]
+                    df = r[1]
+                    if not df.empty:                        #TODO: some test code
+                        df.to_excel(writer, sheet_name=sheetname)
+                        try:
+                            worksheet = writer.sheets[sheetname]  # pull worksheet object
+                            autosize_excel_columns(worksheet, df)   #<<<
+                            worksheet.set_header(bomheader)  #<<< see: https://xlsxwriter.readthedocs.io/page_setup.html
+                            worksheet.set_footer(bomfooter)  #<<<
+                            worksheet.set_landscape()        #<<<
+                            worksheet.fit_to_pages(1, 0)     #<<<
+                            worksheet.hide_gridlines(2)      #<<<
+                            worksheet.write_comment('A1', comment1 + comment2, {'x_scale': 3})   #<<<
+                        except Exception as e:
+                            msg = (str(e) + '.  (Minor error caused by Colab.  Can be ignored.)')
+                            #print(msg)
+                try:
+                    workbook = writer.book
+                    workbook.set_properties({'title': 'BOM Check', 'author': username,           #<<<
+                            'subject': 'Compares a SolidWorks BOM to a SyteLine BOM',
+                            'company': 'Dekker Vacuum Technologies, Inc.',
+                            'comments': comment1 + comment2})
+                except Exception as e:
+                    msg = (str(e) + '.  (Minor error caused by Colab.  Can be ignored.)')
+                    #print(msg)
+
+                writer.save()
+                printStr = "\nCreated file: " + fn + '\n'
+                printStrs.append(printStr)
+                print(printStr)
+
+            if sys.platform[:3] == 'win' and cfg['s']:  # Open bomcheck.xlsx in Excel when on Windows platform
+                try:
+                    os.startfile(os.path.abspath(fn))
+                except:
+                    printStr = '\nAttempt to open bomcheck.xlsx in Excel failed.\n'
+                    printStrs.append(printStr)
+                    print(printStr)
+        except Exception as e:
+            printStr = ('\nOverwrite of output file failed.' +
+            '\nPossibly the current file is open in Excel.' +
+            '\n' + str(e) + '\n')
+            printStrs.append(printStr)
+
+
+def export2excel(dirname, filename, results2export, *args):
     '''Export to an Excel file the results of all the BOM
     checks.
 
@@ -1292,15 +1533,34 @@ def export2excel(dirname, filename, results2export):
         The name of the csv file.
 
     results2export: list
-        List of two tuples with each tuple containing two
-        items. First item of each tuple is a string.  The
-        second item of each tuple is a Pandas Dataframe.
+        List of tuples.  The number of tuples in the list
+        varies according to the number of BOMs analyzed, and
+        if bomcheck's "b" (i.e. sheets) option was invoked
+        or not.  Each tuple has two items.  The  first item
+        of a tuple is a string and is the name to be
+        assigned to the tab of the Excel worksheet.  It is
+        an assy no. if the b option has been invoked.  The
+        second item is a BOM (a DataFrame object).
+        The list of tuples consists of:
 
-        The list has this form:
+        *1* SolidWorks BOMs that have been converted to
+        ERP format.  SW BOMs will only occur if no
+        corresponding ERP BOM was found.
+
+        *2* Merged SW/ERP BOMs.
+
+        That is, if b=1, the form will be:
+
+        - [('2730-2019-544_sw', df1), ('080955', df2),
+          ('6890-080955-1', df3), ('0300-2019-533', df4), ...]
+
+        and if b=0, the form will be:
 
         - [('SW BOMs', dfForSWboms), ('BOM Check', dfForMergedBoms)]
 
-        The two strings are to be either 'SW BOMs' or 'BOM Check'
+    *args:
+        Does nothing.  It is intended that this argument
+        eventually be removed.
 
     Returns
     =======
@@ -1309,11 +1569,52 @@ def export2excel(dirname, filename, results2export):
         A csv file named, unless otherwise specified, bomcheck.xlsx.
 
     '''
+
     global printStrs
+
+    def len2(s):
+        ''' Extract from within a string either a decimal
+        number truncated to two decimal places, or an int
+        value; then return the length of that substring.
+        Why used?  Q_sw, Q_sl, Q, converted to string, are
+        on ocasion something like 3.1799999999999997.  This
+        leads to wrong length calc using len.'''
+        match = re.search(r"\d*\.\d\d|\d+", s)
+        if match:
+            return len(match.group())
+        else:
+            return 0
+
+    def definefn(dirname, filename, i=0):
+        ''' If bomcheck.csv already exists or sw_bomcheck.csv, return
+        bomcheck(1).csv.  If that or sw_bomcheck(1).csv exists, return
+        bomcheck(2).csv, and so forth.'''
+        global printStrs
+        d, f = os.path.split(filename)
+        f, e = os.path.splitext(f)
+        if d:
+            dirname = d   # if user specified a directory, use d instead
+        if e and not e.lower()=='.csv':
+            printStr = '\n(Output filename extension needs to be .csv' + '\nProgram aborted.\n'
+            printStrs.append(printStr)
+            print(printStr)
+            sys.exit(0)
+        else:
+            e = '.csv'
+        if i == 0:
+            fn = os.path.join(dirname, f+e)
+            sw_fn = os.path.join(dirname, "sw_"+f+e)
+        else:
+            fn = os.path.join(dirname, f+ '(' + str(i) + ')'+e)
+            sw_fn = os.path.join(dirname, "sw_"+f+ '(' + str(i) + ')'+e)
+        if os.path.exists(fn) or os.path.exists(sw_fn):
+            return definefn(dirname, filename, i+1)
+        else:
+            return fn
+
     ok2go = True
     if cfg['overwrite']:
         fn = os.path.join(dirname, filename + '.csv')
-        sw_fn = os.path.join(dirname, "sw_"+ filename + '.csv')
         if os.path.exists(fn):
             try:
                 os.remove(fn)
@@ -1323,69 +1624,33 @@ def export2excel(dirname, filename, results2export):
                             '\n' + str(e) + '\n')
                 printStrs.append(printStr)
                 ok2go = False
-            try:
-                os.remove(sw_fn)
-            except Exception as e:
-                printStr = ('\nOverwrite of output file failed.' +
-                            '\nPossibly the current file is open.' +
-                            '\n' + str(e) + '\n')
-                printStrs.append(printStr)
-                ok2go = False
     else:
         fn = definefn(dirname, filename)
-        d, f = os.path.split(fn)
-        sw_fn = os.path.join(d, "sw_"+ f)
 
     if ok2go:
+
         try:
+            d, f = os.path.split(fn)
+            sw_fn = sw_fn = os.path.join(d, "sw_"+ f)
             if len(results2export) == 1:
                 df = prepare_multiindex_for_export(results2export[0][1])
                 df.to_csv(fn, sep='\t',  encoding='utf-8', index=False)
-                print('\n' + fn + ' created\n')
-            if len(results2export) == 2:
-                sw_df = prepare_multiindex_for_export(results2export[0][1])
-                sw_df.to_csv(sw_fn, sep='\t',  encoding='utf-8', index=False)
-                df = prepare_multiindex_for_export(results2export[1][1])
-                df.to_csv(fn, sep='\t',  encoding='utf-8', index=False)
-                print('\n' + sw_fn + ' created\n' + fn + ' created\n')
+            else:
+                results2export[0][1].to_csv(sw_fn, sep='\t',  encoding='utf-8')
+                results2export[1][1].to_csv(fn, sep='\t',  encoding='utf-8')
+            #if results2export[1]:
+            #    results2export[1][1].to_csv(fn, sep='\t', index=False,
+            #                                encoding='utf-8')
         except Exception as e:
             printStr = ('\nOverwrite of output file failed.' +
-            '\nPossibly the current file is open.' +
+            '\nPossibly the current file is open in Excel.' +
             '\n' + str(e) + '\n')
             printStrs.append(printStr)
 
 
-def definefn(dirname, filename, i=0):
-    ''' If bomcheck.csv already exists or sw_bomcheck.csv, return
-    bomcheck(1).csv.  If that or sw_bomcheck(1).csv exists, return
-    bomcheck(2).csv, and so forth.'''
-    global printStrs
-    d, f = os.path.split(filename)
-    f, e = os.path.splitext(f)
-    if d:
-        dirname = d   # if user specified a directory, use d instead
-    if e and not e.lower()=='.csv':
-        printStr = '\n(Output filename extension needs to be .csv' + '\nProgram aborted.\n'
-        printStrs.append(printStr)
-        print(printStr)
-        sys.exit(0)
-    else:
-        e = '.csv'
-    if i == 0:
-        fn = os.path.join(dirname, f+e)
-        sw_fn = os.path.join(dirname, "sw_"+f+e)
-    else:
-        fn = os.path.join(dirname, f+ '(' + str(i) + ')'+e)
-        sw_fn = os.path.join(dirname, "sw_"+f+ '(' + str(i) + ')'+e)
-    if os.path.exists(fn) or os.path.exists(sw_fn):
-        return definefn(dirname, filename, i+1)
-    else:
-        return fn
-
-
 def prepare_multiindex_for_export(df):
     '''  Remove the duplicate index items created before writing a multiindex
-    dataframe to CSV.  E.g.:
+    dataframe to CSV.  E.g.
 
     from: 083119 2321-0600-001   to: 083119 2321-0600-001
           083119 3085-0050-025              3085-0050-025
@@ -1406,8 +1671,7 @@ def prepare_multiindex_for_export(df):
     for i in range(new_df.index.nlevels):
         idx = new_df.index.get_level_values(i)
         new_df.insert(i, idx.name, idx)
-        replace_cols[idx.name] = new_df[idx.name].where(
-            ~new_df.duplicated(subset=new_df.index.names[:i+1]))
+        replace_cols[idx.name] = new_df[idx.name].where(~new_df.duplicated(subset=new_df.index.names[:i+1]))
     for col, ser in replace_cols.items():
         new_df[col] = ser
     return new_df.reset_index(drop=True)

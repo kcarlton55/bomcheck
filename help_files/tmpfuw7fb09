@@ -60,9 +60,8 @@
       bomcheckgui program, you can drag in the folder that contains the files
       that are to be checked. Then once the program is run, the program's action
       will be to do a bom check of the files in that folder. The advantage of
-      doing it this way is that files in a Microsoft File Explorer window can
-      be updated without having to clear previous selections and reinserting
-      new files.</p>
+      doing it this way is that files in a Microsoft File Explorer window can be
+      updated without having to clear previous selections.</p>
 
     <p><b>Tip 2:</b> Save yourself some keystrokes: Instead of placing the
       multilevel BOM from SyteLine into the folder that contains the SolidWorks
