@@ -5,19 +5,19 @@
 The bomcheck.py program compares Bills of Materials (BOMs). BOMs from
 a CAD (Computer Aided Design) program like SolidWorks are compared to
 BOMs from an ERP (Enterprise Resource Planning) program like SyteLine.
-The CAD and ERP programs must be able to export to excel files
+The CAD and ERP programs must be able to export to Excel files
 because that is where bomcheck gathers data from.
 
 ## **How to instal**
 Assuming that you already have Python on your machine, use the package
 manager software [pip](https://en.wikipedia.org/wiki/Pip_(package_manager))
-that comes with Python:
+that comes with Python and run this from a command line:
 
 `pip install bomcheck`
 
 ## **Compared BOMs come from Excel files**
 The name of a file containing a BOM from the CAD program has the syntax:
-`PartNumberOfBOM_sw.xlsx`.  That is names like 0399-2344-005_sw.xlsx,
+`PartNumberOfBOM_sw.xlsx`.  That is, names like 0399-2344-005_sw.xlsx,
 093352_sw.xlsx, and 35K2445_sw.xlsx are all legitimate file names. The
 names of the files from the ERP program have the same syntax, but instead
 end with `_sl.xlsx`. Thus the names will look like 0399-2344-005_sl.xlsx,
@@ -42,16 +42,16 @@ where item 3 is a subassembly with parts under it.
 
 ## **How to run**
 
-From the command line do:
+Enter this on the command line to run:
 
 `bomcheck`
 
-Yet an easier way to get started is to use [bomcheckgui](https://github.com/kcarlton55/bomcheckgui).
+(An easier way to get started is to use [bomcheckgui](https://github.com/kcarlton55/bomcheckgui))
 
 
 ## **Sample output**
 An Excel file is output. Shown below is an example of the result of a BOM
-comparison that the bomcheck program outputs:
+comparison:
 
 | assy   | Item   | IQDU | Q_sw | Q_sl | Descripton_sw | Description_sl | U_sw | U_sl |
 |--------|--------|------| :-:  | :-:  |---------------|----------------| :-:  | :-:  |
@@ -68,7 +68,7 @@ comparison that the bomcheck program outputs:
 |        | 500000 | ‒‒‒‒ |  1   |  1   | SHIFT FORK    | SHIFT FORK     |  EA  |  EA  |
 |        | K34452 | ‒‒‒‒ |  1   |  1   | SPRING PIN    | SPRING PIN     |  EA  |  EA  |
 
-The column IQDU shows Xs if  ***I*** tem, ***Q***uantity, ***D***escription,
+The column IQDU shows Xs if  ***I***tem, ***Q***uantity, ***D***escription,
 or ***U***nit of measure don't match between the two BOMs. Q_sw is the quantity
 per the CAD BOM, Q_sl per the ERP BOM, and so forth. In the example above,
 1309031 is in the  ERP BOM, but not in SolidWorks. 130039 is in the CAD's BOM,
@@ -76,15 +76,15 @@ but not in the ERP's BOM.
 
 
 ## **Units of measure**
-If a unit of measure (U/M) is not given for a value in the Length column of a SolidWorks' BOM,
-then the U/M is assumed to be inches unless explicity specified, e.g. 336.7mm. The program will
-recognize the following abreviations for U/Ms:
+If a Unit of Measure (U/M) is not given for a value in the Length column of
+a SolidWorks' BOM, then the U/M is assumed to be inches unless explicity
+specified, e.g. 336.7 mm. The program recognizes the follwing U/Ms:
 
 `in, inch, ", ft, ', feet, foot, yrd, yd, yard, mm, millimeter, cm, centimeter, m, meter, mtr, sqin, sqi, sqft, sqf, sqyd, sqy, sqmm, sqcm, sqm, pint, pt, qt, quart, gal, g, gallon, ltr, l, liter`
 
-When the program is run, values will be converted to the U/M given in the ERP's BOM.
-For example, if the ERP program uses FT as a U/M, then comparison results will be shown
-in feet.
+When the program is run, values will be converted to the U/M given in the ERP's
+BOM.  For example, if the ERP program uses FT as a U/M, then comparison results
+will be shown in feet.
 
 
 ## **bomcheck.cfg**
