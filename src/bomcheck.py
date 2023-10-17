@@ -20,7 +20,7 @@ Append the characters _sl.xlsx to the files that contain ERP
 BOMs.
 """
 
-__version__ = '1.9.1'
+__version__ = '1.9.2'
 __author__ = 'Kenneth E. Carlton'
 
 #import pdb # use with pdb.set_trace()
@@ -227,11 +227,15 @@ def main():
     parser.add_argument('-c', '--cfgpathname', help='pathname where configuration file ' +
                         'resides (e.g. C:/folder1/folder2/bomcheck.cfg.  Note: use ' +
                         "forward slashes.  Backslashes won't work") ,
+    parser.add_argument('-csdsc', '--csdescription', action='store_true', default=False,
+                        help='Enable case sensitive checking of descriptions'),
+    parser.add_argument('-cspn', '--cspartnuber', action='store_true', default=False,
+                        help='Enable case sensitive checking of part numbers'),
     parser.add_argument('-d', '--drop_bool', action='store_true', default=False,
                         help='Ignore 3*-025 pns, i.e. do not use in the bom check')
-    parser.add_argument('-f', '--followlinks', action='store_false', default=False,
+    parser.add_argument('-f', '--followlinks', action='store_true', default=False,
                         help='Follow symbolic links when searching for files to process.  ' +
-                        "  (MS Windows doesn't honor this option.)")
+                        "  (MS Windows doesn't honor this option.)"),
     parser.add_argument('-v', '--version', action='version', version=__version__,
                         help="Show program's version number and exit")
     parser.add_argument('-x', '--excel', help='Export results to a csv file ' +
@@ -335,6 +339,14 @@ def bomcheck(fn, dic={}, **kwargs):
             cannot be a path name; that is, it cannot
             contain / or \\ characters.  Default: bomcheck
 
+        csdsc: bool
+            Enable case sensitive matching of part
+            descriptions.  Devalult = False
+
+        cspn: bool
+            Enable case sensitive matching of part numbers.
+            Devalult = False
+
         x: bool
             If True (or = 1), export results to a csv file
             that Excel can open.  Default: False
@@ -391,13 +403,20 @@ def bomcheck(fn, dic={}, **kwargs):
     results = [None, None]
 
     c = dic.get('cfgpathname')    # if from the command line, e.g. bomcheck or python bomcheck.py
-    if c: cfg.update(get_bomcheckcfg(c))
+    if c:
+        cfg.update(get_bomcheckcfg(c))
+
     c = kwargs.get('c')           # if from an arg of the bomcheck() function.
-    if c: cfg.update(get_bomcheckcfg(c))
+    if c:
+        cfg.update(get_bomcheckcfg(c))
 
     # Set settings
     cfg['drop_bool'] = (dic.get('drop_bool') if dic.get('drop_bool')
                         else kwargs.get('d', False))
+    cfg['cspartnumber'] = (dic.get('cspartnumber') if dic.get('cspartnumber')
+                        else kwargs.get('cspn', False))
+    cfg['csdescription'] = (dic.get('csdescription') if dic.get('csdescription')
+                        else kwargs.get('csdsc', False))
     f = kwargs.get('f', False)
     m = kwargs.get('m', None)
     outputFileName = kwargs.get('o', 'bomcheck')
@@ -408,7 +427,8 @@ def bomcheck(fn, dic={}, **kwargs):
     if 'dbdic' in kwargs:
         dbdic = kwargs['dbdic']
         c = dbdic.get('cfgpathname')   # activated if from bomcheckgui
-        if c: cfg.update(get_bomcheckcfg(c))
+        if c:
+            cfg.update(get_bomcheckcfg(c))
         udrop =  dbdic.get('udrop', '')
         uexceptions = dbdic.get('uexceptions', '')
         udrop = udrop.replace(',', ' ')
@@ -1007,7 +1027,8 @@ def convert_sw_bom_to_sl_format(df):
     values.update(dict.fromkeys(cfg['descrip'], cfg['Description']))
     values.update(dict.fromkeys(cfg['qty'], cfg['Q']))
     df.rename(columns=values, inplace=True)
-    df[cfg['Item']] = df[cfg['Item']].str.upper()
+    if not cfg['cspartnumber']:
+        df[cfg['Item']] = df[cfg['Item']].str.upper()
 
     __len = col_name(df, cfg['length_sw'])
 
@@ -1102,7 +1123,8 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     values.update(dict.fromkeys(cfg['qty'], cfg['Q']))
     values.update(dict.fromkeys(cfg['obs'], 'Obsolete'))
     dfsl.rename(columns=values, inplace=True) # rename columns so proper comparison can be made
-    dfsl[cfg['Item']] = dfsl[cfg['Item']].str.upper()
+    if not cfg['cspartnumber']:
+        dfsl[cfg['Item']] = dfsl[cfg['Item']].str.upper()
 
     if 'Obsolete' in dfsl.columns:  # Don't use any obsolete pns (even though shown in the SL BOM)
         filtr4 = dfsl['Obsolete'].notnull()
@@ -1133,7 +1155,10 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     filtrI = dfmerged['_merge'].str.contains('both')  # this filter determines if pn in both SW and SL
     maxdiff = .51 / (10**cfg['accuracy'])
     filtrQ = abs(dfmerged[cfg['Q'] + '_sw'].astype(float) - dfmerged[cfg['Q'] + '_sl']) < maxdiff  # If diff in qty greater than this value, show X
-    filtrD = dfmerged[cfg['Description'] + '_sw'].str.upper().str.split() == dfmerged[cfg['Description'] + '_sl'].str.upper().str.split()
+    if not cfg['csdescription']:
+        filtrD = dfmerged[cfg['Description'] + '_sw'].str.upper().str.split() == dfmerged[cfg['Description'] + '_sl'].str.upper().str.split()
+    else:
+        filtrD = dfmerged[cfg['Description'] + '_sw'].str.split() == dfmerged[cfg['Description'] + '_sl'].str.split()
     filtrU = dfmerged[cfg['U'] + '_sw'].astype('str').str.upper().str.strip() == dfmerged[cfg['U'] + '_sl'].astype('str').str.upper().str.strip()
     _pass = '\u2012' #   character name: figure dash
     _fail = 'X'
