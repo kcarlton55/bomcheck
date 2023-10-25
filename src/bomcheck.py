@@ -20,7 +20,7 @@ Append the characters _sl.xlsx to the files that contain ERP
 BOMs.
 """
 
-__version__ = '1.9.2'
+__version__ = '1.9.3'
 __author__ = 'Kenneth E. Carlton'
 
 #import pdb # use with pdb.set_trace()

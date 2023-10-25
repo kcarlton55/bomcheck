@@ -9,8 +9,8 @@ with open('README.md', 'r') as fh:
 
 setup(
     name='bomcheck',   # name people will use to pip install
-    python_requires='>=3.10',
-    version='1.9.2',
+    python_requires='>=3.11',
+    version='1.9.3',
     description='Compare BOMs stored in Excel files.',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -24,7 +24,7 @@ setup(
         'Intended Audience :: Manufacturing',
         'Intended Audience :: End Users/Desktop',
         'Operating System :: OS Independent',],
-    install_requires = ['pandas>=1.2', 'toml>=0.10'],
+    install_requires = ['pandas>=1.2', 'toml>=0.10', 'openpyxl>=3.0'], # openpyxl needed for pd.read_excel
     url='https://github.com/kcarlton55/bomcheck',
     author='Kenneth Edward Carlton',
     author_email='kencarlton55@gmail.com',

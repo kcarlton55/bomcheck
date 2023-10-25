@@ -8,7 +8,7 @@ BOMs from an ERP (Enterprise Resource Planning) program like SyteLine.
 The CAD and ERP programs must be able to export to Excel files
 because that is where bomcheck gathers data from.
 
-## **How to instal**
+## **How to install**
 Assuming that you already have Python on your machine, use the package
 manager software [pip](https://en.wikipedia.org/wiki/Pip_(package_manager))
 that comes with Python and run this from a command line:
