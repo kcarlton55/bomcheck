@@ -20,10 +20,10 @@ Append the characters _sl.xlsx to the files that contain ERP
 BOMs.
 """
 
-__version__ = '1.9.3'
+__version__ = '1.9.4'
 __author__ = 'Kenneth E. Carlton'
 
-#import pdb # use with pdb.set_trace()
+import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -656,9 +656,16 @@ def gatherBOMs_from_fnames(filename):
                 dfsl_found=False
             else:
                 dfsl_found=False
+
             # Grrr! SyteLine version 10 puts in an unwanted line.  Deal with it:
-            if dfsl_found and isinstance(df.iloc[0,0], str) and df.iloc[0,0][:11] == 'Group Item:':
-                df.drop([0], inplace=True)
+            if dfsl_found:
+                df.drop(df[df.iloc[:,0].str.contains('Group')].index, inplace=True)
+                # df.iloc[:,0]                                  yields: Group Item: SC300TL2111311, 0, 1, 1, 2, 2, ...
+                # df[df.iloc[:,0].str.contains('Group')].index  yields: Index([0], dtype='int64')
+                # df.index                                      yields: df.drop([0], inplace=True) RangeIndex(start=0, stop=74, step=1)
+                # df[df.iloc[:,0].str.contains('1')].index      yields: Index([0, 2, 3, 6, 10, 47, 52, 57, 58, 59, 60, 61, 73], dtype='int64')
+                # df.drop(index=[0, 8, 12, 23])                 will drop rows 0, 8, 12, 23
+                # reference: https://www.geeksforgeeks.org/drop-a-list-of-rows-from-a-pandas-dataframe/, see row: Drop Rows with Conditions in Pandas
             if (dfsl_found and (not (test_for_missing_columns('sl', df, k))) and
                     col_name(df, cfg['level_sl'])):
                 sldfsdic.update(deconstructMultilevelBOM(df, 'sl', 'TOPLEVEL'))
