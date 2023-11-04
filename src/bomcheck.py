@@ -8,22 +8,23 @@ File initial creation on Sun Nov 18 2018
 This program compares two Bills of Materials (BOMs). One BOM
 originating from a Computer Aided Design (CAD) program like
 SolidWorks (SW) and the other from an Enterprise Resource
-Planning (ERP) program like SyteLine (SL).  The structure of
-BOMs (e.g. column names like PART NO. or NUMBERO DE PARTE,
-etc.) are unique to a particular company.  A configuration
-file, named bomcheck.cfg, can be altered to help adapt the
-program to a particular company's needs.
+Planning (ERP) program like SyteLine (SL).
 
-BOMs are extracted from Microsoft Excel files.  Append the
-characters _sw.xlsx to the files that contain SW BOMs.
-Append the characters _sl.xlsx to the files that contain ERP
-BOMs.
+BOMs are extracted from Microsoft Excel files.  For bomcheck
+to be able to identify files that are suitable for
+evaluation, append the characters _sw.xlsx to the files that
+contain SW BOMs, and append the characters _sl.xlsx to the
+files that contain ERP BOMs. Any submitted files without
+these trailing characters will be ignored.
+
+ Otherwise thd files submitted files,
+including and .xlsx files, will be ignored.
 """
 
 __version__ = '1.9.4'
 __author__ = 'Kenneth E. Carlton'
 
-import pdb # use with pdb.set_trace()
+#import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -628,6 +629,8 @@ def gatherBOMs_from_fnames(filename):
                     df = df.astype(str)
                     df = df.replace('nan', 0)
                 dfsw_found=True
+                if dfsw_found:  # do this if a _sl.xlsx file renamed to a _sw.xlsx file.  That is a sl file maskarading as a sw file.
+                    df.drop(df[df.iloc[:,0].astype('str').str.contains('Group')].index, inplace=True)
             elif file_extension.lower() == '.xls' and XLSnotAllowed not in printStrs:
                 printStrs.append(XLSnotAllowed)
                 print(XLSnotAllowed)
@@ -657,9 +660,9 @@ def gatherBOMs_from_fnames(filename):
             else:
                 dfsl_found=False
 
-            # Grrr! SyteLine version 10 puts in an unwanted line.  Deal with it:
+            # Grrr! SyteLine version 10 puts in unwanted lines.  Deal with it:
             if dfsl_found:
-                df.drop(df[df.iloc[:,0].str.contains('Group')].index, inplace=True)
+                df.drop(df[df.iloc[:,0].astype(str).str.contains('Group')].index, inplace=True)
                 # df.iloc[:,0]                                  yields: Group Item: SC300TL2111311, 0, 1, 1, 2, 2, ...
                 # df[df.iloc[:,0].str.contains('Group')].index  yields: Index([0], dtype='int64')
                 # df.index                                      yields: df.drop([0], inplace=True) RangeIndex(start=0, stop=74, step=1)
@@ -715,10 +718,20 @@ def test_for_missing_columns(bomtype, df, pn):
     global printStrs
     if bomtype == 'sw':
         required_columns = [cfg['qty'], cfg['descrip'],
-                            cfg['part_num'], cfg['itm_sw']]
+                            cfg['part_num']]#, cfg['itm_sw']]
     else: # 'for sl bom'
         required_columns = [cfg['qty'], cfg['descrip'],
                             cfg['part_num'], cfg['um_sl']]
+
+    if bomtype == 'sw' and  col_name(df, cfg['level_sl']) and not col_name(df, cfg['itm_sw']):
+        pass
+    elif bomtype == 'sw' and not col_name(df, cfg['itm_sw']):
+        printStr = ('\nBOM column {0} missing from sw file {1}.\n'.format(' or '.join(cfg['itm_sw']), pn)
+                    + "This if fine unless you're intending that it be a multilevel BOM.\n")
+        if not printStr in printStrs:
+            printStrs.append(printStr)
+            print(printStr)
+
     missing = []
     for r in required_columns:
         if not col_name(df, r):
@@ -881,7 +894,7 @@ def deconstructMultilevelBOM(df, source, top='TOPLEVEL'):
         __itm = df[__itm].astype('str')
         __itm = __itm.str.replace('.0', '') # stop something like 5.0 from slipping through
         df['__Level'] = __itm.str.count('\.') # level is the number of periods (.) in the string
-    elif __lvl and __lvl in df.columns:
+    elif __lvl and __lvl in df.columns:  # dealing w/ SL
         df['__Level'] = df[__lvl].astype(float).astype(int)
     else:
         df['__Level'] = 0

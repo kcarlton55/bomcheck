@@ -22,7 +22,7 @@
       <li><a href="#interpreting">Interpreting results</a></li>
       <li><a href="#UofM">Units of Measure</a></li>
       <li><a href="#bomcheckcfg">bomcheck.cfg</a></li>
-      <li><a href="#ERPvsERP">ERP BOM vs ERP BOM howto</a></li>
+     <li><a href="#ERPvsERP">ERP BOM vs ERP BOM howto</a></li>
       <li><a href="bomcheck_troubleshoot.html">Troubleshooting</a></li>
     </ul>
 
@@ -38,7 +38,7 @@
     <h2 id="basics">Basics you need to know</h2>
 
     <p>The file names for BOMs that come from the CAD program should be
-      the part no. of the BOM followed by _sw.xlsx. That is, names like
+      the part no. of the BOM followed by _sw.xlsx. That is names like
       0300-2010-005_sw.xlsx, 093352_sw.xlsx, and 35K2445_sw.xlsx are all
       legitimate file names. The names of the files from the ERP database will end
       with _sl.xlsx. Thus the names will look like 0300-2010-005_sl.xlsx,
@@ -50,58 +50,52 @@
       (can be altered with <a href="#bomcheckcfg">bomcheck.cfg</a>)
       that gives the relative level of a subassembly
       to the main assembly. The Level column starts out with "0" for the top
-      level assembly, "1" for parts/subassemblies under the main assembly, "2" for
-      a parts/subassembly under a Level "1" subassembly, and so forth. From the
-      CAD program, it is similar, but instead item nos. indicate the Level, e.g. item
+      level assembly, "1" for part/subassemblies under the main assembly, "2" for
+      a part/subassembly under a Level "1" subassembly, and so forth. From the
+      CAD program, it is similar, but item nos. indicate the Level, e.g. item
       nos. like 1, 2, 3, 3.1, 3.2, 3.2.1, 3.2.2, 3.3, 4, etc., where item 3
       is a subassembly with parts under it. </p>
 
-    <p><b>Tip #1:</b> If two underscore characters exist within a file name,
-      like 094433_testBOM_sw.xlsx, the characters between the two underscore
-      characters will be ignored.  In this case testBOM.</p>
-
-    <p><b>Tip #2:</b> If the SyteLine BOM is a multilevel BOM (i.e. has a column
-      named "Level"), then any characters proceeding the "_sl.xlsx" characters
-      will be ignored. Instead the part number is obtained from within the
-      Excel file where the part no. for Level 0 is shown.</p>
+    <p>Column headers of BOMs (e.g. ITEM, QTY, DESCRIPTION, etc.) may vary
+      from company to company. There is a file that you can configure that may
+      be of help. See the file named <a href="#bomcheckcfg">bomcheck.cfg</a>.</p>
 
 
     <h2 id="run">How to run bomcheck</h2>
 
     <p>To run the program from the command line, run like this:
 
-      <ul style="list-style-type:none;"><li><code>C:\> bomcheck</code></li></ul>
+      <ul><li><code>bomcheck</code></li></ul>
 
-    <p>(Use bomcheckgui to run from a Graphical User Interface.)  When the
-      above command is run, help info will be shown about required
-      command line arguments.</p>
-
-    <p> If you obtain the file named bomcheck.py, which is the source code for
-      bomcheck, you can run bomcheck from within a <a href="https://www.tutorialsteacher.com/python/python-interective-shell">python shell</a>.
-      Within bomcheck.py there is a function named bomcheck().  This is the
-      function to excecute from within the shell.  Execute it like this:</p>
-
-
-      <ul style="list-style-type:none;">
-          <li><code>>>> import bomcheck as bc</code></li>
-          <li><code>>>> bc.bomcheck(arg1, arg2, ..., argN)</code></li>
+      When the above command is run, help info will be shown about required
+      command line arguments.  Another way of running bomcheck is by using the
+      program called Jupyter Notebook. Enter this in a JupyterLab cell, and hit
+      Shift-Enter to run the cell.
+      <ul>
+          <li><code>import bomcheck as bc</code></li>
+          <li><code>bc.bomcheck(arg1, arg2, ..., argN)</code></li>
       </ul>
-
-    <p>(Note: requirements for running from a shell are pandas>=1.2,
-       toml>=0.10, openpyxl>=3.0, and python>=3.11) To see information
-       about arguments used in bomcheck():
     </p>
 
-    <ul style="list-style-type:none;">
-        <li><code>>>> help(bc.bomcheck)</code></li>
-    </ul>
-
-    <p>Note that if an error occurs when checking your BOMs, or if bomcheck is
-      confused about some data that was entered, a message will be shown that
-      describes the problem. Otherwise look for something you may have done
-      wrong like failing to attach the _sl.xlsx or _sw.xlsx characters to the
-      file name.
+    <p>To see what arguments (arg1, arg2, ...) that bomcheck takes, in
+        Jupyter Notebook, on the line showing "bc.bomcheck()", hit
+        <i>Shift-Tab</i>.  (The cell must have been ran first).  Either
+        that or create a new cell and run:
+        <ul><li><code>help(bc.bomcheck)</code></li></ul>
     </p>
+
+    <p>If an error occurs when checking your BOMs, or if bomcheck is confused
+      about some data that was entered, a message will be shown that describes
+      the problem. Otherwise look for something you may have done wrong like
+      failing to attach the _sl or _sw characters to the file name.
+    </p>
+
+    <p><b>Tip:</b> If the SyteLine BOM is a multilevel BOM (has a column
+      named "Level"), then the name of the Excel file for that BOM is irrelevant
+      as long as it has the <i>_sl</i> characters attached. In this case part
+      numbers of multilevel SyteLine BOMs are extracted from the BOM itself and
+      not from the file name. So then a file name like <i>094433_initial_sl.xlsx</i>
+      will work, or even a name like <i>mybom_sl.xlsx</i> will work.</p>
 
     <h2 id="interpreting">Interpreting results</h2>
     <p>Shown below is an example of a few lines of what a bom check looks like:</p>
@@ -287,15 +281,14 @@
     <h2 id="ERPvsERP">ERP BOM vs ERP BOM howto</h2>
     <p>The bomcheck program has been designed specifically to compare a CAD BOM
        (like from SolidWorks) to an ERP BOM (like from SyteLine).  However with
-       a bit of finagaling, it can be used to compare an ERP BOM to an ERP BOM.
-       Here's how:
+       a little bit of finalgling, it can be used to compare a ERP BOM to
+       an ERP BOM.  Here's how:
        <ol>
            <li>Extract the two BOM's you wish to compare and save them to
-               Excel files.  Use <u>multilevel</u> BOMs.  For example, let's imagine
-               you saved them to 101304_sl.xlsx and 089432_sl.xlsx</li>
-           <li>Rename the first file to 101304_sw.xlsx</li>
-           <li>Open in Excel the 101304_sw.xlsx file and go to the line that
-               shows level 0:
+               Excel files.  Use multilevel BOMs.  For example, let's imagine
+               you saved them to 101304_sl.xlsx and 089432_xlsx</li>
+           <li>Rename the first to 101304_sw.xlsx</li>
+           <li>Open in Excel the 101304_sw and go to the line that shows level 0:
                 <table class="table table-striped table-sm">
                   <thead>
                     <tr>
@@ -314,24 +307,22 @@
                       <td>EA</td>
                     </tr>
                 </table>
-                Change the Item there from 101304 to 089432.
+                Change the part number there from 101304 to 089432.
            </li>
          <li>Save the Excel file and run the bomcheck program and compare
-             the 101304_sw.xlsx and the 089432_sl.xlsx.  This works because for
+             the 101304_sl.xlsx and the 089432_xlsx.  This works because for
              multilevel ERP BOMs the 101304 in the filename is ignored and
-             bomcheck instead gets the Item shown at level 0.
+             bomcheck instead gets the part no. of the system from the part
+             no. that's listed for level 0 in the Excel file.
          </li>
          <li>When you look at your BOM check results, you won't see number
              101304 listed anywhere.  Instead look for the number 089432.
              You'll see the comparison results there. (Subassembly BOMs will
              be present also.)  The parts, quantities, etc. for the 101304
              system will be shown in the "sw" columns where numbers from a CAD
-             file are normally shown.
+             file are normally shown.'
          </li>
       </ol>
-
-     <p>If you have BOMs that are NOT multilevel, then rename the 101304_sw.xlsx
-       file to 089432_sw.xlsx, and then compare it to the 089422_sl.xlsx file.</p>
 
 
     <h2 id="bomcheckcfg">bomcheck.cfg</h2>
@@ -347,6 +338,42 @@
       of this file via an argument setting in the bomcheck function, or, if you
       are using bomcheckgui, go to the settings section and enter the location
       there.
+    </p>
+
+    <h2 id="more">More about file names and file comparisons</h2>
+    <p>Already mentioned above about file names is that they should be names
+      like 093352_sw.xlsx.  Bomcheck will recogize the characters 093352 from
+      the file name as being the top level part no. for that BOM.  However if
+      the name is something like 093352_083752_sw.xlsx, bomcheck will ignore
+      the characters between the two underscores, in this case 083752, and yet
+      bomcheck will still use the 093352 as the part no. for the BOM.</p>
+
+    <p>Where this might come in handy is if you have several BOMs in SolidWorks
+      (SW) that are likely candidates for a BOM you have put together in
+      SyteLine (SL).  You can find out which comes closest to your SL BOM.  For
+      example you have SW BOMs 087345, 074333, and 097266; and the SL BOM you
+      wish to compare them against is 101555.  What you can do is name your
+      SW files as 101555_087345_sw.xlsx, 101555_074333_sw.xlsx, and
+      101555_097266_sw.xlsx.  Then you do your comparison.  Bomcheck will use
+      the first portion of the name (101555) for checking.  The second portion,
+      e.g. 087345, will help you keep track of what part no. the BOM is actually
+      for.</p>
+
+    <p>Something else you can do with program is to compare one SL BOM against
+       another SL BOM.  To do this, give one of the SL BOMs a name ending with
+       _sw.xlsx, even though it isn't an actual SW BOM.  You can use the two
+       underscores method mentioned above to help you keep track of the actual
+       origin of BOMs.</p>
+
+    <p>As mentioned above, bomcheck determines the part no. of the BOM from its
+      file name.  Something to note however is that this is not always the
+      case.  If a BOM comes from a multilevel SL BOM, then the top level part
+      no. comes from within the BOM file itself.  The part no. used is where
+      the level is 0 in the column named Level.</p>
+
+    <p>Something that the bomcheck program cannot do is to compare a SW BOM
+      to another SW BOM.  The reason this cannot be done is because the SL
+      BOM needs to contain a U/M column for the program to function properly.
     </p>
 
 
