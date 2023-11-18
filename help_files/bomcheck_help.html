@@ -23,6 +23,8 @@
       <li><a href="#UofM">Units of Measure</a></li>
       <li><a href="#ImportToExcel">Import a CSV file into Excel</a></li>
       <li><a href="#ERPvsERP">ERP BOM vs ERP BOM howto</a></li>
+      <li><a href="#PN_MISSING">description_missing & PN_MISSING</a></li>
+      <li><a href="#droplist">drop list & exceptions list</a></li>
       <li><a href="#bomcheckcfg">bomcheck.cfg</a></li>
       <li><a href="bomcheck_troubleshoot.html">Troubleshooting</a></li>
     </ul>
@@ -264,7 +266,6 @@
       category.  Likewise, 130039 is in SolidWorks, but not in the ERP BOM</p>
 
 
-
     <h2 id="UofM">Units of Measure</h2>
     <p>If a unit of measure (U/M) is not given for a value in the Length column
       of a SolidWorks' BOM, then the U/M is assumed to be Inches (unless changed
@@ -349,6 +350,36 @@
 
      <p>If you have BOMs that are NOT multilevel, then rename the 101304_sw.xlsx
        file to 089432_sw.xlsx, and then compare it to the 089422_sl.xlsx file.</p>
+
+
+     <h2 id="PN_MISSING">description_missing & PN_MISSING</h2>
+     <p>If in the <i>Description</i> field of a BOM that came from a CAD program you
+        see description_missing, it means that the description in the
+        CAD BOM  was left blank.</p>
+
+     <p>If in the <i>Item</i> field of a BOM that came from a CAD program you
+        see PN_MISSING, it means that the part number in the CAD BOM
+        was left blank.</p>
+
+     <p>If you don't want to see any rows showing the PN_MISSING message,
+       enter PN_MISSING in the drop list and make the drop list active.
+
+     <h2 id="droplist">drop list & exceptions list</h2>
+     <p>Perhaps you have parts that show in the BOM of your CAD program that
+        are not not shown on the BOM in your ERP program; and you don't want
+        them to show.  For example hardware bolts and nuts that are common
+        stock items.  These will show up as errors when bomcheck is run.
+        However you can exclude these items from the check.  To to this enter
+        these items in what is called a drop list.  The list will look something
+        like this:</p>
+
+     <p>['3*-025', '3182-*']</p>
+
+     <p>Add as many items to the list as you like.  If there are exceptions
+       to this that you would like to account for, then create an exceptions
+       list.  It will look something like this:</p>
+
+     <p>['3042-*-025', '3182-0000-001']</p>
 
 
     <h2 id="bomcheckcfg">bomcheck.cfg</h2>

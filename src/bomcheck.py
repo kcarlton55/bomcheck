@@ -21,7 +21,7 @@ these trailing characters will be ignored.
 including and .xlsx files, will be ignored.
 """
 
-__version__ = '1.9.4'
+__version__ = '1.9.5'
 __author__ = 'Kenneth E. Carlton'
 
 #import pdb # use with pdb.set_trace()
@@ -154,7 +154,7 @@ def set_globals():
     excelTitle = []
 
     # default settings for bomcheck.  See bomcheck.cfg are explanations about variables
-    cfg = {'accuracy': 2,   'ignore': ['3086-*'], 'drop': ['3*-025'],  'exceptions': [],
+    cfg = {'accuracy': 2,   'ignore': ['3086-*'], 'drop': [],  'exceptions': [],
            'from_um': 'IN', 'to_um': 'FT', 'toL_um': 'GAL', 'toA_um': 'SQF',
            'part_num':  ["Material", "PARTNUMBER", "PART NUMBER", "Part Number", "Item"],
            'qty':       ["QTY", "QTY.", "Qty", "Quantity", "Qty Per"],
@@ -233,7 +233,13 @@ def main():
     parser.add_argument('-cspn', '--cspartnuber', action='store_true', default=False,
                         help='Enable case sensitive checking of part numbers'),
     parser.add_argument('-d', '--drop_bool', action='store_true', default=False,
-                        help='Ignore 3*-025 pns, i.e. do not use in the bom check')
+                        help="Don't show part nos. from the drop list in check results.")
+    parser.add_argument('-dp', '--drop', help='Enter a "drop list", i.e. a list of part '
+                        'numbers from the CAD BOM that you wish to be ignored.  '
+                        "E.g. -dp \"['3*-025', '3081-*']\" (If active, -d "
+                        'is automatically set to True.)', type=str)
+    parser.add_argument('-exc', '--exceptions', help='Exceptions to part numbers shown in '
+                        "the drop list.  E.g. -exc \"['3142-3034-025', '3081-*-001']\"", type=str)
     parser.add_argument('-f', '--followlinks', action='store_true', default=False,
                         help='Follow symbolic links when searching for files to process.  ' +
                         "  (MS Windows doesn't honor this option.)"),
@@ -321,10 +327,17 @@ def bomcheck(fn, dic={}, **kwargs):
 
         d: bool
             If True (or = 1), make use of the list named
-            "drop".  The list "drop" is either defined
-            internally within the bomcheck program itself,
-            Look in the file bomcheck.cfg for more
-            information about drop. Default: False
+            "drop".  See bomcheck_help for more
+            information. Default: False
+
+        drop: list
+           list of part nos. from the CAD BOM to exclude
+           from the bom check.  e.g. [3*-025, 3108-*]
+           (if set, set arg d to True)
+
+        exceptions: list
+           list of exceptions to part nos. shown in the
+           drop list.  e.g. [3125-*-025]
 
         f: bool
             If True (or = 1), follow symbolic links when
@@ -418,6 +431,29 @@ def bomcheck(fn, dic={}, **kwargs):
                         else kwargs.get('cspn', False))
     cfg['csdescription'] = (dic.get('csdescription') if dic.get('csdescription')
                         else kwargs.get('csdsc', False))
+    #pdb.set_trace()
+    if dic.get('drop'):
+        try:
+            string = dic.get('drop')
+            cfg['drop'] = ast.literal_eval(string)  # change a string to a list
+            cfg['drop_bool'] = True
+        except:
+            print('\nExecution stoped.  Improper syntax for drop list.  Example of proper syntax:\n\n'
+                    "bomcheck filename --drop \"['3*-025', '3018-*']\"\n")
+            exit()
+    if dic.get('exceptions'):
+        try:
+            string = dic.get('exceptions')
+            cfg['exceptions'] = ast.literal_eval(string)  # change a string to a list
+        except:
+            print('\nExecution stoped.  Improper syntax for exceptions list.  Example of proper syntax:\n\n'
+                    "bomcheck filename --drop \"['3*-025', '3018-*'] --exceptions \"['32*-025', '3018-7*']\"\n")
+            exit()
+    if kwargs.get('drop'):
+        cfg['drop'] = kwargs.get('drop')
+        cfg['drop_bool'] = True
+    if kwargs.get('exeptions'):
+        cfg['exceptions'] = kwargs.get('exceptions')
     f = kwargs.get('f', False)
     m = kwargs.get('m', None)
     outputFileName = kwargs.get('o', 'bomcheck')
@@ -445,6 +481,7 @@ def bomcheck(fn, dic={}, **kwargs):
         cfg['to_um'] = dbdic.get('to_um', 'FT')
     else:
         cfg['overwrite'] = False
+
 
     if isinstance(fn, str) and fn.startswith('[') and fn.endswith(']'):
         fn = ast.literal_eval(fn)  # change a string to a list
@@ -494,6 +531,11 @@ def bomcheck(fn, dic={}, **kwargs):
         print('calculation done')
     else:
         print('program produced no results')
+
+    if dic:  # if bomcheck run from the command line, show results
+        print('\n', getresults(0))
+        print('\n', getresults(1))
+        print('\n', printStrs)
 
     return getresults(0), getresults(1), printStrs
 
@@ -625,7 +667,7 @@ def gatherBOMs_from_fnames(filename):
                     df.columns = df.columns.str.replace(r'\n', '', regex=True)
                     df.replace(r'\n',' ', regex=True, inplace=True)
                     if col_name(df, cfg['descrip']):
-                        df[col_name(df, cfg['descrip'])].fillna('*** description empty ***', inplace=True)
+                        df[col_name(df, cfg['descrip'])].fillna('----- sw_description_missing -----', inplace=True)
                     df = df.astype(str)
                     df = df.replace('nan', 0)
                 dfsw_found=True
@@ -878,7 +920,7 @@ def deconstructMultilevelBOM(df, source, top='TOPLEVEL'):
 
     p = None
     df[__pn] = df[__pn].astype('str').str.strip() # make sure pt nos. are "clean"
-    df[__pn].replace('', 'no pn from BOM!', inplace=True)
+    df[__pn].replace('', 'PN_MISSING', inplace=True)
 
     # https://stackoverflow.com/questions/2974022/is-it-possible-to-assign-the-same-value-to-multiple-keys-in-a-dict-object-at-onc
     values = dict.fromkeys((cfg['qty'] + cfg['length_sw']), 0)
@@ -1081,7 +1123,7 @@ def convert_sw_bom_to_sl_format(df):
     if cfg['del_whitespace']:
         df[cfg['Item']] = df[cfg['Item']].str.replace(' ', '')
 
-    if cfg['drop_bool']==True:
+    if cfg['drop_bool']==True and cfg['drop']:
         filtr3 = is_in(cfg['drop'], df[cfg['Item']], cfg['exceptions'])
         df.drop(df[filtr3].index, inplace=True)
 
@@ -1150,7 +1192,7 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
         filtr4 = dfsl['Obsolete'].notnull()
         dfsl.drop(dfsl[filtr4].index, inplace=True)    # https://stackoverflow.com/questions/13851535/how-to-delete-rows-from-a-pandas-dataframe-based-on-a-conditional-expression
 
-    if cfg['drop_bool']==True:
+    if cfg['drop_bool']==True and cfg['drop']:
        filtr3 = is_in(cfg['drop'], dfsl[cfg['Item']], cfg['exceptions'])
        dfsl.drop(dfsl[filtr3].index, inplace=True)
 
