@@ -18,9 +18,8 @@
 
     <ul>
       <li><a href="#intro">Introduction</a></li>
-      <li><a href="#run">How to run bomcheck</a></li>
-      <li><a href="bomcheck_help.html">bomcheck_help.html</a></li>
-      <li><a href="bomcheck_troubleshoot.html">Troubleshooting</a></li>
+      <li><a href="#run">How to run bomcheckgui</a></li>
+      <li><a href="bomcheck_help.html">bomcheck_help.html</a>  (click this link to go to a mejority of the help info)</li>
     </ul>
 
     <h2 id="intro">Introduction</h2>
@@ -30,9 +29,7 @@
       <a href="https://en.wikipedia.org/wiki/Cmd.exe">(cmd.exe)</a>.
       The program <i>bomcheckgui</i> is actually a wrapper that presents a
       graphical user interface (gui) for the bomcheck program. That is, bomcheckgui
-      runs the bomcheck program in the background.  See
-      <a href="bomcheck_help.html">bomcheck_help.html</a> for info about how bomcheck works.
-    </p>
+      runs the bomcheck program in the background. </p>
 
 
     <h2 id="run">How to run bomcheckgui:</h2>
@@ -40,37 +37,21 @@
     <p>Drag and drop the BOM files that you want to be checked onto the
       central portion of the gui. File names that do not end with _sw.xlsx or
       sl_xlsx will be ignored. Files that contain a tilde character, ~, will
-      also be ignored.</p>
+      also be ignored.  Optionally drag and drop a directory that contains the
+      BOM files.</p>
 
     <p>Press the green check button icon to have your BOMs analyzed. To print
       results or save results to a csv file, click the boxes located at the
-      bottom of the pop up window containing results.  See
-      <a href="https://www.copytrans.net/support/how-to-open-a-csv-file-in-excel/">
-      how to open a csv file in Excel.</a></p>
+      bottom of the pop up window containing results.  For more information
+      about csv files, see bomcheck_help.html.</p>
 
-    <p>If you wish to check other BOM files, push the clear button to clear the
-      list of files. Then drag and drop the new files you want checked.</p>
+    <p>To clear the list of files in the drop area, click the clear button, i.e.
+      the windshield wiper icon</p>
 
     <p>If at some point in your work day you close the folder that contains
       your BOMs, and later you want to reopen it to make changes, instead of
       having to search for that folder again, click on the folder icon.
-      The folder will open.</p>
-
-    <p><b>Tip 1:</b> Instead of dragging individual file names into the
-      bomcheckgui program, you can drag in the folder that contains the files
-      that are to be checked. Then once the program is run, the program's action
-      will be to do a bom check of the files in that folder. The advantage of
-      doing it this way is that files in a Microsoft File Explorer window can
-      be updated without having to clear previous selections and reinserting
-      new files.</p>
-
-    <p><b>Tip 2:</b> Save yourself some keystrokes: Instead of placing the
-      multilevel BOM from SyteLine into the folder that contains the SolidWorks
-      BOMs, copy the multilevel SyteLine BOM to the clipboard. Bomcheck will
-      find that BOM in the clipboard and will use it for evaluation.
-      (To copy to the clipboard, open up the SyteLine BOM in Excel, click the
-      empty cell located to the left of the column header named "A", and then
-      do a Ctrl-C.)</p>
+      Your folder will open.</p>
 
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.10.2/dist/umd/popper.min.js"

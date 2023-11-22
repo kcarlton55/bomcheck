@@ -471,7 +471,7 @@ def bomcheck(fn, dic={}, **kwargs):
         udrop = udrop.replace(',', ' ')
         uexceptions = uexceptions.replace(',', ' ')
         if udrop:
-            cfg['drop'] = udrop.split()
+            cfg['drop'] = udrop.split()  # e.g. '3*025 NO_PN' -> ['3*025', 'NO_PN']
         if uexceptions:
             cfg['exceptions'] = uexceptions.split()
         outputFileName = dbdic.get('file2save2', 'bomcheck')
