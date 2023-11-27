@@ -17,8 +17,7 @@ contain SW BOMs, and append the characters _sl.xlsx to the
 files that contain ERP BOMs. Any submitted files without
 these trailing characters will be ignored.
 
- Otherwise thd files submitted files,
-including and .xlsx files, will be ignored.
+For more information, see the help files for this program.
 """
 
 __version__ = '1.9.5'
@@ -225,6 +224,12 @@ def main():
                         'in that directory and subdirectories thereof will be ' +
                         'gathered.  BOMs gathered from _sl files without ' +
                         'corresponding SolidWorks BOMs being found are ignored.')
+    parser.add_argument('-a', '--about', action='version',
+                        version="Author: " + __author__ +
+                        ".  Initial creation: Nov 18 2018.  "
+                        "bomcheck's home: https://github.com/kcarlton55/bomcheck."
+                        '  Version: ' + __version__,
+                        help="Show author, date, web site, version, then exit")
     parser.add_argument('-c', '--cfgpathname', help='pathname where configuration file ' +
                         'resides (e.g. C:/folder1/folder2/bomcheck.cfg.  Note: use ' +
                         "forward slashes.  Backslashes won't work") ,
