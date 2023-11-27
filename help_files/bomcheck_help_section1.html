@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>bomcheck help</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+</head>
+
+
+<body>
+  <div class="container">
+
+    <h1 id="top">bomcheck help</h1>
+    <ul>
+      <li><a href="#intro">Introduction</a></li>
+      <li><a href="#basics">Basics you need to know</a></li>
+      <li><a href="#run">How to run bomcheck</a></li>
+      <li><a href="#interpreting">Interpreting results</a></li>
+      <li><a href="#UofM">Units of Measure</a></li>
+      <li><a href="#ImportToExcel">Import a CSV file into Excel</a></li>
+      <li><a href="#ERPvsERP">ERP BOM vs ERP BOM howto</a></li>
+      <li><a href="#PN_MISSING">description_missing & PN_MISSING</a></li>
+      <li><a href="#droplist">drop list & exceptions list</a></li>
+      <li><a href="#bomcheckcfg">bomcheck.cfg</a></li>
+    </ul>
+
+
+    <h2 id="intro">Introduction</h2>
+    <p>The purpose of of this program is to compare Bills of Materials (BOMs)
+      derived from a CAD program (like SolidWorks) and compare them to BOMs
+      stored in an ERP database program (like that of SyteLine).  The CAD and
+      ERP programs must be able to export to excel files because that is where
+      this program gathers BOMs from for comparison.</p>
+
+    <h2 id="basics">Basics you need to know</h2>
+    <p>The file names for BOMs that come from the CAD program should be
+      the part no. of the BOM followed by _sw.xlsx. That is, names like
+      0300-2010-005_sw.xlsx, 093352_sw.xlsx, and 35K2445_sw.xlsx are all
+      legitimate file names. The names of the files from the ERP database will end
+      with _sl.xlsx. Thus the names will look like 0300-2010-005_sl.xlsx,
+      093352_sl.xlsx, and 35K2445_sl.xlsx. The program will match the
+      0300-2010-005_sw.xlsx file to the 0300-2010-005_sl.xlsx file, and so forth.</p>
+
+    <p>A file can contain a mulilevel BOM. For a BOM from the ERP program
+      to be recognized as a multilevel BOM, a column named "Level" must exist
+      (can be altered with <a href="#bomcheckcfg">bomcheck.cfg</a>)
+      that gives the relative level of a subassembly
+      to the main assembly. The Level column starts out with "0" for the top
+      level assembly, "1" for parts/subassemblies under the main assembly, "2" for
+      a parts/subassembly under a Level "1" subassembly, and so forth. From the
+      CAD program, it is similar, but instead item nos. indicate the Level, e.g. item
+      nos. like 1, 2, 3, 3.1, 3.2, 3.2.1, 3.2.2, 3.3, 4, etc., where item 3
+      is a subassembly with parts under it. </p>
+
+    <p><b>Tip #1:</b> If two underscore characters exist within a file name,
+      like 094433_testBOM_sw.xlsx, the characters between the two underscore
+      characters will be ignored.  In this case testBOM.</p>
+
+    <p><b>Tip #2:</b> If the SyteLine BOM is a multilevel BOM (i.e. has a column
+      named "Level"), then any characters proceeding the "_sl.xlsx" characters
+      will be ignored. Instead the part number is obtained from within the
+      Excel file where the part no. for Level 0 is shown.</p>
+
+
+    <h2 id="run">How to run bomcheck</h2>
+    <p>To run the program from the command line, run like this (assuming you
+      did the <i>pip install bomcheck</i> method do install bomcheck.py to
+      your system):</p>
+
+      <ul style="list-style-type:none;"><li><code>C:\> bomcheck</code></li></ul>
+
+    <p>(Use bomcheckgui to run from a Graphical User Interface.)  When the
+      above command is run, help info will be shown about required
+      command line arguments.</p>
+
+    <p> If you obtain the file named bomcheck.py, which is the source code for
+      bomcheck, you can run bomcheck from within a <a href="https://www.tutorialsteacher.com/python/python-interective-shell">python shell</a>.
+      Within bomcheck.py there is a function named bomcheck().  Excecute this
+      function to run bomcheck from within the shell.  Execute it like this:</p>
+
+
+      <ul style="list-style-type:none;">
+          <li><code>>>> import bomcheck as bc</code></li>
+          <li><code>>>> bc.bomcheck(arg1, arg2, ..., argN)</code></li>
+      </ul>
+
+    <p>(Note: requirements for running from a shell are pandas>=1.2,
+       toml>=0.10, openpyxl>=3.0, and python>=3.11) To see information
+       about arguments used in bomcheck():
+    </p>
+
+    <ul style="list-style-type:none;">
+        <li><code>>>> help(bc.bomcheck)</code></li>
+    </ul>
+
+    <p>Note that if an error occurs when checking your BOMs, or if bomcheck is
+      confused about some data that was entered, a message will be shown that
+      describes the problem. Otherwise look for something you may have done
+      wrong like failing to attach the _sl.xlsx or _sw.xlsx characters to the
+      file name.
+    </p>
+
+    <h2 id="interpreting">Interpreting results</h2>
+    <p>Shown below is an example of a few lines of what a bom check looks like:</p>
+
+    <table class="table table-striped table-sm">
+      <thead>
+        <tr>
+          <th scope="col">assy</th>
+          <th scope="col">Item</th>
+          <th scope="col">IQDU</th>
+          <th scope="col">Q_sw</th>
+          <th scope="col">Q_sl</th>
+          <th scope="col">Description_sw</th>
+          <th scope="col">Description_sl</th>
+          <th scope="col">U_sw</th>
+          <th scope="col">U_sl</th </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>730322</td>
+          <td>130031</td>
+          <td>XXXX</td>
+          <td></td>
+          <td style="text-align:center">1</td>
+          <td> </td>
+          <td>HOUSING</td>
+          <td></td>
+          <td>EA</td>
+        </tr>
+        <tr>
+          <td> </td>
+          <td>130039</td>
+          <td>XXXX</td>
+          <td style="text-align:center">1</td>
+          <td></td>
+          <td>HOUSING</td>
+          <td></td>
+          <td>EA</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td> </td>
+          <td>220978</td>
+          <td>‒‒‒‒</td>
+          <td style="text-align:center">1</td>
+          <td style="text-align:center">1</td>
+          <td>SPUR GEAR</td>
+          <td>SPUR GEAR</td>
+          <td>EA</td>
+          <td>EA</td>
+        </tr>
+        <tr>
+          <td> </td>
+          <td>275000</td>
+          <td>‒‒‒‒</td>
+          <td style="text-align:center">0.35</td>
+          <td style="text-align:center">0.35</td>
+          <td>TUBE</td>
+          <td>TUBE</td>
+          <td>FT</td>
+          <td>FT</td>
+        </tr>
+        <tr>
+          <td> </td>
+          <td>380000</td>
+          <td>‒‒‒‒</td>
+          <td style="text-align:center">2</td>
+          <td style="text-align:center">2</td>
+          <td>BEARING</td>
+          <td>BEARING</td>
+          <td>EA</td>
+          <td>EA</td>
+        </tr>
+        <tr>
+          <td> </td>
+          <td>441530</td>
+          <td>‒‒‒‒</td>
+          <td style="text-align:center">1</td>
+          <td style="text-align:center">1</td>
+          <td>SHIFT ASSY</td>
+          <td>SHIFT ASSY</td>
+          <td>EA</td>
+          <td>EA</td>
+        </tr>
+        <tr>
+          <td> </td>
+          <td>799944</td>
+          <td>‒‒X‒</td>
+          <td style="text-align:center">1</td>
+          <td style="text-align:center">1</td>
+          <td>SHAFT</td>
+          <td>AXLE</td>
+          <td>EA</td>
+          <td>EA</td>
+        </tr>
+        <tr>
+          <td> </td>
+          <td>877325</td>
+          <td>‒XX‒</td>
+          <td style="text-align:center">3</td>
+          <td style="text-align:center">1</td>
+          <td>PLUG</td>
+          <td>SQ. HEAD PLUG</td>
+          <td>EA</td>
+          <td>EA</td>
+        </tr>
+        <tr>
+          <td> </td>
+          <td>900000</td>
+          <td>‒‒‒‒</td>
+          <td style="text-align:center">0.75</td>
+          <td style="text-align:center">0.75</td>
+          <td>OIL</td>
+          <td>OIL</td>
+          <td>GAL</td>
+          <td>GAL</td>
+        </tr>
+        <tr>
+          <td>441530</td>
+          <td>433255</td>
+          <td>‒‒‒‒</td>
+          <td style="text-align:center">1</td>
+          <td style="text-align:center">1</td>
+          <td>ROD</td>
+          <td>ROD</td>
+          <td>EA</td>
+          <td>EA</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>500000</td>
+          <td>‒‒‒‒</td>
+          <td style="text-align:center">1</td>
+          <td style="text-align:center">1</td>
+          <td>SHIFT FORK</td>
+          <td>SHIFT FORK</td>
+          <td>EA</td>
+          <td>EA</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td> K34452</td>
+          <td>‒‒‒‒</td>
+          <td style="text-align:center">1</td>
+          <td style="text-align:center">1</td>
+          <td>SPRING PIN</td>
+          <td>SPRING PIN</td>
+          <td>EA</td>
+          <td>EA</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>The columns I, Q, D, and U show Xs if Item, Quantity, Description, or
+      Unit of measure don't match between the SolidWorks BOM and the ERP BOM.
+      Q_sw and Q_sl are quanties in SolidWorks and the ERP. Desription_sw and
+      Description_sl are a comparison of descriptions. U_sw and U_sl are a
+      comparison of units of measure. The 1309031 part is in the ERP but
+      not in SolidWorks, thus the blank space in columns for the SolidWorks
+      category.  Likewise, 130039 is in SolidWorks, but not in the ERP BOM</p>
+
+
+    <h2 id="UofM">Units of Measure</h2>
+    <p>If a unit of measure (U/M) is not given for a value in the Length column
+      of a SolidWorks' BOM, then the U/M is assumed to be Inches (unless changed
+      in the bomcheck.cfg file). However the U/M can be explicity specified,
+      e.g. <b>336.7mm</b>. The program will recognize the following abreviations
+      for U/Ms:</p>
+
+    <p>in, inch, ”, ft, ', feet, foot, yrd, yd, yard, mm, millimeter, cm,
+      centimeter, m, meter, mtr, sqin, sqi, sqft, sqf, sqyd, sqy, sqmm, sqcm,
+      sqm, pint, pt, qt, quart, gal, g, gallon, ltr, l, liter.</p>
+
+    <p>When the program is run, values will be converted to the U/M given in the
+      ERP database program. For example, 336.7mm will be converted to 1.10 ft,
+      and 8 pints will be converted to 1.00 gal. Other names that can be
+      substituted for the column name LENGTH in a SolidWorks BOM are: SIZE,
+      Length, L, SIZE, AMT, AMOUNT, and MEAS.  Names are case sensitive.</p>
+
+
+    <h2 id="ImportToExcel">Import a CSV file into Excel</h2>
+    <p>Bomcheck can export results to a CSV file which can be imported into
+     Microsoft Excel. To do this:</p>
+      <ul>
+        <li>Open Excel</li>
+        <li>Click New, then click on Blank workbook</li>
+        <li>Click on the Data tab</li>
+        <li>Click Get Data From Text/CSV</li>
+        <li>Navigate to the CSV-formatted file saved on your system, select it, then click Import </li>
+        <li>This will open the menu asking for settings to use for import</li>
+        <li>For File Origin choose 65001: Unicode (UTF-8)</li>
+        <li>For Delimiter choose Tab</li>
+        <li>For Data Type Detection, use the default.  Normally is <i>Based on first 200 rows</i></li>
+        <li>Click the Load button</li>
+      </ul>
+
+
+    <h2 id="ERPvsERP">ERP BOM vs ERP BOM howto</h2>
+    <p>The bomcheck program has been designed specifically to compare a CAD BOM
+       (like from SolidWorks) to an ERP BOM (like from SyteLine).  However with
+       a bit of finagaling, it can be used to compare an ERP BOM to an ERP BOM.
+       Here's how:</p>
+
+       <ol>
+           <li>Extract the two BOM's you wish to compare and save them to
+               Excel files.  Use <u>multilevel</u> BOMs.  For example, let's imagine
+               you saved them to 101304_sl.xlsx and 089432_sl.xlsx</li>
+           <li>Rename the first file to 101304_sw.xlsx</li>
+           <li>Open in Excel the 101304_sw.xlsx file and go to the line that
+               shows level 0:
+                <table class="table table-striped table-sm">
+                  <thead>
+                    <tr>
+                      <th scope="col">Level</th>
+                      <th scope="col">Item</th>
+                      <th scope="col">Description</th>
+                      <th scope="col">Qty Per</th>
+                      <th scope="col">U/M</th </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>0</td>
+                      <td>101304</td>
+                      <td>DZS 300V TRIPLEX</td>
+                      <td>1.000</td>
+                      <td>EA</td>
+                    </tr>
+                </table>
+                Change the Item there from 101304 to 089432.
+           </li>
+         <li>Save the Excel file and run the bomcheck program and compare
+             the 101304_sw.xlsx and the 089432_sl.xlsx.  This works because for
+             multilevel ERP BOMs the 101304 in the filename is ignored and
+             bomcheck instead gets the Item shown at level 0.
+         </li>
+         <li>When you look at your BOM check results, you won't see number
+             101304 listed anywhere.  Instead look for the number 089432.
+             You'll see the comparison results there. (Subassembly BOMs will
+             be present also.)  The parts, quantities, etc. for the 101304
+             system will be shown in the "sw" columns where numbers from a CAD
+             file are normally shown.
+         </li>
+      </ol>
+
+     <p>If you have BOMs that are NOT multilevel, then rename the 101304_sw.xlsx
+       file to 089432_sw.xlsx, and then compare it to the 089422_sl.xlsx file.</p>
+
+
+     <h2 id="PN_MISSING">description_missing & PN_MISSING</h2>
+     <p>If in the <i>Description</i> field of a BOM that came from a CAD program you
+        see description_missing, it means that the description in the
+        CAD BOM  was left blank.</p>
+
+     <p>If in the <i>Item</i> field of a BOM that came from a CAD program you
+        see PN_MISSING, it means that the part number in the CAD BOM
+        was left blank.</p>
+
+     <p>If you don't want to see any rows showing the PN_MISSING message,
+       enter PN_MISSING in the drop list and make the drop list active.
+
+     <h2 id="droplist">drop list & exceptions list</h2>
+     <p>Perhaps you have parts that show in the BOM of your CAD program that
+        are not not shown on the BOM in your ERP program; and you don't want
+        them to show.  For example hardware bolts and nuts that are common
+        stock items.  These will show up as errors when bomcheck is run.
+        However you can exclude these items from the check.  To to this enter
+        these items in what is called a drop list.  The list will look something
+        like this:</p>
+
+     <p>['3*-025', '3182-*']</p>
+
+     <p>Add as many items to the list as you like.  If there are exceptions
+       to this that you would like to account for, then create an exceptions
+       list.  It will look something like this:</p>
+
+     <p>['3042-*-025', '3182-0000-001']</p>
+
+
+    <h2 id="bomcheckcfg">bomcheck.cfg</h2>
+    <p>Download the file named bomcheck.cfg
+      <a href="https://github.com/kcarlton55/bomcheck/blob/master/docs/" download>(download link)</a>
+      that contains settings that you can change
+      in order to alter how the bomcheck program behaves.  For example, you can
+      change units of measure.  Open bomcheck.cfg with a text editor program
+      such as Microsoft's Wordpad.  There you will see settings that can be
+      changed.</p>
+
+    <p>Place bomcheck.cfg in a directory of your choosing.  Then set the location
+      of this file via an argument setting in the bomcheck function, or, if you
+      are using bomcheckgui, go to the settings section and enter the location
+      there.
+    </p>
+
+
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.10.2/dist/umd/popper.min.js"
+    integrity="sha384-7+zCNj/IqJ95wo16oMtfsKbZ9ccEh31eOz1HGyDuCQ6wgnyJNSYdrPa03rtR1zdB"
+    crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.min.js"
+    integrity="sha384-QJHtvGhmr9XOIpI6YVutG+2QOK9T+ZnN4kzFN1RtK3zEFEIsxhlmWl5/YESvpZ13"
+    crossorigin="anonymous"></script>
+</body>
+
+</html>
