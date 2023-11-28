@@ -31,6 +31,7 @@ import os
 import fnmatch
 import ast
 import tomllib
+import webbrowser
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', None)  # was pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
@@ -1502,6 +1503,45 @@ def prepare_multiindex_for_export(df):
     for col, ser in replace_cols.items():
         new_df[col] = ser
     return new_df.reset_index(drop=True)
+
+
+def open_help_webpage(type_of_help='bomcheck_help', version=__version__):
+    '''  Open a help webpage for bomcheck, bomcheckgui, troubleshoot, or the
+    software license
+
+    Parameters
+    ----------
+    type_of_help : string
+        valid values: 'bomcheck_help', 'bomcheckgui_help',
+        'bomcheck_troubleshoot', 'license'.  Default: 'bomcheck_help'
+    version : string
+        software version.  The version is used to open up help on github's
+        site based on the software version.  Default: bomcheck's version no.
+
+    Returns
+    -------
+    out : None
+    '''
+
+    if type_of_help == 'bomcheck_help':
+        if 'bomcheck_help' in cfg:
+            webbrowser.open(cfg['bomcheck_help'])
+        else:
+            webbrowser.open('https://htmlpreview.github.io/?https://github.com/kcarlton55/bomcheck/blob/' + version + '/help_files/bomcheck_help.html')
+    elif type_of_help == 'bomcheckgui_help':
+        if 'bomcheckgui_help' in cfg:
+            webbrowser.open(cfg['bomcheckgui_help'])
+        else:
+            webbrowser.open('https://htmlpreview.github.io/?https://github.com/kcarlton55/bomcheckgui/blob/' + version +'/help_files/bomcheckgui_help.html')
+    elif type_of_help == 'bomcheck_troubleshoot':
+        if 'bomcheck_troubleshoot' in cfg:
+            webbrowser.open(cfg['bomcheck_troubleshoot'])
+        else:
+            webbrowser.open('https://htmlpreview.github.io/?https://github.com/kcarlton55/bomcheck/blob/' + version + '/help_files/bomcheck_troubleshoot.html')
+    elif type_of_help == 'license':
+        webbrowser.open('https://github.com/kcarlton55/bomcheckgui/blob/main/LICENSE.txt')
+    else:
+        print("The bomcheck.open_help_webpage function didn't work as expected." )
 
 
 # before program begins, create global variables
