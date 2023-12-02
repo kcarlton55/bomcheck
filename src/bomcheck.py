@@ -23,7 +23,7 @@ For more information, see the help files for this program.
 __version__ = '1.9.5'
 __author__ = 'Kenneth E. Carlton'
 
-#import pdb # use with pdb.set_trace()
+import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -95,10 +95,10 @@ def setcfg(**kwargs):
 
 
 def get_bomcheckcfg(filename):
-    ''' Load a toml file (https://toml.io/en/). A user of
-    the bomcheck program can open up 'filename' with a text
-    editor program such as notepad, and edit it to adjust
-    how the bomcheck program behaves.
+    ''' Load a toml file (ref.: https://toml.io/en/). A user
+    of the bomcheck program can open up 'filename' with a
+    text editor program such as notepad, and edit it to
+    adjust how the bomcheck program behaves.
 
     (Note: backslash characters have a special function in
     Python known as excape characters. Don't use them in
@@ -423,6 +423,7 @@ def bomcheck(fn, dic={}, **kwargs):
     results = [None, None]
 
     c = dic.get('cfgpathname')    # if from the command line, e.g. bomcheck or python bomcheck.py
+
     if c:
         cfg.update(get_bomcheckcfg(c))
 
@@ -1135,6 +1136,7 @@ def convert_sw_bom_to_sl_format(df):
 
     df[cfg['WC']] = cfg['WCvalue']    # WC is a standard column shown in a SL BOM.
     df[cfg['Op']] = cfg['OpValue']   # Op is a standard column shown in a SL BOM, usually set to 10
+
     df.set_index(cfg['Op'], inplace=True)
 
     return df
@@ -1493,7 +1495,7 @@ def prepare_multiindex_for_export(df):
     '''
     new_df = df.copy()
     for i in range(df.index.nlevels, 0, -1):
-      new_df = new_df.sort_index(level=i-1)
+        new_df = new_df.sort_index(level=i-1)
     replace_cols = dict()
     for i in range(new_df.index.nlevels):
         idx = new_df.index.get_level_values(i)
@@ -1505,7 +1507,10 @@ def prepare_multiindex_for_export(df):
     return new_df.reset_index(drop=True)
 
 
-def open_help_webpage(type_of_help='bomcheck_help', version=__version__):
+
+
+
+def view_help(help_type='bomcheck_help', version=__version__, dbdic=None):
     '''  Open a help webpage for bomcheck, bomcheckgui, troubleshoot, or the
     software license
 
@@ -1522,26 +1527,24 @@ def open_help_webpage(type_of_help='bomcheck_help', version=__version__):
     -------
     out : None
     '''
+    if dbdic and 'cfgpathname' in dbdic:
+        # if dbdic provided, comes from bomcheckgui
+        cfg.update(get_bomcheckcfg(dbdic['cfgpathname']))
 
-    if type_of_help == 'bomcheck_help':
-        if 'bomcheck_help' in cfg:
-            webbrowser.open(cfg['bomcheck_help'])
-        else:
-            webbrowser.open('https://htmlpreview.github.io/?https://github.com/kcarlton55/bomcheck/blob/' + version + '/help_files/bomcheck_help.html')
-    elif type_of_help == 'bomcheckgui_help':
-        if 'bomcheckgui_help' in cfg:
-            webbrowser.open(cfg['bomcheckgui_help'])
-        else:
-            webbrowser.open('https://htmlpreview.github.io/?https://github.com/kcarlton55/bomcheckgui/blob/' + version +'/help_files/bomcheckgui_help.html')
-    elif type_of_help == 'bomcheck_troubleshoot':
-        if 'bomcheck_troubleshoot' in cfg:
-            webbrowser.open(cfg['bomcheck_troubleshoot'])
-        else:
-            webbrowser.open('https://htmlpreview.github.io/?https://github.com/kcarlton55/bomcheck/blob/' + version + '/help_files/bomcheck_troubleshoot.html')
-    elif type_of_help == 'license':
-        webbrowser.open('https://github.com/kcarlton55/bomcheckgui/blob/main/LICENSE.txt')
+    d = {'bomcheck_help': 'https://htmlpreview.github.io/?https://github.com/'
+             'kcarlton55/bomcheck/blob/' + version + '/help_files/bomcheck_help.html',
+         'bomcheckgui_help': 'https://htmlpreview.github.io/?https://github.com/'
+             'kcarlton55/bomcheckgui/blob/' + version +'/help_files/bomcheckgui_help.html',
+         'bomcheck_troubleshoot': 'https://htmlpreview.github.io/?https://github.com/'
+             'kcarlton55/bomcheck/blob/' + version + '/help_files/bomcheck_troubleshoot.html',
+         'license': 'https://github.com/kcarlton55/bomcheckgui/blob/main/LICENSE.txt'}
+
+    if help_type in cfg:
+        webbrowser.open(cfg[help_type])
+    elif help_type in d:
+        webbrowser.open(d[help_type])
     else:
-        print("The bomcheck.open_help_webpage function didn't work as expected." )
+        print("bomcheck.view_help didn't function correctly")
 
 
 # before program begins, create global variables
