@@ -40,7 +40,7 @@
     <ol type="1">
         <li>Order the columns in SyteLine like those shown in Image #2.  I.e.,
         Operation, WC, Material, Quantity, Description, and U/M.  (Click
-        <a href="move_columns.html">here</a> to learn how to do move columns)</li>
+        <a href="move_columns">here</a>to learn how to do move columns)</li>
         <li>From the CAD BOM Table (see image #1), copy values you want to paste
         from columns Op, WC, Item, and Q</li>
         <li>Go to the Current Materials of the Item you wish to paste the
