@@ -16,16 +16,19 @@
         <h1 id="top">Troubleshooting</h1>
 
         <ol>
-            <li><a href="#multilevel">Multilevel BOMs</a></li>
+            <li><a href="#multilevel">Comparing multilevel BOMs possible?</a></li>
             <li><a href="#swnotprocessed">SolidWorks BOM not processed</a></li>
             <li><a href="#swnotprocessed2">Assembly pn in Syteline, but SolidWorks BOM not processed.</a></li>
             <li><a href="#slnotprocessed">SyteLine BOM not processed</a></li>
-            <li><a href="#iqdu">Empty I Q D U fields</a></li>
+            <li><a href="#iqdu">Empty I Q D U fields (no dashes... nothing)</a></li>
             <li><a href="#length">SW's lengths not converted to FT</a></li>
             <li><a href="#crash_cols">Program crashed due to missing columns</a></li>
             <li><a href="#config_txt">Unable to open config.txt file.</a></li>
             <li><a href="#accuracy">What accuracy should lengths be?</a></li>
             <li><a href="#conflict">Column name conflicts</a></li>
+            <li><a href="#wrong_descrip">Pn's description in CAD BOM changed after program ran</a></li>
+            <li><a href="#no_UM">U/M missing for part shown in ERP BOM.</a></li>
+            <li><a href="#no_sync">CAD BOM and ERP BOM seem to not sync at all.</a></li>
         </ol>
 
         <p id="multilevel"><b>1. Multilevel BOMs. </b> SolidWorks BOMs are sometimes multilevel (subassemblies
@@ -57,34 +60,30 @@
             at. What happened? Answer: bomcheck ignores all BOMs from SyteLine for which
             it can't find a SolidWorks BOM to compare it to.</p>
 
-        <p id="iqdu"><b>5. Empty I Q D U fields.</b> The I, Q, D, and U values that indicate
-            pass/fail results are shown empty (&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;) for
-            a particular part number.&nbsp; Dashes and Xs (‒‒‒‒ or ‒‒X‒, etc.) should be shown.
-            If this is not the case, then it indicates that a part number is repeated in
-            the SyteLine BOM.  Duplicate part numbers should not be in a SyteLine BOM!</p>
+        <p id="iqdu"><b>5. Empty I Q D U fields (no dashes.. nothing).</b>
+            The I, Q, D, and U values that indicate pass/fail results are shown empty
+            (&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;) for a particular part number.&nbsp;
+            Dashes and Xs (‒‒‒‒ or ‒‒X‒, etc.) should be shown.  If this is not the case,
+            then it indicates that a part number is repeated in the SyteLine BOM.
+            Duplicate part numbers should not be in a SyteLine BOM!</p>
 
         <p id="length"><b>6. SW's lengths not converted to FT.</b> A part length in SolidWorks
             did not convert of feet in order to compare to a length in SyteLine. Why not?
-            In the bom check you'll see that the unit of measure for length from SolidWorks
-            is EA when it should be FT. This means that the length column is not shown on
-            the SolidWorks BOM as it should be.</p>
+            If in the CAD check you see that the unit of measure for length is EA when it
+            should be FT, it means that the length column is not shown on the SolidWorks BOM.</p>
 
         <p id="crash_cols"><b>7. Crash... missing columns.</b> Bomcheck crashed complaining
             of missing columns. What went wrong? Answer: several things could have happened.
             A SyteLine BOM may have been mistakenly labeled as as SolidWorks BOM (had
             _sw.xlsx extension). A SolidWorks BOM may have been labeled as a SyteLine BOM
-            (had a _sl.xlsx extension). The column names for a SolidWorks BOM may not be on
-            the second row of the SW Excel sheet (Dekker's SW BOMs has the assembly
-            part number on the the first row). The column names for a SyteLine BOM
-            are not on the first row. In short, the arrangement of the BOM in the
-            Excel sheet is not in it's normal arrangement.</p>
+            (had a _sl.xlsx extension). In short, the arrangement of the BOM in the
+            Excel sheet is not correct.</p>
 
         <p id="config_txt"><b>8. Unable to open config.txt (bomcheckgui only)</b>
             The program reports that it cannot open up a file named config.txt. What is that
             about? Answer: Whenever a user makes a settings change (File > Settings),
             bomcheckgui remembers those settings for future use by saving those settings in a
-            file named config.txt. In that file is also saved the last accessed folder
-            containing BOMs. That file is located in a user's settings folder. The file is at
+            file named config.txt. That file is located in a user's settings folder. The file is at
             <i>C:\Users\username\AppData\Local\bomcheck\config.txt</i>.
             (The bomcheckgui program automatically creates this file.) Perhaps user
             rights were somehow severed??? Contact the IT manager for help.</p>
@@ -105,8 +104,38 @@
             file.  The name that appears first in the list of potential column names for parts
             will take precedent.</p>
 
+        <p id="wrong_descrip"><b>11. Pn's description in CAD BOM changed after program ran.</b>
+            You have two or more parts or part configurations that are configured
+            to show the same part number on a CAD BOM.  As an example, two hoses
+            with different bends, but with same length and same end fittings
+            should report the same part number on a CAD BOM.  But the two hoses
+            come from two different CAD solid model files or configurations.
+            The two models/configs should, obviously, have the same descriptions
+            assigned.  But you may have mistakenly put in different descriptions.
+            When the bomcheck program is run, it combines quantities of hoses
+            and picks one of the two descriptions to compare to the ERP
+            description. Bomcheck could pick the part with the wrong description.
+            Bomcheck does not check to see if descriptions are different between
+            models or configurations.   That is up to you to catch and correct.</p>
+
+          <p id="no_UM"><b>12. U/M missing for part shown in ERP BOM.</b>
+            Someone forgot to enter the U/M into ERP.
+          </p>
+
+          <p id="no_sync"><b>12. CAD BOM and ERP BOM seem to not sync at all.</b>
+            When you pulled a multilevel BOM from the ERP, you may have mistakenly
+            pushed the sort button on the LEVEL column or some other column
+            within the ERP's BOM.  The button to sort and to extract an Excel
+            file are close together and you mistakenly pushed the sort.
+            Close the ERP BOM and derive the BOM again.  Yet another posible
+            reason that things are not working out is that you misnamed a _sw.xlsx
+            file to a _sl.xlsx file, or vice-versa.
+          </p>
+
+
+
         <i>
-            <p style="text-align:right;">last updated: 6/5/2022</p>
+            <p style="text-align:right;">last updated: 12/28/2023</p>
         </i>
 
     </div>
