@@ -60,10 +60,10 @@
     just inserted. (Make it easy on yourself.  Preestablish new subassemblies
     and new parts before entering items into the main BOM.)</p>
 
-    <p>If the <u>Op no. is not 10</u> for what you are trying to paste in, you can
+    <p>If the <u>Op no. isn't no. 10</u> for what you are trying to paste in, you can
     enter a different Op number into the CAD BOM Table.  Enter
     your different number in the Op column next to the subassembly number.  The
-    remainder of the Op numbers for that subassembly will automatically change.  Op 15 is shown as
+    remainder of the Op numbers will automatically change.  Op 15 is shown as
     an examble in Image #1.</p>
 
     <p>If you mistakenly have the incorrect Op no. in your CAD BOM Table
@@ -72,21 +72,21 @@
     or <u>PAINT</u>, or whatever the WC is for that Op.  You will then know that your
     Op number in incorrect.</p>
 
-    <p>If the <u>Op</u> no. you try to paste in is <u>not already established</u>
+    <p>If the <u>Op</u> no. you try to paste is <u>not already established</u>
     in ERP, the the paste will fail.</p>
 
     <p>When you copy from the CAD BOM Table and you inappropriately also include
-    values from the <u>Description</u> column and/or the <u>U</u> column, bomcheckgui will
+    values from the <u>Description</u> column and/or the U column, bomcheckgui will
     <u>ignore</u> the Description and U values and not copy those values to the clipboard.</p>
 
-    <p>Do not add to the ERP BOM <u>non-inventory bin stock</u>.  (These parts fall
-    under ERP's product code no. 810.)  These parts include CS pipe nipples, screws,
-    etc.  These part numbers can be made to not show in the CAD BOM Table and therefore won't
+    <p>Do not add to the ERP BOM <u>non-inventory bin stock</u>.  These parts fall
+    under ERP's product code no. 810.  The parts include CS pipe nipples, screws,
+    etc.  These can be made to not show in the CAD BOM Table, and therefore won't
     be present when you do your copying and pasting.  To do this use the "drop
-    list" when you run bomcheckgui.  (See the "fundamentals" section of bomcheck's help webpages for more
-    information about the drop list.)  When using the drop list with bomchechgui,
-    go to bomcheckgui's settings section and enter part nos. that are not to show in the
-    CAD BOM Table; and click the "Activate drop list" check box.  This box is
+    list".  More information about the drop list can be found in bomcheck's help
+    webpage under the "fundamentals" section.  When using the drop list with bomchechgui,
+    go to the settings section to enter part nos. that are not to show in the
+    CAD BOM Table. And click the "Activate drop list" check box.  This box is
     found on the toolbar at the top of bomcheckgui's main window.</p>
 
 
