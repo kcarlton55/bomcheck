@@ -372,13 +372,35 @@
         these items in what is called a drop list.  The list will look something
         like this:</p>
 
-     <p>['3*-025', '3182-*']</p>
+     <p>["3*-025", "3182-*"]</p>
 
      <p>Add as many items to the list as you like.  If there are exceptions
        to this that you would like to account for, then create an exceptions
        list.  It will look something like this:</p>
 
-     <p>['3042-*-025', '3182-0000-001']</p>
+     <p>["3042-*-025", "3182-0000-001"]</p>
+
+     <p>The drop list can be activated in three different ways:</p>
+
+     <ol type="1">
+        <li>Enter your drop and exceptions lists in a
+        <a href="#bomcheckcfg">bomcheck.cfg</a> file.  Then when you run bomcheck
+        from the command line invoke the <i>-d</i>
+        switch.  (Run <i>bomcheck --help</i> on the command line to see a list
+        of options.)
+        </li>
+        <li>When running bomcheck from the command line, enter your
+        drop and excecptions list directly as an option on the command line.
+        E.g. <i>bomcheck --drop ["3*-025"] --exceptions ["3042-*-025"] filename</i>.
+        The <i>-d</i> switch will automatically be invoked.  Running this way
+        will supersede values entered into the bomcheck.cfg file.</li>
+        <li>When running bomcheck via the bomcheckgui program (bomcheckgui
+        is a wrapper for the bomcheck program) go to bomcheckgui's settings
+        and enter your drop and exceptions lists there.  Click the "Activate drop list"
+        check box to activate these lists when bomcheck is run.  When running
+        this way the drop and exceptions lists in settings supersede those lists in
+        the bomcheck.cfg file.</li>
+     </ol>
 
 
     <h2 id="bomcheckcfg">bomcheck.cfg</h2>
@@ -395,7 +417,8 @@
       changed.</p>
 
     <p>Place bomcheck.cfg in a directory of your choosing.  Then set the location
-      of this file via an argument setting in the bomcheck function, or, if you
+      of this file via an argument setting in the bomcheck function
+      (do <i>bomcheck --help</i> to see command line options), or if you
       are using bomcheckgui, go to the settings section and enter the location
       there.
     </p>

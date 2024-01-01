@@ -34,21 +34,17 @@
     <ol type="1">
       <li><a href="#extract_from_sw">Extracting BOMs from SyteLine</a></li>
           <ol type="a">
-            <li>
-              <p style="font-weight: bold;"Single level SL BOMs
+            <li><a href="#single_level_sl">Single level SL BOMs</a></li>
+              <p>
               <img src="BOM_singleLevel_from_SL.png" alt="BOM_singleLevel_SL" width=600>
               </p>
-            </li>
-            <li>
-              <p style="font-weight: bold;"Multilevel> SL BOMs (preferred)</p>
-              <p>blah blah blah</p>
+            <li><a href="#multilevel_sl">Multilevel SL BOMs (preferred)</a></li>
               <p>
               <img src="BOM_multilevel_from_SL1.png" alt="BOM_singleLevel_SL" width=600>
               </p>
               <p>
               <img src="BOM_multilevel_from_SL2.png" alt="BOM_singleLevel_SL" width=600>
               </p>
-            </li>
           </ol>
       <li><a href="#extract_from_sl">Extracting BOMs from SolidWorks</a></li>
           <ol type="a">
