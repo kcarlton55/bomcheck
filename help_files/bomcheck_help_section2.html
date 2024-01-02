@@ -10,52 +10,68 @@
     integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
 </head>
 
-
 <body>
   <div class="container">
 
     <h1 id="top">bomcheck help (section 2)</h1>
 
     <ol type="1">
-      <li><a href="#extract_from_sw">Extracting BOMs from SyteLine</a></li>
+      <li><a href="#extract_from_sl">Extract BOMs from SyteLine</a></li>
           <ol type="a">
             <li><a href="#single_level_sl">Single level SL BOMs</a></li>
             <li><a href="#multilevel_sl">Multilevel SL BOMs (preferred)</a></li>
           </ol>
-      <li><a href="#extract_from_sl">Extracting BOMs from SolidWorks</a></li>
+      <li><a href="#extract_from_sw">Extract BOMs from SolidWorks</a></li>
           <ol type="a">
-            <li><a href="#e#single_level_sw">Single level SW BOMs</a></li>
+            <li><a href="#single_level_sw">Single level SW BOMs</a></li>
             <li><a href="#multilevel_sw">Multilevel SW BOMs (preferred)</a></li>
           </ol>
     </ol>
 
     <hr>
 
-    <ol type="1">
-      <li><a href="#extract_from_sw">Extracting BOMs from SyteLine</a></li>
-          <ol type="a">
-            <li>
-              <p style="font-weight: bold;"Single level SL BOMs
-              <img src="BOM_singleLevel_from_SL.png" alt="BOM_singleLevel_SL" width=600>
-              </p>
-            </li>
-            <li>
-              <p style="font-weight: bold;"Multilevel> SL BOMs (preferred)</p>
-              <p>blah blah blah</p>
-              <p>
-              <img src="BOM_multilevel_from_SL1.png" alt="BOM_singleLevel_SL" width=600>
-              </p>
-              <p>
-              <img src="BOM_multilevel_from_SL2.png" alt="BOM_singleLevel_SL" width=600>
-              </p>
-            </li>
-          </ol>
-      <li><a href="#extract_from_sl">Extracting BOMs from SolidWorks</a></li>
-          <ol type="a">
-            <li><a href="#e#single_level_sw">Single level SW BOMs</a></li>
-            <li><a href="#multilevel_sw">Multilevel SW BOMs (preferred)</a></li>
-          </ol>
-    </ol>
+<h2 id="extract_from_sl">1. Extract BOMs from SyteLine</h2>
+
+<h3 id="single_level_sl">1a. Single level SL BOMs</h3>
+  To extract a single level BOM from SyteLine, go to the Item, go to
+  <i>Current Materials</i>, right click on the BOM and pick <i>To Excel</i>
+  <div class="container" style="border: 20px solid transparent;">
+    <img src="BOM_singleLevel_from_SL.png" alt="BOM_singleLevel_SL" width=600>
+  </div>
+
+<h3 id="multilevel_sl">1b. Multilevel level SL BOMs (preferred)</h3>
+  Extracting a multilevel BOM from SyteLine requires two steps.  First go to
+  <i>Indented Current BOM Report</i>, enter the Item no., pick <i>Report
+  Option > DataView</i>, then click <i>Preview</i>.
+  <div class="container" style="border: 20px solid transparent;">
+    <img src="BOM_multilevel_from_SL1.png" alt="BOM_singleLevel_SL1" width=600>
+  </div>
+  Second, from the window
+  that pops up, click the gear icon and then choose <i>Send To > Excel</i>.
+  <div class="container" style="border: 20px solid transparent;">
+    <img src="BOM_multilevel_from_SL2.png" alt="BOM_singleLevel_SL2" width=600>
+  </div>
+
+<h2 id="extract_from_sw">2. Extract BOMs from SolidWorks</h2>
+
+<h3 id="single_level_sw">2a. Single level SW BOMs</h3>
+  To extract a single level BOM from SolidWorks, open up the drawing where
+  your BOM is located, right click on the BOM, and pick <i>Save As...</i>
+  <div class="container" style="border: 20px solid transparent;">
+    <img src="BOM_single_level_from_SW.png" alt="BOM_singleLevel_SW" width=600>
+  </div>
+
+<h3 id="multilevel_sw">2b. Multilevel level SW BOMs (preferred)</h3>
+  To extract a multilevel BOM from SolidWorks, open up the assembly model and
+  insert a BOM in it.  Make sure the BOM type is <i>Indented, Detailed numbering,
+  and Detailed cut list</i>.  I.e. make sure all are activated.  Then right
+  click on the BOM and pick <i>Save As...</i>
+  <div class="container" style="border: 20px solid transparent;">
+    <img src="BOM_multilevel_from_SW.png" alt="BOM_singleLevel_SW" width=600>
+  </div>
+
+
+
 
 
 
