@@ -23,7 +23,6 @@
       <li><a href="#UofM">Units of Measure</a></li>
       <li><a href="#ImportToExcel">Import a CSV file into Excel</a></li>
       <li><a href="#ERPvsERP">ERP BOM vs ERP BOM howto</a></li>
-      <li><a href="#PN_MISSING">description_missing & PN_MISSING</a></li>
       <li><a href="#droplist">drop list & exceptions list</a></li>
       <li><a href="#bomcheckcfg">bomcheck.cfg</a></li>
     </ul>
@@ -276,11 +275,15 @@
       centimeter, m, meter, mtr, sqin, sqi, sqft, sqf, sqyd, sqy, sqmm, sqcm,
       sqm, pint, pt, qt, quart, gal, g, gallon, ltr, l, liter.</p>
 
-    <p>When the program is run, values will be converted to the U/M given in the
+    <p>Units of measure are not case sensitive.  So, for example, you can
+      use <i>sqin</i> or  <i>SQIN</i>.
+
+    <p>When the program is run, values will be converted to the U/M shown in the
       ERP database program. For example, 336.7mm will be converted to 1.10 ft,
       and 8 pints will be converted to 1.00 gal. Other names that can be
       substituted for the column name LENGTH in a SolidWorks BOM are: SIZE,
-      Length, L, SIZE, AMT, AMOUNT, and MEAS.  Names are case sensitive.</p>
+      Length, L, SIZE, AMT, AMOUNT, and MEAS.  These column names are case
+      sensitive.</p>
 
 
     <h2 id="ImportToExcel">Import a CSV file into Excel</h2>
@@ -350,18 +353,6 @@
      <p>If you have BOMs that are NOT multilevel, then rename the 101304_sw.xlsx
        file to 089432_sw.xlsx, and then compare it to the 089422_sl.xlsx file.</p>
 
-
-     <h2 id="PN_MISSING">description_missing & PN_MISSING</h2>
-     <p>If in the <i>Description</i> field of a BOM that came from a CAD program you
-        see description_missing, it means that the description in the
-        CAD BOM  was left blank.</p>
-
-     <p>If in the <i>Item</i> field of a BOM that came from a CAD program you
-        see PN_MISSING, it means that the part number in the CAD BOM
-        was left blank.</p>
-
-     <p>If you don't want to see any rows showing the PN_MISSING message,
-       enter PN_MISSING in the drop list and make the drop list active.
 
      <h2 id="droplist">drop list & exceptions list</h2>
      <p>Perhaps you have parts that show in the BOM of your CAD program that

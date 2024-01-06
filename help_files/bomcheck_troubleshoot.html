@@ -29,6 +29,8 @@
             <li><a href="#wrong_descrip">Pn's description in CAD BOM changed after program ran</a></li>
             <li><a href="#no_UM">U/M missing for part shown in ERP BOM.</a></li>
             <li><a href="#no_sync">CAD BOM and ERP BOM seem to not sync at all.</a></li>
+            <li><a href="#obsolete">PN is in ERP BOM, but doesn't appear in bomcheck results.</a></li>
+            <li><a href="#UM">A unit of measure value did not convert properly.</a></li>
         </ol>
 
         <p id="multilevel"><b>1. Multilevel BOMs. </b> SolidWorks BOMs are sometimes multilevel (subassemblies
@@ -122,7 +124,7 @@
             Someone forgot to enter the U/M into ERP.
           </p>
 
-          <p id="no_sync"><b>12. CAD BOM and ERP BOM seem to not sync at all.</b>
+          <p id="no_sync"><b>13. CAD BOM and ERP BOM seem to not sync at all.</b>
             When you pulled a multilevel BOM from the ERP, you may have mistakenly
             pushed the sort button on the LEVEL column or some other column
             within the ERP's BOM.  The button to sort and to extract an Excel
@@ -132,10 +134,29 @@
             file to a _sl.xlsx file, or vice-versa.
           </p>
 
+          <p id="obsolete"><b>14. PN is in ERP BOM, but doesn't appear in bomcheck results.</b>
+            I have a part no. in the CAD BOM, and I have the same PN in the ERP
+            BOM, but when I run bomcheck, the PN doesn't appear on the ERP's
+            side of the results.  So why in my PN not showing?  In the ERP BOM,
+            look for the column named <i>Obsolete Date</i>.  If there is any
+            text in that column for a PN, then bomcheck will not use that PN
+            when it runs.  To use that PN in your evaluation, erase any text in
+            that column for that particular PN.
+          </p>
+
+          <p id="UM"><b>15. A unit of measure value did not convert properly.</b>
+            In the LENGTH column I put <i>56 SQ. IN.</i>, Bomcheck should convert
+            it to square feet.  Right?  Yes, it should, but <i>SQ. IN.</i> is
+            not a unit of measure that bomcheck will recognize.  To see units of measure
+            that will be recognized, see <i>Units of Measure</i> in bomcheck's
+            help section 1.
+          </p>
+
+
 
 
         <i>
-            <p style="text-align:right;">last updated: 12/28/2023</p>
+            <p style="text-align:right;">last updated: 1/3/2023</p>
         </i>
 
     </div>
