@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>bomcheck help</title>
+  <title>bomcheck help 3</title>
   <!-- Bootstrap CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
     integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
@@ -15,79 +15,117 @@
   <div class="container">
 
     <h1 id="top">bomcheck help (section 3)</h1>
-    <tr><td colspan="X">&nbsp;</td></tr>
 
-    <h2 id="copy_paste">How to copy & paste from the CAD BOM Table into ERP</h2>
-    <p>If bomcheck encounters a CAD BOM for which no ERP was found to compare
-    it to, bomcheckgui outputs a "CAD BOM Table" which looks like this:
+    <ol type="1">
+      <li><a href="#copyfromSW">How to copy from SolidWorks</a></li>
+          <ol type="a">
+            <li><a href="#Interim_BOM">The Interim BOM Table defined</a></li>
+            <li><a href="#how_to_copy">How to copy from an Interim BOM</a></li>
+              <ol type="i">
+                  <li><a href="#no_inventory">Make sure to exclude inventory items</a></li>
+                  <li><a href="#descrips_ignored">Descriptions cannot be copied to the clipboard</a></li>
+                  <li><a href="#different_op">If OP number is not 10</a></li>
+              </ol>
+          </ol>
+      <li><a href="#pastetoSL">How to paste into SyteLine</a></li>
+          <ol type="a">
+            <li><a href="#column_order_must_match">Arrange column order to match that of the Interim BOM</a></li>
+            <li><a href="#use_paste_rows_append">Use Edit > Paste Rows Append</a></li>
+                <ol type="i">
+                   <li><a href="#manage_warnings">Manage popup windows that show warning messages</a></li>
+                   <li><a href="#wrong_op">If you mistakenly paste in the wrong Op number</a></li>
+
+          </ol>
+    </ol>
+
+    <hr>
+
+    <h2 id="copyfromSW">1. How to copy from SolidWorks</h2>
+
+    <h3 id="Interim_BOM">1a. The Interim BOM Table defined</h3>
+
+    <p>When bomcheck starts, it gathers all the CAD BOMs, and from those BOMs
+     generates a new, single, modified, Interim BOM. The Interim BOM is what
+     is used for comparison to SyteLine BOMs. The Interim BOM contains a list
+     of assemblies (or subassemblies) and their associated BOMs.  Once an
+     assembly is used for analysis, it is removed from the Interim BOM's list
+     of assemblies.  Once bomcheck has finished running, if any unused Interim
+     BOMs remain, they are presented to the user.</p>
+
+    <p>The Interim BOM has a structure like those in SyteLine; that is, it has
+     columns arranged like those in SyteLine, lengths converted to feet, parts
+     with the same part nos. combined and with their quantities summed.</p>
+
+
+    <img src="CAD_BOM_Table_marked.png" alt="Interim BOM">
+    Image #1, Interim BOM
     </p>
 
-    <p>
-    <img src="CAD_BOM_Table_marked.png" alt="CAD BOM Table - example of">
-    Image #1, CAD BOM Table.
-    </p>
 
-    <p>
-    Into the ERP (i.e. SyteLine), after Copying, the result will look like:
+    <h3 id="how_to_copy">1b. How to copy from an Interim BOM</h3>
+    <p>From the Interim BOM (see image #1), copy, via Ctrl+C, values you want to paste
+     from columns Op, WC, Item, and Q.  It is not necessary to copy Description
+     and U/M values.  ERP will fill in its own values for these.</p>
+
+    <h3 id="no_inventory">1b-i. Make sure to exclude inventory items</h3>
+    <p>Do not inventory bin stock items to SyteLine BOMs.  (Unless, possibly,
+    you're creating a kit.  Non-inventory items fall under
+    SyteLine's product code no. 810.)  These parts include CS pipe nipples, screws,
+    etc.  These part numbers can be made to not show in the Interim BOM.  To do this
+    employ the "drop list".  (See Section 1 of bomcheck's help.)</p>
+
+    <h3 id="descrips_ignored">1b-ii. Descriptions <u>cannot</u> be copied to the clipboard</h3>
+    <p>When you copy from an Interim BOM and you inappropriately include values from
+    the Description column and/or the U column, bomcheckgui will ignore the
+    Description and U values; i.e., they will not be copied to the clipboard.
+    (When data is pasted, SyteLine will insert its own Desription and U/M.)</p>
+
+    <h3 id="different_op">1b-iii. If OP number is not 10</h3>
+    <p>If the Op no. is not 10 for what you will be pasting in, you can
+    enter a different Op number into the Interim BOM.  Enter your different number in the
+    Op column next to the assembly number.  The remainder of the Op numbers
+    for that assembly will automatically change.  Op 15 is shown as an
+    example in Image #1.</p>
+
+
+
+    <h2 id="pastetoSL">2. How to paste into SyteLine</h2>
+
+    <h3 id="column_order_must_match">2a. Arrange column order must match that of the Interim BOM</h3>
+    <p>For a particular item that you wish to create a BOM for, go to
+    Item (enter your item no.) > Current Materials.  Then order the columns in
+     SyteLine like those shown in Image #2.  I.e., Operation, WC, Material,
+    Quantity, Description, and U/M.  (Click <a href="move_columns.html">here</a>
+    to learn how to do move columns)</p>
 
     <p>
     <img src="paste_rows_append2.png" alt="ERP BOM - example of">
-    Image #2, ERP BOM
+    Image #2, SyteLine BOM
     </p>
 
-    <p>Here are steps to take:</p>
+    <h3 id="use_paste_rows_append">2b. Use Edit > Paste Rows Append</h3>
+    <p>After copying from the Interim BOM,
+    pick a row where you want your BOM to be pasted, then go to Edit > Paste
+    Rows Append.  A popup window opens up looking for data that you want
+    pasted.  Do Ctrl+P.  If you are satisfied with what you pasted, click Save.</p>
 
-    <ol type="1">
-        <li>Order the columns in SyteLine like those shown in Image #2.  I.e.,
-        Operation, WC, Material, Quantity, Description, and U/M.  (Click
-        <a href="move_columns.html">here</a> to learn how to do move columns)</li>
-        <li>From the CAD BOM Table (see image #1), copy values you want to paste
-        (Ctrl+C) from columns Op, WC, Item, and Q</li>
-        <li>In SyteLine go to the Current Materials of the Item you wish to paste the
-        BOM into.  If the table is empty, click row 1 and then do <i>Edit
-        Paste Rows Append</i>.  If the table is not empty and some BOM items
-        are already in place, click on the row where you would like your new items
-        to be inserted. Press Ctrl+P to paste.  When items are pasted to ERP's BOM, ERP
-        will automatically insert Descriptions and U/Ms from its database.)</li>
-        <li>Click the Save button</li>
-    </ol>
-
+    <h3 id="manage_warnings">2b-i.  Manage popup windows that show warning messages</h3>
     <p>When you're pasting, if an error message pops up saying <u>Slow Inventory
-    Item</u>, or <u>Part doesn't exist</u>, etc., click whatever button in the pop-up menu that will
-    allow your paste operation to continue.  You can go back later once the pasting
-    is done to make corrections.  If an item doesn't exist that you inserted,
-    the pn will be flagged and you will be prevented from saving the BOM you
-    just inserted. (Make it easy on yourself.  Preestablish new subassemblies
-    and new parts before entering items into the main BOM.)</p>
+    Item</u>, or <u>Part doesn't exist</u>, etc., click whatever button in the
+    popup menu that will allow your paste operation to continue.  You can go
+    back later once the pasting is done to make corrections.  If an item doesn't
+    exist that you inserted, the pn will be flagged and you will be prevented
+    from saving the BOM you just inserted. (Make it easy on yourself.
+    Preestablish new subassemblies and new parts before entering items into the main BOM.)</p>
 
-    <p>If the <u>Op no. is not 10</u> for what you are trying to paste in, you can
-    enter a different Op number into the CAD BOM Table.  Enter
-    your different number in the Op column next to the subassembly number.  The
-    remainder of the Op numbers for that subassembly will automatically change.  Op 15 is shown as
-    an examble in Image #1.</p>
+    <h3 id="wrong_op">2b-ii.  If you mistakenly paste in the wrong Op number</h3>
+    <p>If you mistakenly paste the incorrect Op no., the SyteLine's WC value
+    <u>will not</u> be overwritten with <i>PICK</i>.  Instead the WC value will be <u>FAB</u>
+    or <u>PAINT</u>, or whatever the WC is for that Op.  You will then know
+    that your Op number in incorrect.  Please correct your mistake.</p>
 
-    <p>If you mistakenly have the incorrect Op no. in your CAD BOM Table
-    and you paste it to ERP, the WC value in ERP will NOT be overwritten with
-    <i>PICK</i>.  Instead the WC value will be <u>FAB</u>
-    or <u>PAINT</u>, or whatever the WC is for that Op.  You will then know that your
-    Op number in incorrect.</p>
-
-    <p>If the <u>Op</u> no. you try to paste in is <u>not already established</u>
-    in ERP, the the paste will fail.</p>
-
-    <p>When you copy from the CAD BOM Table and you inappropriately also include
-    values from the <u>Description</u> column and/or the <u>U</u> column, bomcheckgui will
-    <u>ignore</u> the Description and U values and not copy those values to the clipboard.</p>
-
-    <p>Do not add to the ERP BOM <u>non-inventory bin stock</u>.  (These parts fall
-    under ERP's product code no. 810.)  These parts include CS pipe nipples, screws,
-    etc.  These part numbers can be made to not show in the CAD BOM Table and therefore won't
-    be present when you do your copying and pasting.  To do this use the "drop
-    list" when you run bomcheckgui.  (See the "fundamentals" section of bomcheck's help webpages for more
-    information about the drop list.)  When using the drop list with bomchechgui,
-    go to bomcheckgui's settings section and enter part nos. that are not to show in the
-    CAD BOM Table; and click the "Activate drop list" check box.  This box is
-    found on the toolbar at the top of bomcheckgui's main window.</p>
+    <p>If the Op no. you try to paste in is not already established
+    in SyteLine, the the paste will fail.</p>
 
 
   </div>

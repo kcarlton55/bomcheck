@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>bomcheck help</title>
+  <title>bomcheck help 2</title>
   <!-- Bootstrap CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
     integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
@@ -16,27 +16,26 @@
     <h1 id="top">bomcheck help (section 2)</h1>
 
     <ol type="1">
-      <li><a href="#extract_from_sl">Extract BOMs from SyteLine</a></li>
+      <li><a href="#extract_from_sl">How to extract BOMs as Excel files from SyteLine</a></li>
           <ol type="a">
             <li><a href="#single_level_sl">Single level SL BOMs</a></li>
             <li><a href="#multilevel_sl">Multilevel SL BOMs (preferred)</a></li>
           </ol>
-      <li><a href="#extract_from_sw">Extract BOMs from SolidWorks</a></li>
+      <li><a href="#extract_from_sw">How to extract BOMs as Excel files from SolidWorks</a></li>
           <ol type="a">
             <li><a href="#single_level_sw">Single level SW BOMs</a></li>
             <li><a href="#multilevel_sw">Multilevel SW BOMs (preferred)</a></li>
-          </ol>
-      <li><a href="#extract_from_sw2">More info you need to know about SW multilevel BOMs</a></li>
-          <ol type="a">
-            <li><a href="#choose_sw">You can choose which subassemblies to analyze</a></li>
-            <li><a href="#missing_descrip_sw">Managing missing part no. descriptions</a></li>
-            <li><a href="#missing_pn_sw">Managing missing part nos.</a></li>
+                <ol type="i">
+                    <li><a href="#missing_descrip_sw">Managing missing part no. descriptions</a></li>
+                    <li><a href="#missing_pn_sw">Managing missing part nos.</a></li>
+                    <li><a href="#choose_sw">Limiting the BOMs to analyze</a></li>
+                </ol>
           </ol>
     </ol>
 
     <hr>
 
-<h2 id="extract_from_sl">1. Extract BOMs from SyteLine</h2>
+<h2 id="extract_from_sl">1. How to extract BOMs as Excel files from SyteLine</h2>
 
 <h3 id="single_level_sl">1a. Single level SL BOMs</h3>
   To extract a single level BOM from SyteLine, go to the Item, go to
@@ -59,13 +58,13 @@
   </div>
   <p>It your BOM is empty, you may have to go back to step 1b and click the
   <i>Print Only Zero Level Items</i> button.  Sometimes this button needs to be clicked,
-      sometimes not.  Also note that if you accidently clicked one
+      sometimes not.  Also note that if you accidentally clicked one
       of the column headers (Level, Item, Description, etc.) instead of the gear
       icon, your BOM will get sorted and will be useless for a bomcheck.</p>
 
 
 
-<h2 id="extract_from_sw">2. Extract BOMs from SolidWorks</h2>
+<h2 id="extract_from_sw">2. Extract BOMs as Excel files from SolidWorks</h2>
 
 <h3 id="single_level_sw">2a. Single level SW BOMs</h3>
   <p>To extract a single level BOM from SolidWorks, open up the drawing where
@@ -76,35 +75,18 @@
 
 <h3 id="multilevel_sw">2b. Multilevel level SW BOMs (preferred)</h3>
   <p>To extract a multilevel BOM from SolidWorks, open up the assembly model and
-  insert a BOM in it.  Make sure the BOM type is <i>Indented, Detailed numbering,
-  and Detailed cut list</i>.  I.e. make sure all are activated.  Then right
+  insert a BOM into it. <b>Have both Lchk and LENGTH columns showing</b> in order
+  to verify pipe lengths, and have Part no, Description, Qty, and Item no.
+  columns showing. (Column order is irrelavent.) Make sure the BOM type is
+  <u><i>Indented, Detailed numbering,
+  and Detailed cut list</i></u>.  I.e. make sure all are activated.  Then right
   click on the BOM and pick <i>Save As...</i></p>
   <div class="container" style="border: 20px solid transparent;">
     <img src="BOM_multilevel_from_SW.png" alt="BOM_singleLevel_SW" width=600>
   </div>
 
 
-
-<h2 id="extract_from_sw2">3. More info you need to know about SW multilevel BOMs</h2>
-  <p>The advantage of having the entire BOM shown all at once is that you can
-  get a broad look at your data.  And if you see errors in the BOM, you can quickly
-  pull up a particlar part from that BOM to fix the error.  However with all the data being shown
-  at once, it can be a bit confusing; that is, until you get used to it.  Here
-  is some information that may help:</p>
-
-<h3 id="choose_sw">3a. You can choose which subassemblies to analyze</h3>
-  <p>If you have a large BOM to analyze, you may wish to omit some subassemblies
-  from the BOM analysis, not because it will slow bomcheck down too much, but
-  because you wish to avoid unnecessary clutter of text that is output.
-  To do this go to the BOM and click on it's left side and then click on the three
-  arrows that appear on the middle left side of the BOM.  Along side the subassemblies
-  you will see + and - signs.  Click on these to expand or colapse subasseblies.
-  Collapsed subassemblies will not be analized.</p>
-  <div class="container" style="border: 20px solid transparent;">
-    <img src="BOM_multilevel_from_SW2.png" alt="BOM_multiLevel_SW2" width=600>
-  </div>
-
-<h3 id="missing_descrip_sw">3b. Managing missing part no. descriptions</h3>
+<h3 id="missing_descrip_sw">2b-i. Managing missing part no. descriptions</h3>
   <p>When you first create a SW BOM (step 2b), you may see some part nos. that do not have
   descriptions; i.e. the fields are blank.  In which case it means you forgot to
   enter some part numbers.  Therefore you should pull up the part files and add
@@ -123,7 +105,7 @@
   <i>----- sw_description_missing -----</i>.</p>
 
 
-<h3 id="missing_pn_sw">3c. Managing missing part nos</h3>
+<h3 id="missing_pn_sw">2b-ii. Managing missing part nos.</h3>
   <p>Sometimes you'll see missing part numbers that are a result of something
   that was not modeled correctly; e.g. some part in a lower level subassembly
   that should have been "excluded" from the BOM.  You can open up the problem part
@@ -132,9 +114,24 @@
   another option is to do nothing.  If you use the "do nothing" approach,
   when you run bomcheck, missing part numbers will be filled in with PN_MISSING.</p>
 
-  <p>If you don't what to see PN_MISSING in your bomcheck results, you can add
+  <p>If you don't want to see PN_MISSING in your bomcheck results, you can add
   it to your drop list.  The drop list is discussed in bomcheck's help sections
   1 and 2.</p>
+
+<h3 id="choose_sw">2b-iii. Limiting the BOMs to analyze.</h3>
+  <p>If you have a large BOM to analyze, you may wish to omit some subassemblies
+  from the BOM analysis, not because it will slow bomcheck down too much, but
+  because you wish to avoid unnecessary clutter of text that is output.
+  To do this go to the BOM and click on it's left side and then click on the three
+  arrows that appear on the middle left side of the BOM.  Along side the subassemblies
+  you will see + and - signs.  Click on these to expand or collapse subasseblies.
+  Collapsed subassemblies will not be analyzed.</p>
+
+  <div class="container" style="border: 20px solid transparent;">
+    <img src="BOM_multilevel_from_SW2.png" alt="BOM_multiLevel_SW2" width=600>
+  </div>
+
+
 
 
   </div>

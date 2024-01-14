@@ -20,10 +20,10 @@ these trailing characters will be ignored.
 For more information, see the help files for this program.
 """
 
-__version__ = '1.9.5'
+__version__ = '1.9.6'
 __author__ = 'Kenneth E. Carlton'
 
-import pdb # use with pdb.set_trace()
+#import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -251,8 +251,8 @@ def main():
                         "  (MS Windows doesn't honor this option.)"),
     parser.add_argument('-v', '--version', action='version', version=__version__,
                         help="Show program's version number and exit")
-    parser.add_argument('-x', '--excel', help='Export results to a csv file ' +
-                        'that can be opened by Excel', default=False, action='store_true')
+    parser.add_argument('-x', '--excel', help='Export results to a txt file ' +
+                        'that can be exported to Excel', default=False, action='store_true')
 
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
@@ -368,8 +368,8 @@ def bomcheck(fn, dic={}, **kwargs):
             Devalult = False
 
         x: bool
-            If True (or = 1), export results to a csv file
-            that Excel can open.  Default: False
+            If True (or = 1), export results to a txt file.
+            Default: False
 
     Returns
     =======
@@ -520,7 +520,7 @@ def bomcheck(fn, dic={}, **kwargs):
     if x:
         try:
             if title_dfsw or title_dfmerged:
-                export2excel(dirname, outputFileName, title_dfsw + title_dfmerged)
+                export2txt(dirname, outputFileName, title_dfsw + title_dfmerged)
             else:
                 printStr = ('\nNotice 203\n\n' +
                             'No SolidWorks files found to process.  (Lone SyteLine\n' +
@@ -1371,19 +1371,19 @@ def concat_boms(title_dfsw, title_dfmerged):
     return swresults, mrgresults
 
 
-def export2excel(dirname, filename, results2export):
-    '''Export to an Excel file the results of all the BOM
+def export2txt(dirname, filename, results2export):
+    '''Export to a txt file the results of all the BOM
     checks.
 
     Parmeters
     =========
 
     dirname: string
-        The directory to which the csv file that this
+        The directory to which the txt file that this
         function generates will be sent.
 
     filename: string
-        The name of the csv file.
+        The name of the txt file.
 
     results2export: list
         List of two tuples with each tuple containing two
@@ -1400,14 +1400,14 @@ def export2excel(dirname, filename, results2export):
     =======
 
     out: None
-        A csv file named, unless otherwise specified, bomcheck.xlsx.
+        A txt file named, unless otherwise specified, bomcheck.txt.
 
     '''
     global printStrs
     ok2go = True
     if cfg['overwrite']:
-        fn = os.path.join(dirname, filename + '.csv')
-        sw_fn = os.path.join(dirname, "sw_"+ filename + '.csv')
+        fn = os.path.join(dirname, filename + '.txt')
+        sw_fn = os.path.join(dirname, "sw_"+ filename + '.txt')
         if os.path.exists(fn):
             try:
                 os.remove(fn)
@@ -1450,21 +1450,21 @@ def export2excel(dirname, filename, results2export):
 
 
 def definefn(dirname, filename, i=0):
-    ''' If bomcheck.csv already exists or sw_bomcheck.csv, return
-    bomcheck(1).csv.  If that or sw_bomcheck(1).csv exists, return
-    bomcheck(2).csv, and so forth.'''
+    ''' If bomcheck.txt already exists or sw_bomcheck.txt, return
+    bomcheck(1).txt.  If that or sw_bomcheck(1).txt exists, return
+    bomcheck(2).txt, and so forth.'''
     global printStrs
     d, f = os.path.split(filename)
     f, e = os.path.splitext(f)
     if d:
         dirname = d   # if user specified a directory, use d instead
-    if e and not e.lower()=='.csv':
-        printStr = '\n(Output filename extension needs to be .csv' + '\nProgram aborted.\n'
+    if e and not e.lower()=='.txt':
+        printStr = '\n(Output filename extension needs to be .txt' + '\nProgram aborted.\n'
         printStrs.append(printStr)
         print(printStr)
         sys.exit(0)
     else:
-        e = '.csv'
+        e = '.txt'
     if i == 0:
         fn = os.path.join(dirname, f+e)
         sw_fn = os.path.join(dirname, "sw_"+f+e)
@@ -1479,7 +1479,7 @@ def definefn(dirname, filename, i=0):
 
 def prepare_multiindex_for_export(df):
     '''  Remove the duplicate index items created before writing a multiindex
-    dataframe to CSV.  E.g.:
+    dataframe to txt.  E.g.:
 
     from: 083119 2321-0600-001   to: 083119 2321-0600-001
           083119 3085-0050-025              3085-0050-025
