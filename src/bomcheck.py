@@ -23,7 +23,7 @@ For more information, see the help files for this program.
 __version__ = '1.9.6'
 __author__ = 'Kenneth E. Carlton'
 
-#import pdb # use with pdb.set_trace()
+import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -1103,8 +1103,17 @@ def convert_sw_bom_to_sl_format(df):
 
     if __len:  # convert lengths to other unit of measure, i.e. to_um
         ser = df[__len].apply(str)
+
+        # SW, with a model not set up properly, can have "trash" in the LENGTH
+        # column looking like: LG@7200-0075-003-6890-ACV0106580-08-01.SLDPRT.
+        # If not accounted for, can cause program to crash.
+        trash_filter = ser.str.contains('@') # Find the trash
+        ser = ser * ~trash_filter        # Remove the trash.  Leave empty string in its place
+        ser = ser.combine('-9999999', max, fill_value='-1111111')  # Replace empty strings with '-9999999'
+
         df_extract = ser.str.extract(r'(\W*)([\d.]*)\s*([\w\^]*)') # e.g. '34.4 ft^2' > '' '34.4' 'ft^2', or '$34.4' > '$' '34.4' ''
         value = df_extract[1].astype(float)
+
         from_um = df_extract[0].str.lower().fillna('') + df_extract[2].str.lower().fillna('') # e.g. '$ft^2; actually '$' or 'ft^2'
         from_um.replace('', cfg['from_um'].lower(), inplace=True)  # e.g. "" -> "ft"
         from_um = from_um.str.strip().str.lower()   # e.g. "SQI\n" -> "sqi"
