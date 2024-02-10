@@ -23,20 +23,25 @@ For more information, see the help files for this program.
 __version__ = '1.9.6'
 __author__ = 'Kenneth E. Carlton'
 
-import pdb # use with pdb.set_trace()
+# import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
 import os
 import fnmatch
 import ast
-import tomllib
 import webbrowser
+try:
+    import tomllib
+    tomllib_loaded = True
+except:
+    tomllib_loaded = False # Python 3.11 or greater required for tomllib
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', None)  # was pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
 pd.set_option('display.max_colwidth', 100)
 pd.set_option('display.width', 200)
+
 
 
 def get_version():
@@ -94,7 +99,7 @@ def setcfg(**kwargs):
         cfg.update(kwargs)
 
 
-def get_bomcheckcfg(filename):
+def get_bomcheckcfg(filename, ):
     ''' Load a toml file (ref.: https://toml.io/en/). A user
     of the bomcheck program can open up 'filename' with a
     text editor program such as notepad, and edit it to
@@ -121,6 +126,11 @@ def get_bomcheckcfg(filename):
         dictionary of settings
     '''
     global printStrs
+    if tomllib_loaded == False:
+        print('Module tomllib, which is used by bomcheck, failed to load.  Python \n'
+              'version 3.11 or higher needed.  As a result, bomcheck.cfg file will \n'
+              'not be analized.  Otherwise the bomcheck program should work fine.')
+        return
     try:
         with open(filename, 'rb') as f:
             tomldata = tomllib.load(f)
@@ -1105,10 +1115,10 @@ def convert_sw_bom_to_sl_format(df):
         ser = df[__len].apply(str)
 
         # SW, with a model not set up properly, can have "trash" in the LENGTH
-        # column looking like: LG@7200-0075-003-6890-ACV0106580-08-01.SLDPRT.
+        # column, something looking like: LG@7200-0075-003-6890-ACV0106580-08-01.SLDPRT.
         # If not accounted for, can cause program to crash.
-        trash_filter = ser.str.contains('@') # Find the trash
-        ser = ser * ~trash_filter        # Remove the trash.  Leave empty string in its place
+        trash_filter = ser.str.contains('@')  # Something to filter the trash with.
+        ser = ser * ~trash_filter             # Replace trash with empty string, i.e. "".
         ser = ser.combine('-9999999', max, fill_value='-1111111')  # Replace empty strings with '-9999999'
 
         df_extract = ser.str.extract(r'(\W*)([\d.]*)\s*([\w\^]*)') # e.g. '34.4 ft^2' > '' '34.4' 'ft^2', or '$34.4' > '$' '34.4' ''
