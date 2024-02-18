@@ -9,7 +9,7 @@ with open('README.md', 'r') as fh:
 
 setup(
     name='bomcheck',   # name people will use to pip install
-    python_requires='>=3.11',
+    python_requires='>=3.8',
     version='1.9.6',
     description='Compare BOMs stored in Excel files.',
     long_description=long_description,

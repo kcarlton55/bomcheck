@@ -492,7 +492,7 @@ def bomcheck(fn, dic={}, **kwargs):
         if uexceptions:
             cfg['exceptions'] = uexceptions.split()
         outputFileName = dbdic.get('file2save2', 'bomcheck')
-        cfg['overwrite'] = dbdic.get('overwrite', True)
+       #cfg['overwrite'] = dbdic.get('overwrite', True)
         cfg['accuracy'] = dbdic.get('accuracy', 2)
         cfg['from_um'] = dbdic.get('from_um', 'in')
         cfg['to_um'] = dbdic.get('to_um', 'FT')
@@ -1419,53 +1419,29 @@ def export2txt(dirname, filename, results2export):
     =======
 
     out: None
-        A txt file named, unless otherwise specified, bomcheck.txt.
+        A txt file named bomcheck.txt unless txt file name otherwise specified.
 
     '''
     global printStrs
-    ok2go = True
-    if cfg['overwrite']:
-        fn = os.path.join(dirname, filename + '.txt')
-        sw_fn = os.path.join(dirname, "sw_"+ filename + '.txt')
-        if os.path.exists(fn):
-            try:
-                os.remove(fn)
-            except Exception as e:
-                printStr = ('\nOverwrite of output file failed.' +
-                            '\nPossibly the current file is open.' +
-                            '\n' + str(e) + '\n')
-                printStrs.append(printStr)
-                ok2go = False
-            try:
-                os.remove(sw_fn)
-            except Exception as e:
-                printStr = ('\nOverwrite of output file failed.' +
-                            '\nPossibly the current file is open.' +
-                            '\n' + str(e) + '\n')
-                printStrs.append(printStr)
-                ok2go = False
-    else:
-        fn = definefn(dirname, filename)
-        d, f = os.path.split(fn)
-        sw_fn = os.path.join(d, "sw_"+ f)
 
-    if ok2go:
-        try:
-            if len(results2export) == 1:
-                df = prepare_multiindex_for_export(results2export[0][1])
-                df.to_csv(fn, sep='\t',  encoding='utf-8', index=False)
-                print('\n' + fn + ' created\n')
-            if len(results2export) == 2:
-                sw_df = prepare_multiindex_for_export(results2export[0][1])
-                sw_df.to_csv(sw_fn, sep='\t',  encoding='utf-8', index=False)
-                df = prepare_multiindex_for_export(results2export[1][1])
-                df.to_csv(fn, sep='\t',  encoding='utf-8', index=False)
-                print('\n' + sw_fn + ' created\n' + fn + ' created\n')
-        except Exception as e:
-            printStr = ('\nOverwrite of output file failed.' +
-            '\nPossibly the current file is open.' +
-            '\n' + str(e) + '\n')
-            printStrs.append(printStr)
+    fn = definefn(dirname, filename)
+    d, f = os.path.split(fn)
+    sw_fn = os.path.join(d, "sw_"+ f)
+    try:
+        if len(results2export) == 1:
+            df = prepare_multiindex_for_export(results2export[0][1])
+            df.to_csv(fn, sep='\t',  encoding='utf-8', index=False)
+            print('\n' + fn + ' created\n')
+        if len(results2export) == 2:
+            sw_df = prepare_multiindex_for_export(results2export[0][1])
+            sw_df.to_csv(sw_fn, sep='\t',  encoding='utf-8', index=False)
+            df = prepare_multiindex_for_export(results2export[1][1])
+            df.to_csv(fn, sep='\t',  encoding='utf-8', index=False)
+            print('\n' + sw_fn + ' created\n' + fn + ' created\n')
+    except Exception as e:
+        printStr = ('\nOverwrite of output file failed.' +
+        '\n' + str(e) + '\n')
+        printStrs.append(printStr)
 
 
 def definefn(dirname, filename, i=0):
