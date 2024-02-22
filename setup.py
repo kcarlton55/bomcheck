@@ -24,7 +24,8 @@ setup(
         'Intended Audience :: Manufacturing',
         'Intended Audience :: End Users/Desktop',
         'Operating System :: OS Independent',],
-    install_requires = ['pandas>=1.2', 'toml>=0.10', 'openpyxl>=3.0'], # openpyxl needed for pd.read_excel
+    install_requires = ['tomli >= 1.1.0 ; python_version < "3.11"',
+                        'pandas>=1.2', 'openpyxl>=3.0'], # openpyxl needed by pd.read_excel
     url='https://github.com/kcarlton55/bomcheck',
     author='Kenneth Edward Carlton',
     author_email='kencarlton55@gmail.com',

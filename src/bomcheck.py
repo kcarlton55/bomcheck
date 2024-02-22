@@ -31,11 +31,11 @@ import os
 import fnmatch
 import ast
 import webbrowser
-try:
+if sys.version_info >= (3, 11):
     import tomllib
-    tomllib_loaded = True
-except:
-    tomllib_loaded = False # Python 3.11 or greater required for tomllib
+else:
+    import tomli as tomllib
+
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', None)  # was pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
@@ -99,7 +99,7 @@ def setcfg(**kwargs):
         cfg.update(kwargs)
 
 
-def get_bomcheckcfg(filename, ):
+def get_bomcheckcfg(filename):
     ''' Load a toml file (ref.: https://toml.io/en/). A user
     of the bomcheck program can open up 'filename' with a
     text editor program such as notepad, and edit it to
@@ -126,11 +126,6 @@ def get_bomcheckcfg(filename, ):
         dictionary of settings
     '''
     global printStrs
-    if tomllib_loaded == False:
-        print('Module tomllib, which is used by bomcheck, failed to load.  Python \n'
-              'version 3.11 or higher needed.  As a result, bomcheck.cfg file will \n'
-              'not be analized.  Otherwise the bomcheck program should work fine.')
-        return
     try:
         with open(filename, 'rb') as f:
             tomldata = tomllib.load(f)
@@ -148,7 +143,7 @@ def get_bomcheckcfg(filename, ):
         if not printStr in printStrs:
             printStrs.append(printStr)
             print(printStr)
-        return
+        return {}
 
 
 def set_globals():

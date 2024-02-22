@@ -67,20 +67,20 @@
      from columns Op, WC, Item, and Q.  It is not necessary to copy Description
      and U/M values.  ERP will fill in its own values for these.</p>
 
-    <h3 id="no_inventory">1b-i. Make sure to exclude inventory items</h3>
+    <h3 id="no_inventory">1b i. Make sure to exclude inventory items</h3>
     <p>Do not inventory bin stock items to SyteLine BOMs.  (Unless, possibly,
     you're creating a kit.  Non-inventory items fall under
     SyteLine's product code no. 810.)  These parts include CS pipe nipples, screws,
     etc.  These part numbers can be made to not show in the Interim BOM.  To do this
     employ the "drop list".  (See Section 1 of bomcheck's help.)</p>
 
-    <h3 id="descrips_ignored">1b-ii. Descriptions <u>cannot</u> be copied to the clipboard</h3>
+    <h3 id="descrips_ignored">1b ii. Descriptions <u>cannot</u> be copied to the clipboard</h3>
     <p>When you copy from an Interim BOM and you inappropriately include values from
     the Description column and/or the U column, bomcheckgui will ignore the
     Description and U values; i.e., they will not be copied to the clipboard.
     (When data is pasted, SyteLine will insert its own Desription and U/M.)</p>
 
-    <h3 id="different_op">1b-iii. If OP number is not 10</h3>
+    <h3 id="different_op">1b iii. If OP number is not 10</h3>
     <p>If the Op no. is not 10 for what you will be pasting in, you can
     enter a different Op number into the Interim BOM.  Enter your different number in the
     Op column next to the assembly number.  The remainder of the Op numbers
@@ -109,7 +109,7 @@
     Rows Append.  A popup window opens up looking for data that you want
     pasted.  Do Ctrl+P.  If you are satisfied with what you pasted, click Save.</p>
 
-    <h3 id="manage_warnings">2b-i.  Manage popup windows that show warning messages</h3>
+    <h3 id="manage_warnings">2b i.  Manage popup windows that show warning messages</h3>
     <p>When you're pasting, if an error message pops up saying <u>Slow Inventory
     Item</u>, or <u>Part doesn't exist</u>, etc., click whatever button in the
     popup menu that will allow your paste operation to continue.  You can go
@@ -118,7 +118,7 @@
     from saving the BOM you just inserted. (Make it easy on yourself.
     Preestablish new subassemblies and new parts before entering items into the main BOM.)</p>
 
-    <h3 id="wrong_op">2b-ii.  If you mistakenly paste in the wrong Op number</h3>
+    <h3 id="wrong_op">2b ii.  If you mistakenly paste in the wrong Op number</h3>
     <p>If you mistakenly paste the incorrect Op no., the SyteLine's WC value
     <u>will not</u> be overwritten with <i>PICK</i>.  Instead the WC value will be <u>FAB</u>
     or <u>PAINT</u>, or whatever the WC is for that Op.  You will then know
