@@ -31,11 +31,17 @@ import os
 import fnmatch
 import ast
 import webbrowser
+toml_imported = False
 if sys.version_info >= (3, 11):
     import tomllib
+    toml_imported=True
 else:
-    import tomli as tomllib
-
+    try:
+        import tomli as tomllib
+        toml_imported=True
+    except:
+        toml_imported=False
+        print('tomli (python < 3.11) or tomllib was not imported.  bomcheck.cfg will not be used.')
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', None)  # was pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
@@ -125,24 +131,27 @@ def get_bomcheckcfg(filename):
     out: dict
         dictionary of settings
     '''
-    global printStrs
-    try:
-        with open(filename, 'rb') as f:
-            tomldata = tomllib.load(f)
-            return tomldata
-    except OSError as e:
-        printStr = f"\n{e}\n"
-        if not printStr in printStrs:
-            printStrs.append(printStr)
-            print(printStr)
-        return {}
-    except tomllib.TOMLDecodeError as e:
-        printStr = (f"\nYour {filename} file is not configured correctly.  It will be "
-              "ignored.\nIs probably a missing bracket, quotation mark, comma,"
-              f" etc.\n({e})\n")
-        if not printStr in printStrs:
-            printStrs.append(printStr)
-            print(printStr)
+    global printStrs, toml_imported
+    if toml_imported:
+        try:
+            with open(filename, 'rb') as f:
+                tomldata = tomllib.load(f)
+                return tomldata
+        except OSError as e:
+            printStr = f"\n{e}\n"
+            if not printStr in printStrs:
+                printStrs.append(printStr)
+                print(printStr)
+            return {}
+        except tomllib.TOMLDecodeError as e:
+            printStr = (f"\nYour {filename} file is not configured correctly.  It will be "
+                  "ignored.\nIs probably a missing bracket, quotation mark, comma,"
+                  f" etc.\n({e})\n")
+            if not printStr in printStrs:
+                printStrs.append(printStr)
+                print(printStr)
+            return {}
+    else:
         return {}
 
 
@@ -696,8 +705,10 @@ def gatherBOMs_from_fnames(filename):
                 swdfsdic.update(deconstructMultilevelBOM(df, 'sw', 'TOPLEVEL'))
             elif dfsw_found and (not test_for_missing_columns('sw', df, k)):
                 swdfsdic.update(deconstructMultilevelBOM(df, 'sw', k))
-        except ZeroDivisionError:
-            printStr =  ('\nError processing file: ' + v + '\nIt has been excluded from the BOM check.\n')
+        except:
+            printStr = ('\nError 204.\n\n' + ' processing file: ' + v +
+                        '\nIt has been excluded from the BOM check.\n\n'
+                        'Perhaps you have it open in another application?')
             printStrs.append(printStr)
             print(printStr)
     sldfsdic = {}  # for collecting SL BOMs to a dic
@@ -730,7 +741,8 @@ def gatherBOMs_from_fnames(filename):
                 sldfsdic.update(deconstructMultilevelBOM(df, 'sl', k))
         except:
             printStr = ('\nError 201.\n\n' + ' processing file: ' + v +
-                        '\nIt has been excluded from the BOM check.\n')
+                        '\nIt has been excluded from the BOM check.\n\n'
+                        'Perhaps you have it open in another application?')
             printStrs.append(printStr)
             print(printStr)
     try:
