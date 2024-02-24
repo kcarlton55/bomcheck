@@ -21,6 +21,7 @@ For more information, see the help files for this program.
 """
 
 __version__ = '1.9.6'
+__version__ = '1.9.2'
 __author__ = 'Kenneth E. Carlton'
 
 # import pdb # use with pdb.set_trace()
@@ -31,6 +32,8 @@ import os
 import fnmatch
 import ast
 import webbrowser
+import requests
+import json
 toml_imported = False
 if sys.version_info >= (3, 11):
     import tomllib
@@ -41,7 +44,8 @@ else:
         toml_imported=True
     except:
         toml_imported=False
-        print('tomli (python < 3.11) or tomllib was not imported.  bomcheck.cfg will not be used.')
+        print('\nimport of tomli (for python < 3.11) or import of tomllib (for python >= 3.11)\n'
+              'failed.  Therefore bomcheck.cfg will not be used.')
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', None)  # was pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
@@ -708,7 +712,7 @@ def gatherBOMs_from_fnames(filename):
         except:
             printStr = ('\nError 204.\n\n' + ' processing file: ' + v +
                         '\nIt has been excluded from the BOM check.\n\n'
-                        'Perhaps you have it open in another application?')
+                        'Perhaps you have it open in another application?/n/n')
             printStrs.append(printStr)
             print(printStr)
     sldfsdic = {}  # for collecting SL BOMs to a dic
@@ -740,9 +744,9 @@ def gatherBOMs_from_fnames(filename):
             elif dfsl_found and (not test_for_missing_columns('sl', df, k)):
                 sldfsdic.update(deconstructMultilevelBOM(df, 'sl', k))
         except:
-            printStr = ('\nError 201.\n\n' + ' processing file: ' + v +
+            printStr = ('\Error 201.\n\n' + ' processing file: ' + v +
                         '\nIt has been excluded from the BOM check.\n\n'
-                        'Perhaps you have it open in another application?')
+                        'Perhaps you have it open in another application?/n/n')
             printStrs.append(printStr)
             print(printStr)
     try:
@@ -1547,6 +1551,44 @@ def view_help(help_type='bomcheck_help', version=__version__, dbdic=None):
         webbrowser.open(d[help_type])
     else:
         print("bomcheck.view_help didn't function correctly")
+
+
+def check_latest_version():
+    ''' Look on the pypi.org website and check if there is a later version of
+    bomcheck.py available.  If so, inform the user and provide instructions on
+    how he/she can upgrade to the latest version.
+
+    references:
+        https://stackoverflow.com/questions/58648739/how-to-check-if-python-package-is-latest-version-programmatically
+        https://docs.python.org/3/tutorial/datastructures.html#comparing-sequences-and-other-types
+        https://www.tutorialspoint.com/how-to-check-whether-user-s-internet-is-on-or-off-using-python
+
+    Returns
+    -------
+    out : None
+
+    If no later version bomcheck exists, return None.  Otherwise print a string
+    explaining how to update bomcheck (nevertheless, None still returned)
+    '''
+    try:
+        package = 'bomcheck'
+        response = requests.get(f'https://pypi.org/pypi/{package}/json', timeout=5)
+        latest_version = response.json()['info']['version']
+        current_version = get_version()
+        lv = [int(i) for i in latest_version.split('.')]  # create a list of integers
+        cv = [int(i) for i in current_version.split('.')]
+        if lv > cv:  # see ref 2 above
+            how_to_update = (
+               '\n\nA new version of bomcheck is available, i.e. version '  + latest_version +  '. To install it\n'
+               "activate the virtual environment where bomcheck is installed (see bomcheck's help\n"
+               'section about installing bomcheck), and enter this in a Command Prompt (cmd):\n\n'
+               'py -m pip install --upgrade bomcheck\n\n\n')
+            print(how_to_update)
+    except requests.ConnectionError:  # No internet connection
+        pass
+
+
+check_latest_version()
 
 
 # before program begins, create global variables
