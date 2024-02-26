@@ -21,7 +21,6 @@ For more information, see the help files for this program.
 """
 
 __version__ = '1.9.6'
-__version__ = '1.9.2'
 __author__ = 'Kenneth E. Carlton'
 
 # import pdb # use with pdb.set_trace()
@@ -44,8 +43,8 @@ else:
         toml_imported=True
     except:
         toml_imported=False
-        print('\nimport of tomli (for python < 3.11) or import of tomllib (for python >= 3.11)\n'
-              'failed.  Therefore bomcheck.cfg will not be used.')
+        print('\ntomli (for python < 3.11) or tomllib (for python >= 3.11), not found.\n'
+              'Therefore bomcheck.cfg will not be used.\n\n')
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', None)  # was pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
@@ -710,9 +709,9 @@ def gatherBOMs_from_fnames(filename):
             elif dfsw_found and (not test_for_missing_columns('sw', df, k)):
                 swdfsdic.update(deconstructMultilevelBOM(df, 'sw', k))
         except:
-            printStr = ('\nError 204.\n\n' + ' processing file: ' + v +
-                        '\nIt has been excluded from the BOM check.\n\n'
-                        'Perhaps you have it open in another application?/n/n')
+            printStr = ('\nError 204. '
+                        'File has been excluded from analysis:\n\n ' + v + '\n\n'
+                        'Perhaps you have it open in another application?\n\n')
             printStrs.append(printStr)
             print(printStr)
     sldfsdic = {}  # for collecting SL BOMs to a dic
@@ -744,9 +743,9 @@ def gatherBOMs_from_fnames(filename):
             elif dfsl_found and (not test_for_missing_columns('sl', df, k)):
                 sldfsdic.update(deconstructMultilevelBOM(df, 'sl', k))
         except:
-            printStr = ('\Error 201.\n\n' + ' processing file: ' + v +
-                        '\nIt has been excluded from the BOM check.\n\n'
-                        'Perhaps you have it open in another application?/n/n')
+            printStr = ('\nError 201. '
+                        'File has been excluded from analysis:\n\n ' + v + '\n\n'
+                        'Perhaps you have it open in another application?\n\n')
             printStrs.append(printStr)
             print(printStr)
     try:
@@ -1567,8 +1566,8 @@ def check_latest_version():
     -------
     out : None
 
-    If no later version bomcheck exists, return None.  Otherwise print a string
-    explaining how to update bomcheck (nevertheless, None still returned)
+    If no later version of bomcheck exists, return None.  Otherwise print a string
+    explaining how to update bomcheck and return None.
     '''
     try:
         package = 'bomcheck'
@@ -1577,18 +1576,15 @@ def check_latest_version():
         current_version = get_version()
         lv = [int(i) for i in latest_version.split('.')]  # create a list of integers
         cv = [int(i) for i in current_version.split('.')]
-        if lv > cv:  # see ref 2 above
+        if lv > cv:  # lexicographical order comparison.  see ref 2 above
             how_to_update = (
-               '\n\nA new version of bomcheck is available, i.e. version '  + latest_version +  '. To install it\n'
+               '\nA new version of bomcheck is available, i.e. version '  + latest_version +  '. To install it\n'
                "activate the virtual environment where bomcheck is installed (see bomcheck's help\n"
                'section about installing bomcheck), and enter this in a Command Prompt (cmd):\n\n'
                'py -m pip install --upgrade bomcheck\n\n\n')
             print(how_to_update)
     except requests.ConnectionError:  # No internet connection
         pass
-
-
-check_latest_version()
 
 
 # before program begins, create global variables
@@ -1621,6 +1617,7 @@ liquidUMs = set(['pint',  'pt', 'quart', 'qt', 'gallon', 'g', 'gal' 'ltr', 'lite
 
 
 if __name__=='__main__':
+    check_latest_version()
     main()           # comment out this line for testing -.- . -.-.
     #bomcheck('*')   # use for testing
 
