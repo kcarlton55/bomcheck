@@ -20,10 +20,10 @@ these trailing characters will be ignored.
 For more information, see the help files for this program.
 """
 
-__version__ = '1.9.6'
+__version__ = '1.9.7'
 __author__ = 'Kenneth E. Carlton'
 
-# import pdb # use with pdb.set_trace()
+import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -182,7 +182,7 @@ def set_globals():
            'length_sw': ["LENGTH", "Length", "L", "SIZE", "AMT", "AMOUNT", "MEAS", "COST"],
            'obs': ['Obsolete Date', 'Obsolete'], 'del_whitespace': True,
            # Column names shown in the results (for a given key, one value only):
-           'assy':'assy', 'Item':'Item', 'iqdu':'IQDU', 'Q':'Q',
+           'assy':'assy', 'Item':'Item', 'iqdu':'IQDU', 'Q':'Q', 'Item No.':'Item No.',
            'Description':'Description', 'U':'U',
            # When a SW BOM is converted to a BOM looking like that of SL, these columns and
            # values thereof are added to the SW BOM, thereby making it look like a SL BOM.
@@ -232,16 +232,14 @@ def main():
     '''
     global cfg
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                        description='Program compares SolidWorks BOMs to SyteLine BOMs.  ' +
-                        'Output is sent to a Microsoft Excel spreadsheet.')
-    parser.add_argument('filename', help='Name of file containing a BOM.  Name ' +
-                        'must end with _sw.xlsx, or _sl.xlsx.  ' +
-                        'Enclose filename in quote marks!  An asterisk, i.e. *, ' +
-                        'is a wild card character.  Examples: "6890-*", "*".  ' +
-                        'Or if filename is instead a directory, all _sw and _sl files ' +
-                        'in that directory and subdirectories thereof will be ' +
-                        'gathered.  BOMs gathered from _sl files without ' +
-                        'corresponding SolidWorks BOMs being found are ignored.')
+                        description='Program compares CAD BOMs to ERP BOMs.  ' +
+                        'Output can be sent to a text file.')
+    parser.add_argument('filename', help='Name of Excel file, or list of Excel ' +
+                        'files, containing BOMs.  Names must end with _sw.xlsx ' +
+                        'or _sl.xlsx, otherwise they\'re ignored. ' +
+                        'Examples: "6890-*", "*", "[\'1139*\', \'68*0\', ' +
+                        '\'3086-*\']", "filepath/*".  Name must be enclosed by ' +
+                        'quotation marks, "".')
     parser.add_argument('-a', '--about', action='version',
                         version="Author: " + __author__ +
                         ".  Initial creation: Nov 18 2018.  "
@@ -249,27 +247,24 @@ def main():
                         '  Version: ' + __version__,
                         help="Show author, date, web site, version, then exit")
     parser.add_argument('-c', '--cfgpathname', help='pathname where configuration file ' +
-                        'resides (e.g. C:/folder1/folder2/bomcheck.cfg.  Note: use ' +
-                        "forward slashes.  Backslashes won't work") ,
+                        'resides (e.g. C:/folder1/folder2/bomcheck.cfg).  Note: use ' +
+                        "forward slashes; backslashes won't work.") ,
     parser.add_argument('-csdsc', '--csdescription', action='store_true', default=False,
                         help='Enable case sensitive checking of descriptions'),
     parser.add_argument('-cspn', '--cspartnuber', action='store_true', default=False,
                         help='Enable case sensitive checking of part numbers'),
     parser.add_argument('-d', '--drop_bool', action='store_true', default=False,
                         help="Don't show part nos. from the drop list in check results.")
-    parser.add_argument('-dp', '--drop', help='Enter a "drop list", i.e. a list of part '
-                        'numbers from the CAD BOM that you wish to be ignored.  '
-                        "E.g. -dp \"['3*-025', '3081-*']\" (If active, -d "
-                        'is automatically set to True.)', type=str)
+    parser.add_argument('-dp', '--drop', help='A "drop list"; i.e. a list of part '
+                        'numbers from the CAD BOM that will be ignored.  '
+                        "E.g. -dp \"['3*-025', '3081-*']\" (Switch -d "
+                        'will be automatically set to True.)', type=str)
     parser.add_argument('-exc', '--exceptions', help='Exceptions to part numbers shown in '
                         "the drop list.  E.g. -exc \"['3142-3034-025', '3081-*-001']\"", type=str)
-    parser.add_argument('-f', '--followlinks', action='store_true', default=False,
-                        help='Follow symbolic links when searching for files to process.  ' +
-                        "  (MS Windows doesn't honor this option.)"),
     parser.add_argument('-v', '--version', action='version', version=__version__,
                         help="Show program's version number and exit")
-    parser.add_argument('-x', '--excel', help='Export results to a txt file ' +
-                        'that can be exported to Excel', default=False, action='store_true')
+    parser.add_argument('-x', '--text', help='Export results to a text file.',
+                        default=False, action='store_true')
 
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
@@ -1115,7 +1110,11 @@ def convert_sw_bom_to_sl_format(df):
     values = dict.fromkeys(cfg['part_num'], cfg['Item'])
     values.update(dict.fromkeys(cfg['descrip'], cfg['Description']))
     values.update(dict.fromkeys(cfg['qty'], cfg['Q']))
+    values.update(dict.fromkeys(cfg['itm_sw'], cfg['Item No.']))
     df.rename(columns=values, inplace=True)
+
+    checkforbaddata(df)
+
     if not cfg['cspartnumber']:
         df[cfg['Item']] = df[cfg['Item']].str.upper()
 
@@ -1125,11 +1124,13 @@ def convert_sw_bom_to_sl_format(df):
         ser = df[__len].apply(str)
 
         # SW, with a model not set up properly, can have "trash" in the LENGTH
-        # column, something looking like: LG@7200-0075-003-6890-ACV0106580-08-01.SLDPRT.
+        # column, something looking like:  .
         # If not accounted for, can cause program to crash.
         trash_filter = ser.str.contains('@')  # Something to filter the trash with.
         ser = ser * ~trash_filter             # Replace trash with empty string, i.e. "".
         ser = ser.combine('-9999999', max, fill_value='-1111111')  # Replace empty strings with '-9999999'
+        if not (trash_filter == False).all():
+            explainNegativeLengths()
 
         df_extract = ser.str.extract(r'(\W*)([\d.]*)\s*([\w\^]*)') # e.g. '34.4 ft^2' > '' '34.4' 'ft^2', or '$34.4' > '$' '34.4' ''
         value = df_extract[1].astype(float)
@@ -1151,6 +1152,7 @@ def convert_sw_bom_to_sl_format(df):
         df[cfg['Q']] = df[cfg['Q']].astype(float)  # If elements strings, 'sum' adds like '2' + '1' = '21'.  But want 2 + 1 = 3
         df[cfg['U']] = 'EA'  # if no length colunm exists then set all units of measure to EA
 
+
     df = df.reindex(['Op', 'WC', cfg['Item'], cfg['Q'], cfg['Description'], cfg['U']], axis=1)  # rename and/or remove columns
     dd = {cfg['Q']: 'sum', cfg['Description']: 'first', cfg['U']: 'first'}   # funtions to apply to next line
     df = df.groupby(cfg['Item'], as_index=False).aggregate(dd).reindex(columns=df.columns)
@@ -1169,6 +1171,39 @@ def convert_sw_bom_to_sl_format(df):
     df.set_index(cfg['Op'], inplace=True)
 
     return df
+
+
+def checkforbaddata(df):
+    if 'Q' in df.columns and not (df['Q'].astype(float)%1 == 0).all():  # this will find any floating point nos. in the qty column
+        printStr = ('\n\nFloating point numbers were found in the Qty.\n'
+                    'column of the CAD BOM.  There should be only\n'
+                    'integers there.  This causes all quantities to be\n'
+                    'out of whack.  Perhaps you forgot to check the\n'
+                    '"Detailed cut list" box at "BOM Types > Indented"?\n')
+        if printStr not in printStrs:
+            printStrs.append(printStr)
+            print(printStr)
+    if 'Item No.' in df.columns and df['Item No.'].eq(0).any():
+    #if 'Item_no.' in df.columns and (df['Item'].str.len() == 1).any():
+        printStr = ('\n\nThere are item numbers missing from the CAD\n'
+                    'BOM.  Results will be incorrect.  Perhaps you\n'
+                    'forgot to select "Detailed numbering" at\n'
+                    '"BOM Types > Indented"?\n')
+        if printStr not in printStrs:
+            printStrs.append(printStr)
+            print(printStr)
+
+
+def explainNegativeLengths():
+    printStr = ('\n\n"Trash" was found entered for a length value.\n'
+                'Something like LENGTH@7200-0075-003...\n'
+                "So then, some sort of value did't make sense.\n"
+                'Please search CAD BOMs, find this value, and fix. \n'
+                'In your results, this trash may have been replaced \n'
+                'with a large negative number.\n')
+    if printStr not in printStrs:
+        printStrs.append(printStr)
+        print(printStr)
 
 
 def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
@@ -1236,6 +1271,7 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     dfmerged = pd.merge(dfsw, dfsl, on=cfg['Item'], how='outer', suffixes=('_sw', '_sl') ,indicator=True)
     dfmerged[cfg['Q'] + '_sw'].fillna(0, inplace=True)
     dfmerged[cfg['U'] + '_sl'].fillna('', inplace=True)
+
 
     ######################################################################################
     # If U/M in SW isn't the same as that in SL, adjust SW's length values               #
@@ -1512,12 +1548,9 @@ def prepare_multiindex_for_export(df):
     return new_df.reset_index(drop=True)
 
 
-
-
-
-def view_help(help_type='bomcheck_help', version=__version__, dbdic=None):
+def view_help(help_type='bomcheck_help', version='master', dbdic=None):
     '''  Open a help webpage for bomcheck, bomcheckgui, troubleshoot, or the
-    software license
+    software license.  (This function is used by bomcheckgui)
 
     Parameters
     ----------
@@ -1552,41 +1585,6 @@ def view_help(help_type='bomcheck_help', version=__version__, dbdic=None):
         print("bomcheck.view_help didn't function correctly")
 
 
-def check_latest_version():
-    ''' Look on the pypi.org website and check if there is a later version of
-    bomcheck.py available.  If so, inform the user and provide instructions on
-    how he/she can upgrade to the latest version.
-
-    references:
-        https://stackoverflow.com/questions/58648739/how-to-check-if-python-package-is-latest-version-programmatically
-        https://docs.python.org/3/tutorial/datastructures.html#comparing-sequences-and-other-types
-        https://www.tutorialspoint.com/how-to-check-whether-user-s-internet-is-on-or-off-using-python
-
-    Returns
-    -------
-    out : None
-
-    If no later version of bomcheck exists, return None.  Otherwise print a string
-    explaining how to update bomcheck and return None.
-    '''
-    try:
-        package = 'bomcheck'
-        response = requests.get(f'https://pypi.org/pypi/{package}/json', timeout=5)
-        latest_version = response.json()['info']['version']
-        current_version = get_version()
-        lv = [int(i) for i in latest_version.split('.')]  # create a list of integers
-        cv = [int(i) for i in current_version.split('.')]
-        if lv > cv:  # lexicographical order comparison.  see ref 2 above
-            how_to_update = (
-               '\nA new version of bomcheck is available, i.e. version '  + latest_version +  '. To install it\n'
-               "activate the virtual environment where bomcheck is installed (see bomcheck's help\n"
-               'section about installing bomcheck), and enter this in a Command Prompt (cmd):\n\n'
-               'py -m pip install --upgrade bomcheck\n\n\n')
-            print(how_to_update)
-    except requests.ConnectionError:  # No internet connection
-        pass
-
-
 # before program begins, create global variables
 set_globals()
 
@@ -1617,7 +1615,6 @@ liquidUMs = set(['pint',  'pt', 'quart', 'qt', 'gallon', 'g', 'gal' 'ltr', 'lite
 
 
 if __name__=='__main__':
-    check_latest_version()
     main()           # comment out this line for testing -.- . -.-.
     #bomcheck('*')   # use for testing
 
