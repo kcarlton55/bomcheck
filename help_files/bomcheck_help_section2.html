@@ -19,12 +19,12 @@
       <li><a href="#extract_from_sl">How to extract BOMs as Excel files from SyteLine</a></li>
           <ol type="a">
             <li><a href="#single_level_sl">Single level SL BOMs</a></li>
-            <li><a href="#multilevel_sl">Multilevel SL BOMs</a></li>
+            <li><a href="#multilevel_sl">Multilevel SL BOMs (preferred)</a></li>
           </ol>
       <li><a href="#extract_from_sw">How to extract BOMs as Excel files from SolidWorks</a></li>
           <ol type="a">
             <li><a href="#single_level_sw">Single level SW BOMs</a></li>
-            <li><a href="#multilevel_sw">Multilevel SW BOMs</a></li>
+            <li><a href="#multilevel_sw">Multilevel SW BOMs (for more advanced users)</a></li>
                 <ol type="i">
                     <li><a href="#missing_descrip_sw">Managing missing part no. descriptions</a></li>
                     <li><a href="#missing_pn_sw">Managing missing part nos.</a></li>
@@ -44,7 +44,7 @@
     <img src="BOM_singleLevel_from_SL.png" alt="BOM_singleLevel_SL" width=600>
   </div>
 
-<h3 id="multilevel_sl">1b. Multilevel level SL BOMs</h3>
+<h3 id="multilevel_sl">1b. Multilevel level SL BOMs (preferred)</h3>
   Extracting a multilevel BOM from SyteLine requires two steps.  First go to
   <i>Indented Current BOM Report</i>, enter the Item no., pick <i>Report
   Option > DataView</i>, then click <i>Preview</i>.
@@ -62,7 +62,7 @@
   <i>Print Only Zero Level Items</i> button.  Sometimes this button needs to be clicked,
       sometimes not.</p>
 
-
+<br>
 
 <h2 id="extract_from_sw">2. Extract BOMs as Excel files from SolidWorks</h2>
 
@@ -73,7 +73,7 @@
     <img src="BOM_single_level_from_SW.png" alt="BOM_singleLevel_SW" width=600>
   </div>
 
-<h3 id="multilevel_sw">2b. Multilevel level SW BOMs</h3>
+<h3 id="multilevel_sw">2b. Multilevel level SW BOMs (for more advanced users)</h3>
   <p>To extract a multilevel BOM from SolidWorks, open up the assembly model and
   insert a BOM into it. <b>Have both Lchk and LENGTH columns showing</b> in order
   to verify pipe lengths, and have Part no, Description, Qty, and Item no.
@@ -86,7 +86,7 @@
   </div>
 
 
-<h3 id="missing_descrip_sw">2b i. Managing missing part no. descriptions</h3>
+<h3 id="missing_descrip_sw">2b-i. Managing missing part no. descriptions</h3>
   <p>When you first create a SW BOM (step 2b), you may see some part nos. that do not have
   descriptions; i.e. the fields are blank.  In which case it means you forgot to
   enter some part numbers.  Therefore you should pull up the part files and add
@@ -105,7 +105,7 @@
   <i>----- sw_description_missing -----</i>.</p>
 
 
-<h3 id="missing_pn_sw">2b ii. Managing missing part nos.</h3>
+<h3 id="missing_pn_sw">2b-ii. Managing missing part nos. </h3>
   <p>Sometimes you'll see missing part numbers that are a result of something
   that was not modeled correctly; e.g. some part in a lower level subassembly
   that should have been "excluded" from the BOM.  You can open up the problem part
@@ -118,7 +118,7 @@
   it to your drop list.  The drop list is discussed in bomcheck's help sections
   1 and 2.</p>
 
-<h3 id="choose_sw">2b iii. Limiting the BOMs to analyze.</h3>
+<h3 id="choose_sw">2b-iii. Limiting the BOMs to analyze.</h3>
   <p>If you have a large BOM to analyze, you may wish to omit some subassemblies
   from the BOM analysis, not because it will slow bomcheck down too much, but
   because you wish to avoid unnecessary clutter of text that is output.
