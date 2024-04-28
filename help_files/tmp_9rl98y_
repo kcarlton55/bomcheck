@@ -107,10 +107,10 @@
     <p>After copying from the Interim BOM,
     pick a row where you want your BOM to be pasted, then go to Edit (the pencil icon) > Paste
     Rows Append.&nbsp;  A popup window opens up looking for data that you want
-    pasted.&nbsp;  Do Ctrl+P. &nbsp; Once pasted, click Save.</p>
+    pasted.  Do Ctrl+P. &nbsp; Once pasted, click Save.</p>
 
     <h3 id="manage_warnings">2b-i.  Manage popup windows that show warning messages</h3>
-    <p>When pasting, if an error message pops up saying <u>Slow Inventory
+    <p>When you're pasting, if an error message pops up saying <u>Slow Inventory
     Item</u>, or <u>Part doesn't exist</u>, etc., click whatever button in the
     popup menu that will allow your paste operation to continue; you can go
     back later and make corrections once pasting is done.&nbsp;  If an item doesn't
@@ -119,9 +119,9 @@
     Preestablish new subassemblies and new parts before entering items into a top level BOM.)</p>
 
     <h3 id="wrong_op">2b-ii.  If you mistakenly paste in the wrong Op number</h3>
-    <p>If you mistakenly paste the incorrect Op no., SyteLine's WC value<font color="red">
-      <b>will not be <u>PICK</u></b></font>.  Instead WC will <i>incorrectly</i> be <u>FAB</u>
-    or <u>PAINT</u>, or some other WC.  &nbsp;Please correct your mistake.</p>
+    <p>If you mistakenly paste the incorrect Op no., the SyteLine's WC value<font color="red">
+      <b><u>will not be PICK</u></b></font>.  Instead the WC value will <i>incorrectly</i> be <u>FAB</u>
+    or <u>PAINT</u>, or whatever the WC is for that Op.  &nbsp;Please correct your mistake.</p>
 
     <p>If the Op number you try to paste in is not already established, the paste will fail.</p>
 
