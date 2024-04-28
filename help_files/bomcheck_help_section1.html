@@ -89,7 +89,7 @@
       </ul>
 
     <p>(Note: requirements for running from a shell are pandas>=1.2,
-       toml>=0.10, openpyxl>=3.0, and python>=3.11) To see information
+       toml>=0.10, openpyxl>=3.0, and python>=3.8) To see information
        about arguments used in bomcheck(), do:
     </p>
 
@@ -289,9 +289,8 @@
 
 
     <h2 id="ImportToExcel">Viewing txt file results with Excel</h2>
-    <p>You can open a txt (text) file with notepad.exe, but the columns will
-       not be properly aligned.  To get around this, copy and paste the text
-       from notepad to a blank sheet in Excel.  Columns will become aligned.
+    <p>To view a text file in Excel, copy and paste the text
+       from notepad, or a similar text editor, into a blank sheet in Excel.
        To make column widths fit the text, click the small box located at the
        left of column header A, then double click on the vertical separator
        line that is between columns A and B.  All column widths will then be
@@ -382,22 +381,22 @@
         <li>Enter your drop and exceptions lists in a
         <a href="#bomcheckcfg">bomcheck.cfg</a> file.  Then when you run bomcheck
         from the command line invoke the <i>-d</i>
-        switch.  (Run <i>bomcheck --help</i> on the command line to see a list
+        switch.  (Tip: run <i>bomcheck --help</i> on the command line to see a list
         of options.)
         </li>
 
         <li>When running bomcheck from the command line, enter your
         drop and excecptions list directly as an option on the command line.
         E.g. <i>bomcheck --drop ["3*-025"] --exceptions ["3042-*-025"] filename</i>.
-        The <i>-d</i> switch will automatically be invoked.  Running this way
-        will supersede values entered into the bomcheck.cfg file.</li>
+        (The <i>-d</i> switch will automatically be invoked; --drop
+        arguments will supersede values values from a bomcheck.cfg file.)</li>
 
         <li>When running bomcheck via the bomcheckgui program (bomcheckgui
-        is a wrapper for the bomcheck program) go to bomcheckgui's settings
+        is a wrapper for the bomcheck program) go to bomcheckgui's <i>settings</i>
         and enter your drop and exceptions lists there.  Click the "Activate drop list"
-        check box to activate these lists when bomcheck is run.  When running
-        this way the drop and exceptions lists in settings supersede those lists in
-        the bomcheck.cfg file.</li>
+        check box to activate these lists when bomcheck is run.  (When running
+        this way the drop and exceptions lists in <i>settings</i> supersede those lists in
+        the bomcheck.cfg file.)</li>
      </ol>
 
 
@@ -418,7 +417,7 @@
     <p>Place bomcheck.cfg in a directory of your choosing.  Then set the location
       of this file via an argument setting in the bomcheck function
       (do <i>bomcheck --help</i> to see command line options), or if you
-      are using bomcheckgui, go to the settings section and enter the location
+      are using bomcheckgui, go to the bomcheckgui's <i>settings</i> section and enter the location
       there.
     </p>
 
