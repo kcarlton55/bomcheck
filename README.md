@@ -16,8 +16,8 @@ that comes with Python and run this from a command line:
 `pip install bomcheck`
 
 ## **Compared BOMs come from Excel files**
-The name of a file containing a BOM from the CAD program has the syntax:
-`PartNumberOfBOM_sw.xlsx`.  That is, names like 0399-2344-005_sw.xlsx,
+The name of a file containing a BOM that comes from a CAD program must have the
+syntax: `PartNumberOfBOM_sw.xlsx`.  That is, names like 0399-2344-005_sw.xlsx,
 093352_sw.xlsx, and 35K2445_sw.xlsx are all legitimate file names. The
 names of the files from the ERP program have the same syntax, but instead
 end with `_sl.xlsx`. Thus the names will look like 0399-2344-005_sl.xlsx,
