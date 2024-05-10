@@ -20,7 +20,7 @@ these trailing characters will be ignored.
 For more information, see the help files for this program.
 """
 
-__version__ = '1.9.7'
+__version__ = '1.9.8'
 __author__ = 'Kenneth E. Carlton'
 
 import pdb # use with pdb.set_trace()
@@ -974,16 +974,25 @@ def deconstructMultilevelBOM(df, source, k, toplevel=False):
     # the parent part no. of the part at a particular level, e.g.
     # ['TOPLEVEL', '068278', '2648-0300-001', '2648-0300-001', '068278']
     lvl = 0
-    level_pn = []  # storage of pns of parent assy/subassy of the part at rows 0, 1, 2, 3, ...
-    assys = []  # storage of all assys/subassys found (stand alone parts ignored)
+    level_pn = []  # for every row of df, parent pn of child pn/subassy on the row
+    assys = []  # colect on assy pns of assys that have children
+
     for item, row in df.iterrows():
         if row['__Level'] == 0:
+
+            ######################
+            if source == 'sl':
+                pn0 = row[__pn]
+            else:
+                pn0 = ''
+            ######################
+
             poplist = []
-            level_pn.append(k)
-            if not toplevel:
-              assys.append(k)
-            #elif __lvl and lvl == 0:  #  If multilevel BOM from SL, & lvl==0, then Pn not based on file name, but pn at level 0.
-            #    excelTitle.append((row[__pn], row[__descrip])) # excelTitle is a global variable
+            if toplevel:
+                level_pn.append('TOPLEVEL')
+            else:
+                level_pn.append(k)
+                assys.append(k)
         elif row['__Level'] > lvl:
             if p in assys:
                 poplist.append('repeat')
@@ -1003,8 +1012,14 @@ def deconstructMultilevelBOM(df, source, k, toplevel=False):
     # collect all assys/subassys within df and return a dictionary.  keys
     # of the dictionary are pt. numbers of assys/subassys.
     dic_assys = {}
-    for k in assys:
-        dic_assys[k.upper()] = df[df['Level_pn'] == k]
+    for k2 in assys:
+        dic_assys[k2.upper()] = df[df['Level_pn'] == k2]
+
+    #####################
+    if k.lower() not in ['na', 'null', 'none'] and pn0:
+        dic_assys[k] = dic_assys.pop[pn0]
+    ####################
+
     pdb.set_trace()
     return dic_assys
 
