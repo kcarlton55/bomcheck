@@ -14,7 +14,17 @@
 <body>
   <div class="container">
 
-    <h1 id="top">bomcheck help (section 3)</h1>
+    <nav aria-label="Page navigation">
+      <ul class="pagination justify-content-center">
+        <li class="page-item">         <a class="page-link" href="https://htmlpreview.github.io/?https://github.com/kcarlton55/bomcheck/blob/master/help_files/bomcheck_help_section2.html">Previous</a></li>
+        <li class="page-item">         <a class="page-link" href="https://htmlpreview.github.io/?https://github.com/kcarlton55/bomcheck/blob/master/help_files/bomcheck_help_section1.html">1</a></li>
+        <li class="page-item">         <a class="page-link" href="https://htmlpreview.github.io/?https://github.com/kcarlton55/bomcheck/blob/master/help_files/bomcheck_help_section2.html">2</a></li>
+        <li class="page-item active">  <a class="page-link" href="https://htmlpreview.github.io/?https://github.com/kcarlton55/bomcheck/blob/master/help_files/bomcheck_help_section3.html">3</a></li>
+        <li class="page-item disabled"><a class="page-link" href="https://htmlpreview.github.io/?https://github.com/kcarlton55/bomcheck/blob/master/help_files/bomcheck_help_section3.html">Next</a></li>
+      </ul>
+    </nav>
+
+    <h1 id="top">bomcheck help (page 3)</h1>
 
     <ol type="1">
       <li><a href="#copyfromSW">How to copy from SolidWorks</a></li>
@@ -44,17 +54,16 @@
 
     <h3 id="Interim_BOM">1a. The Interim BOM Table defined</h3>
 
-    <p>When bomcheck starts, it gathers all the CAD BOMs, and from those BOMs
-     generates a new, single, modified, Interim BOM. The Interim BOM is what
-     is used for comparison to SyteLine BOMs. The Interim BOM contains a list
-     of assemblies (or subassemblies) and their associated BOMs.  Once an
-     assembly is used for analysis, it is removed from the Interim BOM's list
-     of assemblies.  Once bomcheck has finished running, if any unused Interim
-     BOMs remain, they are presented to the user.</p>
+    <p>When bomcheck runs it gathers all the CAD BOMs, and from those BOMs
+     generates a new type of BOM called an Interim BOM. An Interim BOM neither
+     a CAD BOM nor an ERP BOM.  It is an intermediate BOM that bomcheck uses to
+     compare to the ERP BOM.</p>
 
-    <p>The Interim BOM has a structure like those in SyteLine; that is, it has
-     columns arranged like those in SyteLine, i.e. lengths are converted to feet, parts
-     with the same part nos. are combined and with their quantities summed, etc.</p>
+    <p>The Interim BOM has a structure exactly like SyteLine's BOMs; that is,
+     columns are arranged the same, lengths are summed and converted to feet, etc.</p>
+
+    <p>An Interim BOM appears whenever no matching SyteLine BOM is found to
+    compare it to that in the Interim BOM.
 
 
     <img src="CAD_BOM_Table_marked.png" alt="Interim BOM">
@@ -85,7 +94,7 @@
     enter a different Op number into the Interim BOM.  Enter your different number in the
     Op column next to the assembly number.  The remainder of the Op numbers
     for that assembly will automatically change.  Op 15 is shown as an
-    example in Image #1.</p>
+    example in image above.</p>
 
     <br>
 
@@ -104,15 +113,14 @@
     </p>
 
     <h3 id="use_paste_rows_append">2b. Use Edit > Paste Rows Append</h3>
-    <p>After copying from the Interim BOM,
-    pick a row where you want your BOM to be pasted, then go to Edit (the pencil icon) > Paste
+    <p>After copying from the Interim BOM go to Edit (the pencil icon) > Paste
     Rows Append.&nbsp;  A popup window opens up looking for data that you want
     pasted.&nbsp;  Do Ctrl+P. &nbsp; Once pasted, click Save.</p>
 
     <h3 id="manage_warnings">2b-i.  Manage popup windows that show warning messages</h3>
     <p>When pasting, if an error message pops up saying <u>Slow Inventory
     Item</u>, or <u>Part doesn't exist</u>, etc., click whatever button in the
-    popup menu that will allow your paste operation to continue; you can go
+    popup menu that will allow your paste operation to continue.  You can go
     back later and make corrections once pasting is done.&nbsp;  If an item doesn't
     exist that you inserted, the pn will be flagged and you will be prevented
     from saving.&nbsp; (Suggestion:&nbsp;
@@ -124,6 +132,11 @@
     or <u>PAINT</u>, or some other WC.  &nbsp;Please correct your mistake.</p>
 
     <p>If the Op number you try to paste in is not already established, the paste will fail.</p>
+
+    <hr>
+
+    <a href="https://htmlpreview.github.io/?https://github.com/kcarlton55/bomcheck/blob/master/help_files/bomcheck_help_section1.html">Go back to page 2</a>
+
 
 
   </div>

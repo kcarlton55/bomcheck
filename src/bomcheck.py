@@ -935,6 +935,8 @@ def deconstructMultilevelBOM(df, source, k, toplevel=False):
         objects that pertain to those part numbers.
     '''
 
+
+
     __lvl = col_name(df, cfg['level_sl'])  # if not a multilevel BOM from SL, then is empty string, ""
     __itm = col_name(df, cfg['itm_sw'])
     __pn = col_name(df, cfg['part_num'])  # get the column name for pns
@@ -1014,9 +1016,11 @@ def deconstructMultilevelBOM(df, source, k, toplevel=False):
     # If the user provided a part no. in the file name, e.g 095544_sl.xlsx,
     # then replace the part no. that is at level 0 of df with the user supplied
     # pn (e.g. 095544)
+    #pdb.set_trace()
     if pn0 and k.lower()[:4]!='none' and k!=pn0 and k!="":
         dic_assys[k] = dic_assys[pn0]
         del dic_assys[pn0]
+
 
     return dic_assys
 
