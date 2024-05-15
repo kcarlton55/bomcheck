@@ -13,7 +13,7 @@
 
 <body>
   <div class="container">
-    
+
     <nav aria-label="Page navigation">
       <ul class="pagination justify-content-center">
         <li class="page-item">         <a class="page-link" href="https://htmlpreview.github.io/?https://github.com/kcarlton55/bomcheck/blob/master/help_files/bomcheck_help_section2.html">Previous</a></li>
@@ -22,14 +22,122 @@
         <li class="page-item active">  <a class="page-link" href="https://htmlpreview.github.io/?https://github.com/kcarlton55/bomcheck/blob/master/help_files/bomcheck_help_section3.html">3</a></li>
         <li class="page-item disabled"><a class="page-link" href="https://htmlpreview.github.io/?https://github.com/kcarlton55/bomcheck/blob/master/help_files/bomcheck_help_section3.html">Next</a></li>
       </ul>
-    </nav>  
+    </nav>
 
     <h1 id="top">bomcheck help (page 3)</h1>
 
-      
-      
-    ** UNDER CONSTRUCTION **  
-      
+    <ol type="1">
+      <li><a href="#copyfromSW">How to copy from SolidWorks</a></li>
+          <ol type="a">
+            <li><a href="#Interim_BOM">The Interim BOM Table defined</a></li>
+            <li><a href="#how_to_copy">How to copy from an Interim BOM</a></li>
+              <ol type="i">
+                  <li><a href="#no_inventory">Make sure to exclude inventory items</a></li>
+                  <li><a href="#descrips_ignored">Descriptions cannot be copied to the clipboard</a></li>
+                  <li><a href="#different_op">If OP number is not 10</a></li>
+              </ol>
+          </ol>
+      <li><a href="#pastetoSL">How to paste into SyteLine</a></li>
+          <ol type="a">
+            <li><a href="#column_order_must_match">Column order MUST match that of the Interim BOM</a></li>
+            <li><a href="#use_paste_rows_append">Use Edit > Paste Rows Append</a></li>
+                <ol type="i">
+                   <li><a href="#manage_warnings">Manage popup windows that show warning messages</a></li>
+                   <li><a href="#wrong_op">If you mistakenly paste in the wrong Op number</a></li>
+
+          </ol>
+    </ol>
+
+    <hr>
+
+    <h2 id="copyfromSW">1. How to copy from SolidWorks</h2>
+
+    <h3 id="Interim_BOM">1a. The Interim BOM Table defined</h3>
+
+    <p>When bomcheck runs it gathers all the CAD BOMs, and from those BOMs
+     generates a new type of BOM called an Interim BOM. An Interim BOM neither
+     a CAD BOM nor an ERP BOM.  It is an intermediate BOM that bomcheck uses to
+     compare to the ERP BOM.</p>
+
+    <p>The Interim BOM has a structure exactly like SyteLine's BOMs; that is,
+     columns are arranged the same, lengths are summed and converted to feet, etc.</p>
+
+    <p>An Interim BOM appears whenever no matching SyteLine BOM is found to
+    compare it to that in the Interim BOM.
+
+
+    <img src="CAD_BOM_Table_marked.png" alt="Interim BOM">
+    Image #1, Interim BOM
+    </p>
+
+
+    <h3 id="how_to_copy">1b. How to copy from an Interim BOM</h3>
+    <p>From the Interim BOM (see image #1), copy, via Ctrl+C, values you want to paste
+     from columns Op, WC, Item, and Q.  It is not necessary to copy Description
+     and U/M values.  ERP will fill in its own values for these.</p>
+
+    <h3 id="no_inventory">1b-i. Make sure to exclude inventory items</h3>
+    <p>Do not add inventory bin stock items to SyteLine BOMs, e.g. carbon steel
+    pipe nipples.  (Unless, possibly, you're creating a kit.  Non-inventory
+    items fall under SyteLine's product code no. 810.)  These part numbers can
+    be made to not show in the Interim BOM.  To do this employ the "drop list".
+    (See Section 1 of bomcheck's help.)</p>
+
+    <h3 id="descrips_ignored">1b-ii. Descriptions <u>cannot</u> be copied to the clipboard</h3>
+    <p>When you copy from an Interim BOM and you inappropriately include values from
+    the Description column and/or the U column, bomcheckgui will ignore the
+    Description and U values; i.e., they will not be copied to the clipboard.
+    (When data is pasted, SyteLine will insert its own Desription and U/M.)</p>
+
+    <h3 id="different_op">1b-iii. If OP number is not 10</h3>
+    <p>If the Op no. is not 10 for what you will be pasting in, you can
+    enter a different Op number into the Interim BOM.  Enter your different number in the
+    Op column next to the assembly number.  The remainder of the Op numbers
+    for that assembly will automatically change.  Op 15 is shown as an
+    example in image above.</p>
+
+    <br>
+
+    <h2 id="pastetoSL">2. How to paste into SyteLine</h2>
+
+    <h3 id="column_order_must_match">2a. Column order <font color="red"><u><b>MUST</b></u></font> match that of the Interim BOM</h3>
+    <p>For a particular item that you wish to create a BOM for, go to
+    Item (enter your item no.) > Current Materials.  Then order the columns in
+    SyteLine <u>exactly</u> like those shown in Image #2;&nbsp;  i.e., Operation, WC, Material,
+    Quantity, Description, U/M, and Obsolete Date.  (Left click on a column header
+    and pick "Edit Grid Columns...")</p>
+
+    <p>
+    <img src="Change_column_order2.png" alt="ERP BOM example of">
+    Image #2, SyteLine BOM
+    </p>
+
+    <h3 id="use_paste_rows_append">2b. Use Edit > Paste Rows Append</h3>
+    <p>After copying from the Interim BOM go to Edit (the pencil icon) > Paste
+    Rows Append.&nbsp;  A popup window opens up looking for data that you want
+    pasted.&nbsp;  Do Ctrl+P. &nbsp; Once pasted, click Save.</p>
+
+    <h3 id="manage_warnings">2b-i.  Manage popup windows that show warning messages</h3>
+    <p>When pasting, if an error message pops up saying <u>Slow Inventory
+    Item</u>, or <u>Part doesn't exist</u>, etc., click whatever button in the
+    popup menu that will allow your paste operation to continue.  You can go
+    back later and make corrections once pasting is done.&nbsp;  If an item doesn't
+    exist that you inserted, the pn will be flagged and you will be prevented
+    from saving.&nbsp; (Suggestion:&nbsp;
+    Preestablish new subassemblies and new parts before entering items into a top level BOM.)</p>
+
+    <h3 id="wrong_op">2b-ii.  If you mistakenly paste in the wrong Op number</h3>
+    <p>If you mistakenly paste the incorrect Op no., SyteLine's WC value<font color="red">
+      <b>will not be <u>PICK</u></b></font>.  Instead WC will <i>incorrectly</i> be <u>FAB</u>
+    or <u>PAINT</u>, or some other WC.  &nbsp;Please correct your mistake.</p>
+
+    <p>If the Op number you try to paste in is not already established, the paste will fail.</p>
+
+    <hr>
+
+    <a href="https://htmlpreview.github.io/?https://github.com/kcarlton55/bomcheck/blob/master/help_files/bomcheck_help_section1.html">Go back to page 2</a>
+
+
 
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.10.2/dist/umd/popper.min.js"
