@@ -685,8 +685,8 @@ def gatherBOMs_from_fnames(filename):
                     df = pd.read_excel(v, na_values=[' '], skiprows=1)
                     df.columns = df.columns.str.replace(r'\n', '', regex=True)
                     df.replace(r'\n',' ', regex=True, inplace=True)
-                    if col_name(df, cfg['descrip']):
-                        df[col_name(df, cfg['descrip'])].fillna('----- sw_description_missing -----', inplace=True)
+                    if get_col_name(df, cfg['descrip']):
+                        df[get_col_name(df, cfg['descrip'])].fillna('----- sw_description_missing -----', inplace=True)
                     df = df.astype(str)
                     df = df.replace('nan', 0)
                 dfsw_found=True
@@ -699,7 +699,7 @@ def gatherBOMs_from_fnames(filename):
             else:
                 dfsw_found = False
             if (dfsw_found and (not (test_for_missing_columns('sw', df, k))) and
-                    col_name(df, cfg['level_sl'])): # if "Level" found if df.columns, return "Level".  For if sl BOM renamed to a sw BOM.
+                    get_col_name(df, cfg['level_sl'])): # if "Level" found if df.columns, return "Level".  For if sl BOM renamed to a sw BOM.
                 swdfsdic.update(deconstructMultilevelBOM(df, 'sw', k, toplevel=True))
             elif dfsw_found and (not test_for_missing_columns('sw', df, k)):
                 swdfsdic.update(deconstructMultilevelBOM(df, 'sw', k))
@@ -734,7 +734,7 @@ def gatherBOMs_from_fnames(filename):
                 # df.drop(index=[0, 8, 12, 23])                 will drop rows 0, 8, 12, 23
                 # reference: https://www.geeksforgeeks.org/drop-a-list-of-rows-from-a-pandas-dataframe/, see row: Drop Rows with Conditions in Pandas
             if (dfsl_found and (not (test_for_missing_columns('sl', df, k))) and
-                    col_name(df, cfg['level_sl'])):
+                    get_col_name(df, cfg['level_sl'])):
                 sldfsdic.update(deconstructMultilevelBOM(df, 'sl', k, toplevel=True))
             elif dfsl_found and (not test_for_missing_columns('sl', df, k)):
                 sldfsdic.update(deconstructMultilevelBOM(df, 'sl', k))
@@ -788,9 +788,9 @@ def test_for_missing_columns(bomtype, df, pn):
         required_columns = [cfg['qty'], cfg['descrip'],
                             cfg['part_num'], cfg['um_sl']]
 
-    if bomtype == 'sw' and  col_name(df, cfg['level_sl']) and not col_name(df, cfg['itm_sw']):
+    if bomtype == 'sw' and  get_col_name(df, cfg['level_sl']) and not get_col_name(df, cfg['itm_sw']):
         pass
-    elif bomtype == 'sw' and not col_name(df, cfg['itm_sw']):
+    elif bomtype == 'sw' and not get_col_name(df, cfg['itm_sw']):
         printStr = ('\nBOM column {0} missing from sw file {1}.\n'.format(' or '.join(cfg['itm_sw']), pn)
                     + "This if fine unless you're intending that it be a multilevel BOM.\n")
         if not printStr in printStrs:
@@ -799,7 +799,7 @@ def test_for_missing_columns(bomtype, df, pn):
 
     missing = []
     for r in required_columns:
-        if not col_name(df, r):
+        if not get_col_name(df, r):
             m = ', '.join(r)                     # e.g. ['QTY', 'Qty', 'Qty Per'] -> "QTY, Qty, Qty Per"
             m = ', or '.join(m.rsplit(', ', 1))  # e.g. "QTY, Qty, Qty Per" ->  "QTY, Qty, or Qty Per"
             missing.append(m)
@@ -820,41 +820,51 @@ def test_for_missing_columns(bomtype, df, pn):
         return False
 
 
-def col_name(df, col):
+def get_col_name(df, col):
     '''
-    Find one common name from the list of column names
-    derived from the DataFrame, df, and the list of names
-    from col.  For example, if list(df.columns) is [ITEM
-    NO., QTY, LENGTH, DESCRIPTION, PART NUMBER]; and col
-    is [PARTNUMBER, PART NUMBER, Part Number, Item,
-    Material], then return PART NUMBER because it is
-    common to both lists.
+    Starting at the beginning of the list of column names in df, return the
+    first name found that is also in the list called col.  For example, if
+    the column names in df are:
+
+    ["Operation", "WC", "Material", "Quantity", "Material Description", "U/M",
+     "Obsolete Date", "Effective Date", "Item", "Item Description"]
+
+    and col is:
+
+    ["Material", "PARTNUMBER", "PART NUMBER", "Part Number", "Item"],
+
+    It can be seen that the common names in these two lists are Material and
+    Item.  Material will be returned because it will be the first found from
+    df.  Thus it is determined that the column named Material contains the
+    part numbers that are in the BOM named df.
 
     Parameters
     ----------
     df: Pandas DataFrame or list
-        If a DataFrame, then df.columns will be extracted
-        and it will be converted to a list.  If df is
-        instead simply a list, it is a list of column
-        names.
+        If df is a DataFrame, then column names will be extracted from it and
+        used for analysis.  If df is instead a list, the list will be used.
 
     col: list
-        List of column names that will be compared to the
-        list of column names from df (i.e. from df.columns)
+        List of optional column names that a particular column in df
+        might employ.  For example, shown above are column names that the
+        part number column may employ.
 
     Returns
     -------
     out: string
-        Name of column that is common to both df.columns
-        and col
+        First column name from df.colums that is also found in col.  If none is
+        found, return "", i.e. an empty string.
     '''
     try:
         if isinstance(df, pd.DataFrame):
-            s = set(list(df.columns))
+            s = df.columns
         else:
-            s = set(df)
-        intersect = s.intersection(col)
-        return list(intersect)[0]
+            s = df  # df is a list
+
+        for x in s:
+            if x in col:
+                return x
+        return ""
     except IndexError:
         return ""
 
@@ -937,9 +947,9 @@ def deconstructMultilevelBOM(df, source, k, toplevel=False):
 
 
 
-    __lvl = col_name(df, cfg['level_sl'])  # if not a multilevel BOM from SL, then is empty string, ""
-    __itm = col_name(df, cfg['itm_sw'])
-    __pn = col_name(df, cfg['part_num'])  # get the column name for pns
+    __lvl = get_col_name(df, cfg['level_sl'])  # if not a multilevel BOM from SL, then is empty string, ""
+    __itm = get_col_name(df, cfg['itm_sw'])
+    __pn = get_col_name(df, cfg['part_num'])  # get the column name for pns
 
     p = None
     df[__pn] = df[__pn].astype('str').str.strip() # make sure pt nos. are "clean"
@@ -1140,7 +1150,7 @@ def convert_sw_bom_to_sl_format(df):
     if not cfg['cspartnumber']:
         df[cfg['Item']] = df[cfg['Item']].str.upper()
 
-    __len = col_name(df, cfg['length_sw'])
+    __len = get_col_name(df, cfg['length_sw'])
 
     if __len:  # convert lengths to other unit of measure, i.e. to_um
         ser = df[__len].apply(str)
