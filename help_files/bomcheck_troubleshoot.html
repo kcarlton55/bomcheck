@@ -89,9 +89,11 @@
         <p id="conflict"><b>10. Column name conflicts.</b>
             I have a BOM from my ERP program that contains two different column names, either
             of which could contain part numbers of parts, for example Material and Item.  How
-            does bomcheck resolve which column to get part numbers from?  Adjust the bomcheck.cfg
-            file.  The name that appears first in the list of potential column names for parts
-            will take precedent.</p>
+            does bomcheck resolve which column to obtain part numbers from?  Bomcheck has stored
+            various column header names that it considers when determining which column contains
+            the part numbers.  Column header names include Material, Item, and PART NUMBER.  Bomcheck will
+            use the first one of these names it finds in your BOM and then get part numbers from that
+            column.</p>
 
         <p id="config_txt"><b>11. Unable to open config.txt (bomcheckgui only)</b>
             The program reports that it cannot open up a file named config.txt. What is that

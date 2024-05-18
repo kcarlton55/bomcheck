@@ -860,7 +860,13 @@ def get_col_name(df, col):
             s = df.columns
         else:
             s = df  # df is a list
-
+        # SyteLine employs two different column labels for part numbers
+        # depending on where in SL you get a BOM from.  If both Material and
+        # Item exist in a BOM, then Material is the column that contains part
+        # numbers.
+        if ('Item' in s and 'Material' in s
+            and 'Item' in col and 'Material' in col):
+            return 'Material'
         for x in s:
             if x in col:
                 return x
@@ -944,9 +950,6 @@ def deconstructMultilevelBOM(df, source, k, toplevel=False):
         BOMs; and BOM1, BOM2, etc. are pandas DataFrame
         objects that pertain to those part numbers.
     '''
-
-
-
     __lvl = get_col_name(df, cfg['level_sl'])  # if not a multilevel BOM from SL, then is empty string, ""
     __itm = get_col_name(df, cfg['itm_sw'])
     __pn = get_col_name(df, cfg['part_num'])  # get the column name for pns
@@ -1023,14 +1026,12 @@ def deconstructMultilevelBOM(df, source, k, toplevel=False):
     for k2 in assys:
         dic_assys[k2.upper()] = df[df['Level_pn'] == k2]
 
-    # If the user provided a part no. in the file name, e.g 095544_sl.xlsx,
+    # If the user provided a part no. in the SL file name, e.g 095544_sl.xlsx,
     # then replace the part no. that is at level 0 of df with the user supplied
     # pn (e.g. 095544)
-    #pdb.set_trace()
-    if pn0 and k.lower()[:4]!='none' and k!=pn0 and k!="":
+    if source=='sl' and pn0 and k.lower()[:4]!='none' and k!=pn0 and k!="" and pn0 in dic_assys:
         dic_assys[k] = dic_assys[pn0]
         del dic_assys[pn0]
-
 
     return dic_assys
 
@@ -1275,6 +1276,11 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
         print(printStr)
         sys.exit()
 
+    # See note in get_col_name()
+    #if ('Material' in dfsl.columns and 'Item' in dfsl.columns
+    #        and 'Material' in cfg['part_num'] and 'Item' in cfg['part_num']):
+    #    dfsl.drop('Item', axis=1, inplace=True)
+
     # In dfsl if, for example, Item & Material (both names of pn cols) found
     # in table, get rid of the useless col.  First coinciding name from
     # cfg['part_num'] will be used.  Do same for cfg['descrip']
@@ -1282,6 +1288,8 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
         lst = [c for c in x if c in dfsl.columns]
         if len(lst)>1:
             dfsl.drop(lst[1:], axis=1, inplace=True)
+
+
 
     values = dict.fromkeys(cfg['part_num'], cfg['Item'])  # type(cfg['Item']) is a str
     values.update(dict.fromkeys(cfg['um_sl'], cfg['U']))  # type(cfg['U']) also a str
@@ -1303,7 +1311,6 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     dfmerged = pd.merge(dfsw, dfsl, on=cfg['Item'], how='outer', suffixes=('_sw', '_sl') ,indicator=True)
     dfmerged[cfg['Q'] + '_sw'].fillna(0, inplace=True)
     dfmerged[cfg['U'] + '_sl'].fillna('', inplace=True)
-
 
     ######################################################################################
     # If U/M in SW isn't the same as that in SL, adjust SW's length values               #
