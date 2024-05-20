@@ -857,7 +857,7 @@ def get_col_name(df, col):
     '''
     try:
         if isinstance(df, pd.DataFrame):
-            s = df.columns
+            s = list(df.columns)
         else:
             s = df  # df is a list
         # SyteLine employs two different column labels for part numbers
@@ -865,7 +865,14 @@ def get_col_name(df, col):
         # Item exist in a BOM, then Material is the column that contains part
         # numbers.
         if ('Item' in s and 'Material' in s
-            and 'Item' in col and 'Material' in col):
+                and 'Item' in col and 'Material' in col
+                and s.index('Material') > s.index('Item')):
+            printStr = ('\n\nA SyteLine BOM found that is not arranged\n'
+                        "correctly.  See page 3, item 2 of bomcheck's help\n"
+                        'to see how to best arrange BOMs\n')
+            if printStr not in printStrs:
+                printStrs.append(printStr)
+                print(printStr)
             return 'Material'
         for x in s:
             if x in col:
