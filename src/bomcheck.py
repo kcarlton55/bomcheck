@@ -23,7 +23,7 @@ For more information, see the help files for this program.
 __version__ = '1.9.8'
 __author__ = 'Kenneth E. Carlton'
 
-import pdb # use with pdb.set_trace()
+#import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -992,6 +992,7 @@ def deconstructMultilevelBOM(df, source, k, toplevel=False):
     level_pn = []  # at every row in df, parent of the part at that row
     assys = []  # a subset of level_pn.  Collection of parts (i.e. assemblies) that have children
     flag = True
+    pn0 = ''
 
     for item, row in df.iterrows():
         if row['__Level'] == 0:
@@ -1000,9 +1001,7 @@ def deconstructMultilevelBOM(df, source, k, toplevel=False):
             # Via flag ignore those other level 0s.
             if source == 'sl' and flag:
                 pn0 = row[__pn]
-            else:
-                flag = False
-                pn0 = ''
+            flag = False # Set to False so that if more than one level 0 in a multilevel bom, then only first level 0 pn assigned to pn0
             poplist = []
             if toplevel:
                 level_pn.append('TOPLEVEL')
@@ -1036,7 +1035,8 @@ def deconstructMultilevelBOM(df, source, k, toplevel=False):
     # If the user provided a part no. in the SL file name, e.g 095544_sl.xlsx,
     # then replace the part no. that is at level 0 of df with the user supplied
     # pn (e.g. 095544)
-    if source=='sl' and pn0 and k.lower()[:4]!='none' and k!=pn0 and k!="" and pn0 in dic_assys:
+    if (pn0 and k.lower()[:4]!='none' and k!=pn0 and k!=""
+            and pn0 in dic_assys):
         dic_assys[k] = dic_assys[pn0]
         del dic_assys[pn0]
 
@@ -1283,20 +1283,14 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
         print(printStr)
         sys.exit()
 
-    # See note in get_col_name()
-    #if ('Material' in dfsl.columns and 'Item' in dfsl.columns
-    #        and 'Material' in cfg['part_num'] and 'Item' in cfg['part_num']):
-    #    dfsl.drop('Item', axis=1, inplace=True)
-
-    # In dfsl if, for example, Item & Material (both names of pn cols) found
-    # in table, get rid of the useless col.  First coinciding name from
-    # cfg['part_num'] will be used.  Do same for cfg['descrip']
-    for x in [cfg['part_num'], cfg['descrip']]:
-        lst = [c for c in x if c in dfsl.columns]
-        if len(lst)>1:
-            dfsl.drop(lst[1:], axis=1, inplace=True)
-
-
+    # Elminate useless columns from SyteLine that cause bomcheck to be confused
+    # about which contains part nos. and which contains part no. descriptions.
+    # If Material and Material Description both present, they contain the pns and pn descrips
+    if 'Material' in dfsl.columns and 'Material Description' in dfsl.columns:
+        if 'Item' in dfsl.columns:
+            dfsl.drop('Item', axis=1, inplace=True)
+        if 'Description' in dfsl.columns:
+            dfsl.drop('Description', axis=1, inplace=True)
 
     values = dict.fromkeys(cfg['part_num'], cfg['Item'])  # type(cfg['Item']) is a str
     values.update(dict.fromkeys(cfg['um_sl'], cfg['U']))  # type(cfg['U']) also a str
