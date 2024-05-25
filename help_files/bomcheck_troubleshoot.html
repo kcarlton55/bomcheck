@@ -25,7 +25,6 @@
             <li><a href="#no_UM">U/M (unit of measure) missing for part shown in ERP BOM.</a></li>
             <li><a href="#UM">A U/M value did not convert properly.</a></li>
             <li><a href="#crash_cols">Program crashed due to missing columns.</a></li>
-            <li><a href="#conflict">Column name conflicts.</a></li>
             <li><a href="#config_txt">Unable to open config.txt file.</a></li>
             <li><a href="#wrong_descrip">Pn's description in CAD BOM changed after program ran.</a></li>
             <li><a href="#no_sync">CAD BOM and ERP BOM seem to not sync at all.</a></li>
@@ -86,16 +85,7 @@
             (i.e., had a _sl.xlsx extension). In short, the arrangement of the BOM in the
             Excel sheet is not correct.</p>
 
-        <p id="conflict"><b>10. Column name conflicts.</b>
-            I have a BOM from my ERP program that contains two different column names, either
-            of which could contain part numbers of parts, for example Material and Item.  How
-            does bomcheck resolve which column to obtain part numbers from?  Bomcheck has stored
-            various column header names that it considers when determining which column contains
-            the part numbers.  Column header names include Material, Item, and PART NUMBER.  Bomcheck will
-            use the first one of these names it finds in your BOM and then get part numbers from that
-            column.</p>
-
-        <p id="config_txt"><b>11. Unable to open config.txt (bomcheckgui only)</b>
+        <p id="config_txt"><b>10. Unable to open config.txt (bomcheckgui only)</b>
             The program reports that it cannot open up a file named config.txt. What is that
             about? Answer: Whenever a user makes a settings change (File > Settings),
             bomcheckgui remembers those settings for future use by saving those settings in a
@@ -104,7 +94,7 @@
             (The bomcheckgui program automatically creates this file.) Perhaps user
             rights were somehow severed??? Contact the IT manager for help.</p>
 
-        <p id="wrong_descrip"><b>12. Pn's description in CAD BOM changed after program ran.</b>
+        <p id="wrong_descrip"><b>11. Pn's description in CAD BOM changed after program ran.</b>
             You have two or more parts or part configurations that are configured
             to show the same part number on a CAD BOM.  As an example, two hoses
             with different bends, but with same length and same end fittings
@@ -118,7 +108,7 @@
             Bomcheck does not check to see if descriptions are different between
             models or configurations.   That is up to you to catch and correct.</p>
 
-          <p id="no_sync"><b>13. CAD BOM and ERP BOM seem to not sync at all.</b>
+          <p id="no_sync"><b>12. CAD BOM and ERP BOM seem to not sync at all.</b>
             When you pulled a multilevel BOM from the ERP, you may have mistakenly
             pushed the sort button on the LEVEL column or some other column
             within the ERP's BOM.  The button to sort and to extract an Excel
@@ -128,7 +118,7 @@
             file to a _sl.xlsx file, or vice-versa.
           </p>
 
-          <p id="obsolete"><b>14. PN is in both the ERP BOM and the CAD BOM,
+          <p id="obsolete"><b>13. PN is in both the ERP BOM and the CAD BOM,
             but doesn't appear in bomcheck results???</b>
             I have a part no. in the CAD BOM, and I have the same PN in the ERP (overview)
             BOM, but when I run bomcheck, the PN doesn't appear on the ERP's

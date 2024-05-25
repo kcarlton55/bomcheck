@@ -23,7 +23,7 @@ For more information, see the help files for this program.
 __version__ = '1.9.8'
 __author__ = 'Kenneth E. Carlton'
 
-#import pdb # use with pdb.set_trace()
+import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
