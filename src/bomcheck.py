@@ -450,7 +450,6 @@ def bomcheck(fn, dic={}, **kwargs):
                         else kwargs.get('cspn', False))
     cfg['csdescription'] = (dic.get('csdescription') if dic.get('csdescription')
                         else kwargs.get('csdsc', False))
-    #pdb.set_trace()
     if dic.get('drop'):
         try:
             string = dic.get('drop')
@@ -516,6 +515,7 @@ def bomcheck(fn, dic={}, **kwargs):
     # lone_sw is a dic; Keys are assy nos; Values are DataFrame objects (SW
     # BOMs only).  merged_sw2sl is a dic; Keys are assys nos; Values are
     # Dataframe objects (merged SW and SL BOMs).
+
     lone_sw, merged_sw2sl = collect_checked_boms(swfiles, slfiles)
 
     title_dfsw = []                # Create a list of tuples: [(title, swbom)... ]
@@ -699,7 +699,6 @@ def gatherBOMs_from_fnames(filename):
                 dfsw_found = False
             else:
                 dfsw_found = False
-            #pdb.set_trace()
             if 'partsonly' in v.lower() or 'onlyparts' in v.lower():
                 ptsonlyflag = True
             if (dfsw_found and (not (test_for_missing_columns('sw', df, k))) and
@@ -1047,13 +1046,11 @@ def deconstructMultilevelBOM(df, source, k, toplevel=False, ptsonlyflag=False):
     # then replace the part no. that is at level 0 of df with the user supplied
     # pn (e.g. 095544)
 
-    #pdb.set_trace()
-
     if (ptsonlyflag and pn0 and k.lower()[:4]!='none' and k!=pn0 and k!=""
             and pn0 in dic_assys):
         dic_assys[k] = dic_assys[pn0]
         del dic_assys[pn0]
-        return partsOnly(pn0, dic_assys)
+        return partsOnly(k, dic_assys)
 
     if (pn0 and k.lower()[:4]!='none' and k!=pn0 and k!=""
             and pn0 in dic_assys):
@@ -1420,6 +1417,7 @@ def collect_checked_boms(swdic, sldic):
         Keys for the dictionary are assembly part numbers.
 
     '''
+
     lone_sw_dic = {}  # sw boms with no matching sl bom found
     combined_dic = {}   # sl bom found for given sw bom.  Then merged
     for key, dfsw in swdic.items():
@@ -1677,6 +1675,7 @@ def partsOnly(k, dic_assys):
        one key and it's value.  The key is equal to k.  The contatenated df has
        removed from it all part nos. that had children.
     '''
+
     values = list(dic_assys.values())
     keys = list(dic_assys.keys())
     df = pd.concat(values)
@@ -1686,9 +1685,20 @@ def partsOnly(k, dic_assys):
     __descrip = get_col_name(df, cfg['descrip'])
     __um = get_col_name(df, cfg['um_sl'])
 
+    if not __um:
+        printStr = ('\nYou used "partsonly" on a file that came from a CAD\n'
+                    'BOM.  This is not allowed.  Only apply partsonly to a \n'
+                    'file that comes from ERP. Your attempt to apply \n'
+                    'partsonly will be ignored.  If you wish to apply \n'
+                    "partsonly to a file from CAD, use the CAD program's \n"
+                    'method of doing this, and do not invoke "partsonly"\n'
+                    'on that file.\n')
+        printStrs.append(printStr)
+        print(printStr)
+        return dic_assys
+
     df = df[~df[__pn].isin(keys)]  # elimanate assy pns from BOM.  df[__pn] is the column that has pns.
-    #dd = {__qty: 'sum', __descrip: 'first', __um: 'first'}   # funtions to apply to next line
-    dd = {__qty: 'sum', __descrip: 'first'}   # funtions to apply to next line
+    dd = {__qty: 'sum', __descrip: 'first', __um: 'first'}   # funtions to apply to next line
     df = df.groupby(__pn, as_index=False).aggregate(dd)
 
     return {k: df}
