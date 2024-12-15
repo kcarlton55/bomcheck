@@ -512,6 +512,8 @@ def bomcheck(fn, dic={}, **kwargs):
 
     dirname, swfiles, slfiles = gatherBOMs_from_fnames(fn)
 
+    typeNotMtl(slfiles) # report on corrupt data within SyteLine.  See function typeNotMtl
+
     # lone_sw is a dic; Keys are assy nos; Values are DataFrame objects (SW
     # BOMs only).  merged_sw2sl is a dic; Keys are assys nos; Values are
     # Dataframe objects (merged SW and SL BOMs).
@@ -762,6 +764,50 @@ def gatherBOMs_from_fnames(filename):
     if os.path.islink(dirname):
         dirname = os.readlink(dirname)
     return dirname, swdfsdic, sldfsdic
+
+
+def typeNotMtl(sldic):
+    ''' SyteLine has a column named "Type" within its multilevel BOM tables.
+    The value in that column should ALWAYS be "Material".  If it is not, then
+    some sort of signal is sent within SyteLine causing parts to have no lead
+    time for particular purchased parts.  I was told that for some inexplicable
+    reason sometimes SyteLine puts another value in the Type column, usually
+    "other".  This small function, typeNotMtl, added December 2024, detects
+    when this hiccup occurs and notifies the user.
+
+    Parameters
+    ----------
+    sldic: dictionary
+        Dictionary of ERP BOMs.  Dictionary keys are strings
+        and they are of assembly part numbers.  Dictionary
+        values are pandas DataFrame objects which are BOMs
+        for those assembly pns.
+
+    Returns
+    -------
+    None.  (global value "printStrs" will be appended to.  This will result
+            in the contatenation of printStrs being shown to the user.)
+    '''
+    global printStrs
+    flag = False
+    _values_ = dict.fromkeys(cfg['part_num'], cfg['Item'])  # type(cfg['Item']) is a str
+    for key, value in sldic.items():
+        if 'Type' in value.columns:
+            value.rename(columns=_values_, inplace=True)
+            value_filtered = value[value.Type != 'Material']
+            corrupt_pns = list(value_filtered[cfg['Item']])
+            if corrupt_pns and not flag:
+                printStr = ('\nCorrupt data has been found in SyteLine!  The value for "Type" '
+                            'for one or more parts is not "Material".  This can lead to parts '
+                            'not being scheduled for purchase.  Please report this error to '
+                            'your supervisor.  DO NOT IGNORE THIS MESSAGE!\n')
+                flag = True
+            if corrupt_pns:
+                printStr = printStr + f'\nparent: {key}\n'
+                for corrupt_pn in corrupt_pns:
+                    printStr = printStr + f'   corrupt pn: {corrupt_pn}\n'
+    printStrs.append(printStr)
+    #print(printStr)
 
 
 def test_for_missing_columns(bomtype, df, pn):
@@ -1276,12 +1322,12 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     side by side comparison of the SW/ERP BOMs so that
     differences between the two can be easily distinguished.
 
-    A set of columns in the output are labeled i, q, d, and
-    u.  Xs at a row in any of these columns indicate
+    A set of columns in the output are labeled I, Q, D, and
+    U.  Xs at a row in any of these columns indicate
     something didn't match up between the SW and ERP BOMs.
-    An X in the i column means the SW and ERP Items
-    (i.e. pns) don't match.  q means quantity, d means
-    description, u means unit of measure.
+    An X in the I column means the SW and ERP Items
+    (i.e. pns) don't match.  Q means quantity, D means
+    description, U means unit of measure.
 
     Parmeters
     =========
@@ -1328,6 +1374,10 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     if 'Obsolete' in dfsl.columns:  # Don't use any obsolete pns (even though shown in the SL BOM)
         filtr4 = dfsl['Obsolete'].notnull()
         dfsl.drop(dfsl[filtr4].index, inplace=True)    # https://stackoverflow.com/questions/13851535/how-to-delete-rows-from-a-pandas-dataframe-based-on-a-conditional-expression
+
+    if 'Type' in dfsl.columns:
+        filtrT = dfsl['Type'] == 'Material'
+        dfsl[cfg['Description']]=dfsl[cfg['Description']].where(filtrT, 'WARNING: "Type" is not "Material"!')
 
     if cfg['drop_bool']==True and cfg['drop']:
        filtr3 = is_in(cfg['drop'], dfsl[cfg['Item']], cfg['exceptions'])
