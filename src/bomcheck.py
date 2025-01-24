@@ -497,9 +497,9 @@ def bomcheck(fn, dic={}, **kwargs):
         cfg['accuracy'] = dbdic.get('accuracy', 2)
         cfg['from_um'] = dbdic.get('from_um', 'in')
         cfg['to_um'] = dbdic.get('to_um', 'FT')
+        cfg['mtltest'] = dbdic.get('mtltest', True)
     else:
         cfg['overwrite'] = False
-
 
     if isinstance(fn, str) and fn.startswith('[') and fn.endswith(']'):
         fn = ast.literal_eval(fn)  # change a string to a list
@@ -512,7 +512,8 @@ def bomcheck(fn, dic={}, **kwargs):
 
     dirname, swfiles, slfiles = gatherBOMs_from_fnames(fn)
 
-    typeNotMtl(slfiles) # report on corrupt data within SyteLine.  See function typeNotMtl
+    if ('mtltest' in cfg) and cfg['mtltest']:
+        typeNotMtl(slfiles) # report on corrupt data within SyteLine.  See function typeNotMtl
 
     # lone_sw is a dic; Keys are assy nos; Values are DataFrame objects (SW
     # BOMs only).  merged_sw2sl is a dic; Keys are assys nos; Values are
@@ -789,25 +790,27 @@ def typeNotMtl(sldic):
             in the contatenation of printStrs being shown to the user.)
     '''
     global printStrs
+    printStr = None
     flag = False
     _values_ = dict.fromkeys(cfg['part_num'], cfg['Item'])  # type(cfg['Item']) is a str
     for key, value in sldic.items():
-        if 'Type' in value.columns:
+        if 'Type' in value.columns and 'Source' in value.columns:
             value.rename(columns=_values_, inplace=True)
-            value_filtered = value[value.Type != 'Material']
+            value_filtered = value[(value.Type != 'Material') & (value.Source == 'Purchased')]
             corrupt_pns = list(value_filtered[cfg['Item']])
             if corrupt_pns and not flag:
-                printStr = ('\nCorrupt data has been found in SyteLine!  The value for "Type" '
-                            'for one or more parts is not "Material".  This can lead to parts '
-                            'not being scheduled for purchase.  Please report this error to '
-                            'your supervisor.  DO NOT IGNORE THIS MESSAGE!\n')
+                printStr = ('\nCorrupt data found in SyteLine.  Error will result in parts '
+                            'not being purchased.  Problem parts failed this test:\n\n'
+                            "if (('Type' ≠ 'Material') & ('Source' = 'Purchased')) then err\n\n"
+                            'That is, purchased parts must be Type = Material.  Report this '
+                            'error to your supervisor.  \n\nProblem part numbers are: \n\n')
                 flag = True
             if corrupt_pns:
-                printStr = printStr + f'\nparent: {key}\n'
+                #printStr = printStr + f'\nparent: {key}\n'
                 for corrupt_pn in corrupt_pns:
-                    printStr = printStr + f'   corrupt pn: {corrupt_pn}\n'
-    printStrs.append(printStr)
-    #print(printStr)
+                    printStr = printStr + f'{corrupt_pn}, '
+    if printStr:
+        printStrs.append(printStr)
 
 
 def test_for_missing_columns(bomtype, df, pn):
@@ -1375,9 +1378,9 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
         filtr4 = dfsl['Obsolete'].notnull()
         dfsl.drop(dfsl[filtr4].index, inplace=True)    # https://stackoverflow.com/questions/13851535/how-to-delete-rows-from-a-pandas-dataframe-based-on-a-conditional-expression
 
-    if 'Type' in dfsl.columns:
-        filtrT = dfsl['Type'] == 'Material'
-        dfsl[cfg['Description']]=dfsl[cfg['Description']].where(filtrT, 'WARNING: "Type" is not "Material"!')
+    if 'Type' in dfsl.columns and 'Source' in dfsl.columns  and 'mtltest' in cfg and cfg['mtltest']:
+        filtrT = ((dfsl['Type'] != 'Material') & (dfsl['Source'] == 'Purchased'))
+        dfsl[cfg['Description']]=dfsl[cfg['Description']].where(~filtrT, "('Type'≠'Material')&('Source'='Purchased')")
 
     if cfg['drop_bool']==True and cfg['drop']:
        filtr3 = is_in(cfg['drop'], dfsl[cfg['Item']], cfg['exceptions'])
