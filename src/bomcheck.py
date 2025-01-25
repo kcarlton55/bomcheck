@@ -800,13 +800,12 @@ def typeNotMtl(sldic):
             corrupt_pns = list(value_filtered[cfg['Item']])
             if corrupt_pns and not flag:
                 printStr = ('\nCorrupt data found in SyteLine.  Error will result in parts '
-                            'not being purchased.  Problem parts failed this test:\n\n'
-                            "if (('Type' ≠ 'Material') & ('Source' = 'Purchased')) then err\n\n"
-                            'That is, purchased parts must be Type = Material.  Report this '
-                            'error to your supervisor.  \n\nProblem part numbers are: \n\n')
+                            "not being purchased.  Problem is 'Type' ≠ 'Material' when "
+                            "'Source' = 'Purchased'.  Please fix issue.  "
+                            'Problem parts are:')
                 flag = True
             if corrupt_pns:
-                #printStr = printStr + f'\nparent: {key}\n'
+                printStr = printStr + f'\n\nAssembly {key} is parent of:\n'
                 for corrupt_pn in corrupt_pns:
                     printStr = printStr + f'{corrupt_pn}, '
     if printStr:
