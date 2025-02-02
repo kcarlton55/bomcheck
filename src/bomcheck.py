@@ -794,15 +794,14 @@ def typeNotMtl(sldic):
     flag = False
     _values_ = dict.fromkeys(cfg['part_num'], cfg['Item'])  # type(cfg['Item']) is a str
     for key, value in sldic.items():
-        if 'Type' in value.columns and 'Source' in value.columns:
+        if 'Type' in value.columns: # and 'WC' in value.columns:
             value.rename(columns=_values_, inplace=True)
-            value_filtered = value[(value.Type != 'Material') & (value.Source == 'Purchased')]
+            value_filtered = value[(value.Type != 'Material') & (value[cfg['Item']].str.slice(-3) != '-OP')]
             corrupt_pns = list(value_filtered[cfg['Item']])
             if corrupt_pns and not flag:
                 printStr = ('\nCorrupt data found in SyteLine.  Error will result in parts '
-                            "not being purchased.  Problem is 'Type' ≠ 'Material' when "
-                            "'Source' = 'Purchased'.  Please fix issue.  "
-                            'Problem parts are:')
+                            "not being purchased.  Problem is 'Type' ≠ 'Material'.  "
+                            "Please fix issue.  Problem parts are:")
                 flag = True
             if corrupt_pns:
                 printStr = printStr + f'\n\nAssembly {key} is parent of:\n'
@@ -1377,9 +1376,9 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
         filtr4 = dfsl['Obsolete'].notnull()
         dfsl.drop(dfsl[filtr4].index, inplace=True)    # https://stackoverflow.com/questions/13851535/how-to-delete-rows-from-a-pandas-dataframe-based-on-a-conditional-expression
 
-    if 'Type' in dfsl.columns and 'Source' in dfsl.columns  and 'mtltest' in cfg and cfg['mtltest']:
-        filtrT = ((dfsl['Type'] != 'Material') & (dfsl['Source'] == 'Purchased'))
-        dfsl[cfg['Description']]=dfsl[cfg['Description']].where(~filtrT, "('Type'≠'Material')&('Source'='Purchased')")
+    if 'Type' in dfsl.columns and 'mtltest' in cfg and cfg['mtltest']:
+        filtrT = ((dfsl['Type'] != 'Material') & (dfsl[cfg['Item']].str.slice(-3) != '-OP'))
+        dfsl[cfg['Description']]=dfsl[cfg['Description']].where(~filtrT, "Note: 'Type'≠'Material'")
 
     if cfg['drop_bool']==True and cfg['drop']:
        filtr3 = is_in(cfg['drop'], dfsl[cfg['Item']], cfg['exceptions'])
