@@ -6,10 +6,10 @@ build-backend = "setuptools.build_meta"
 name = "bomcheck"
 version = "1.9.8"
 authors = [
-  {name="Ken Carlton", email="kencarlton55@gmail.com"},
+    {name="Ken Carlton", email="kencarlton55@gmail.com"},
 ]
 maintainers = [
-  {name="Ken Carlton", email="kencarlton55@gmail.com"},
+    {name="Ken Carlton", email="kencarlton55@gmail.com"},
 ]
 description = "Compare BOMs stored in Excel files"
 readme = "README.md"
@@ -25,7 +25,7 @@ classifiers = [
 keywords = ["BOM", "BOMs", "compare" ,"bill" ,"materials", "SolidWorks",
            "SyteLine", "ERP", "CAD"]
 dependencies = ["tomli >= 1.1.0", "pandas>=1.2", "openpyxl>=3.0", "requests>=2.29"]
-license = {text = "GPLv3+"}
+license = {text = "GPL-3.0-or-later"}
 
 [project.scripts]
 bomcheck = "bomcheck:main"
