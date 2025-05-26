@@ -23,7 +23,7 @@ For more information, see the help files for this program.
 __version__ = '1.9.8'
 __author__ = 'Kenneth E. Carlton'
 
-import pdb # use with pdb.set_trace()
+#import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -450,7 +450,6 @@ def bomcheck(fn, dic={}, **kwargs):
                         else kwargs.get('cspn', False))
     cfg['csdescription'] = (dic.get('csdescription') if dic.get('csdescription')
                         else kwargs.get('csdsc', False))
-    #pdb.set_trace()
     if dic.get('drop'):
         try:
             string = dic.get('drop')
@@ -498,9 +497,9 @@ def bomcheck(fn, dic={}, **kwargs):
         cfg['accuracy'] = dbdic.get('accuracy', 2)
         cfg['from_um'] = dbdic.get('from_um', 'in')
         cfg['to_um'] = dbdic.get('to_um', 'FT')
+        cfg['mtltest'] = dbdic.get('mtltest', True)
     else:
         cfg['overwrite'] = False
-
 
     if isinstance(fn, str) and fn.startswith('[') and fn.endswith(']'):
         fn = ast.literal_eval(fn)  # change a string to a list
@@ -513,9 +512,13 @@ def bomcheck(fn, dic={}, **kwargs):
 
     dirname, swfiles, slfiles = gatherBOMs_from_fnames(fn)
 
+    if ('mtltest' in cfg) and cfg['mtltest']:
+        typeNotMtl(slfiles) # report on corrupt data within SyteLine.  See function typeNotMtl
+
     # lone_sw is a dic; Keys are assy nos; Values are DataFrame objects (SW
     # BOMs only).  merged_sw2sl is a dic; Keys are assys nos; Values are
     # Dataframe objects (merged SW and SL BOMs).
+
     lone_sw, merged_sw2sl = collect_checked_boms(swfiles, slfiles)
 
     title_dfsw = []                # Create a list of tuples: [(title, swbom)... ]
@@ -674,7 +677,8 @@ def gatherBOMs_from_fnames(filename):
             elif f[i:i+4].lower() == '_sl.' and '~' not in fname:
                 slfilesdic.update({fntrunc: f})
     swdfsdic = {}  # for collecting SW BOMs to a dic
-    for k, v in swfilesdic.items():
+    for k, v in swfilesdic.items():   # e.g., k = '0300-2024-045', v = 'C:\path\0300-2024-045_sw.xlsx'
+        ptsonlyflag = False
         try:
             _, file_extension = os.path.splitext(v)
             if file_extension.lower() == '.xlsx':
@@ -698,11 +702,15 @@ def gatherBOMs_from_fnames(filename):
                 dfsw_found = False
             else:
                 dfsw_found = False
+            if 'partsonly' in v.lower() or 'onlyparts' in v.lower():
+                ptsonlyflag = True
             if (dfsw_found and (not (test_for_missing_columns('sw', df, k))) and
                     get_col_name(df, cfg['level_sl'])): # if "Level" found if df.columns, return "Level".  For if sl BOM renamed to a sw BOM.
-                swdfsdic.update(deconstructMultilevelBOM(df, 'sw', k, toplevel=True))
+                toplevel = True
+                swdfsdic.update(deconstructMultilevelBOM(df, 'sw', k, toplevel, ptsonlyflag))
             elif dfsw_found and (not test_for_missing_columns('sw', df, k)):
-                swdfsdic.update(deconstructMultilevelBOM(df, 'sw', k))
+                toplevel = False
+                swdfsdic.update(deconstructMultilevelBOM(df, 'sw', k, toplevel, ptsonlyflag))
         except:
             printStr = ('\nError 204. '
                         'File has been excluded from analysis:\n\n ' + v + '\n\n'
@@ -712,6 +720,7 @@ def gatherBOMs_from_fnames(filename):
             print(printStr)
     sldfsdic = {}  # for collecting SL BOMs to a dic
     for k, v in slfilesdic.items():
+        ptsonlyflag = False
         try:
             _, file_extension = os.path.splitext(v)
             if file_extension.lower() == '.xlsx':
@@ -733,11 +742,14 @@ def gatherBOMs_from_fnames(filename):
                 # df[df.iloc[:,0].str.contains('1')].index      yields: Index([0, 2, 3, 6, 10, 47, 52, 57, 58, 59, 60, 61, 73], dtype='int64')
                 # df.drop(index=[0, 8, 12, 23])                 will drop rows 0, 8, 12, 23
                 # reference: https://www.geeksforgeeks.org/drop-a-list-of-rows-from-a-pandas-dataframe/, see row: Drop Rows with Conditions in Pandas
+            if 'partsonly' in v.lower() or 'onlyparts' in v.lower():
+                ptsonlyflag = True
             if (dfsl_found and (not (test_for_missing_columns('sl', df, k))) and
                     get_col_name(df, cfg['level_sl'])):
-                sldfsdic.update(deconstructMultilevelBOM(df, 'sl', k, toplevel=True))
+                toplevel = True
+                sldfsdic.update(deconstructMultilevelBOM(df, 'sl', k, toplevel, ptsonlyflag))
             elif dfsl_found and (not test_for_missing_columns('sl', df, k)):
-                sldfsdic.update(deconstructMultilevelBOM(df, 'sl', k))
+                sldfsdic.update(deconstructMultilevelBOM(df, 'sl', k, ptsonlyflag))
         except:
             printStr = ('\nError 201. '
                         'File has been excluded from analysis:\n\n ' + v + '\n\n'
@@ -753,6 +765,50 @@ def gatherBOMs_from_fnames(filename):
     if os.path.islink(dirname):
         dirname = os.readlink(dirname)
     return dirname, swdfsdic, sldfsdic
+
+
+def typeNotMtl(sldic):
+    ''' SyteLine has a column named "Type" within its multilevel BOM tables.
+    The value in that column should ALWAYS be "Material".  If it is not, then
+    some sort of signal is sent within SyteLine causing parts to have no lead
+    time for particular purchased parts.  I was told that for some inexplicable
+    reason sometimes SyteLine puts another value in the Type column, usually
+    "other".  This small function, typeNotMtl, added December 2024, detects
+    when this hiccup occurs and notifies the user.
+
+    Parameters
+    ----------
+    sldic: dictionary
+        Dictionary of ERP BOMs.  Dictionary keys are strings
+        and they are of assembly part numbers.  Dictionary
+        values are pandas DataFrame objects which are BOMs
+        for those assembly pns.
+
+    Returns
+    -------
+    None.  (global value "printStrs" will be appended to.  This will result
+            in the contatenation of printStrs being shown to the user.)
+    '''
+    global printStrs
+    printStr = None
+    flag = False
+    _values_ = dict.fromkeys(cfg['part_num'], cfg['Item'])  # type(cfg['Item']) is a str
+    for key, value in sldic.items():
+        if 'Type' in value.columns: # and 'WC' in value.columns:
+            value.rename(columns=_values_, inplace=True)
+            value_filtered = value[(value.Type != 'Material') & (value[cfg['Item']].str.slice(-3) != '-OP')]
+            corrupt_pns = list(value_filtered[cfg['Item']])
+            if corrupt_pns and not flag:
+                printStr = ('\nCorrupt data found in SyteLine.  Error will result in parts '
+                            "not being purchased.  Problem is 'Type' ≠ 'Material'.  "
+                            "Please fix issue.  Problem parts are:")
+                flag = True
+            if corrupt_pns:
+                printStr = printStr + f'\n\nAssembly {key} is parent of:\n'
+                for corrupt_pn in corrupt_pns:
+                    printStr = printStr + f'{corrupt_pn}, '
+    if printStr:
+        printStrs.append(printStr)
 
 
 def test_for_missing_columns(bomtype, df, pn):
@@ -906,7 +962,7 @@ def row_w_DESCRIPTION(filedata):
             return 1
 
 
-def deconstructMultilevelBOM(df, source, k, toplevel=False):
+def deconstructMultilevelBOM(df, source, k, toplevel=False, ptsonlyflag=False):
     ''' If the BOM is a multilevel BOM, pull out the BOMs
     thereof; that is, pull out the main assembly and the
     subassemblies thereof.  These assys/subassys are placed
@@ -957,6 +1013,7 @@ def deconstructMultilevelBOM(df, source, k, toplevel=False):
         BOMs; and BOM1, BOM2, etc. are pandas DataFrame
         objects that pertain to those part numbers.
     '''
+
     __lvl = get_col_name(df, cfg['level_sl'])  # if not a multilevel BOM from SL, then is empty string, ""
     __itm = get_col_name(df, cfg['itm_sw'])
     __pn = get_col_name(df, cfg['part_num'])  # get the column name for pns
@@ -991,7 +1048,7 @@ def deconstructMultilevelBOM(df, source, k, toplevel=False):
     lvl = 0
     level_pn = []  # at every row in df, parent of the part at that row
     assys = []  # a subset of level_pn.  Collection of parts (i.e. assemblies) that have children
-    flag = True
+    flag = True  #  capture the first pn at level 0
     pn0 = ''
 
     for item, row in df.iterrows():
@@ -1035,10 +1092,21 @@ def deconstructMultilevelBOM(df, source, k, toplevel=False):
     # If the user provided a part no. in the SL file name, e.g 095544_sl.xlsx,
     # then replace the part no. that is at level 0 of df with the user supplied
     # pn (e.g. 095544)
+
+    if (ptsonlyflag and pn0 and k.lower()[:4]!='none' and k!=pn0 and k!=""
+            and pn0 in dic_assys):
+        dic_assys[k] = dic_assys[pn0]
+        del dic_assys[pn0]
+        return partsOnly(k, dic_assys)
+
     if (pn0 and k.lower()[:4]!='none' and k!=pn0 and k!=""
             and pn0 in dic_assys):
         dic_assys[k] = dic_assys[pn0]
         del dic_assys[pn0]
+        return dic_assys
+
+    if ptsonlyflag:
+        return partsOnly(k, dic_assys)
 
     return dic_assys
 
@@ -1153,6 +1221,9 @@ def convert_sw_bom_to_sl_format(df):
     values.update(dict.fromkeys(cfg['itm_sw'], cfg['Item No.']))
     df.rename(columns=values, inplace=True)
 
+    # if a non-numberic character is in the quantity column, set it eqaul to zero
+    df[cfg['Q']] = pd.to_numeric(df[cfg['Q']], errors='coerce').fillna(0.0)
+
     checkforbaddata(df)
 
     if not cfg['cspartnumber']:
@@ -1214,7 +1285,7 @@ def convert_sw_bom_to_sl_format(df):
 
 
 def checkforbaddata(df):
-    if 'Q' in df.columns and not (df['Q'].astype(float)%1 == 0).all():  # this will find any floating point nos. in the qty column
+    if cfg['Q'] in df.columns and not (df[cfg['Q']].astype(float)%1 == 0).all():  # this will find any floating point nos. in the qty column
         printStr = ('\n\nFloating point numbers were found in the Qty.\n'
                     'column of the CAD BOM.  There should be only\n'
                     'integers there.  This causes all quantities to be\n'
@@ -1223,7 +1294,7 @@ def checkforbaddata(df):
         if printStr not in printStrs:
             printStrs.append(printStr)
             print(printStr)
-    if 'Item No.' in df.columns and df['Item No.'].eq(0).any():
+    if cfg['Item No.'] in df.columns and df[cfg['Item No.']].eq(0).any():
     #if 'Item_no.' in df.columns and (df['Item'].str.len() == 1).any():
         printStr = ('\n\nThere are item numbers missing from the CAD\n'
                     'BOM.  Results will be incorrect.  Perhaps you\n'
@@ -1252,12 +1323,12 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     side by side comparison of the SW/ERP BOMs so that
     differences between the two can be easily distinguished.
 
-    A set of columns in the output are labeled i, q, d, and
-    u.  Xs at a row in any of these columns indicate
+    A set of columns in the output are labeled I, Q, D, and
+    U.  Xs at a row in any of these columns indicate
     something didn't match up between the SW and ERP BOMs.
-    An X in the i column means the SW and ERP Items
-    (i.e. pns) don't match.  q means quantity, d means
-    description, u means unit of measure.
+    An X in the I column means the SW and ERP Items
+    (i.e. pns) don't match.  Q means quantity, D means
+    description, U means unit of measure.
 
     Parmeters
     =========
@@ -1304,6 +1375,10 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     if 'Obsolete' in dfsl.columns:  # Don't use any obsolete pns (even though shown in the SL BOM)
         filtr4 = dfsl['Obsolete'].notnull()
         dfsl.drop(dfsl[filtr4].index, inplace=True)    # https://stackoverflow.com/questions/13851535/how-to-delete-rows-from-a-pandas-dataframe-based-on-a-conditional-expression
+
+    if 'Type' in dfsl.columns and 'mtltest' in cfg and cfg['mtltest']:
+        filtrT = ((dfsl['Type'] != 'Material') & (dfsl[cfg['Item']].str.slice(-3) != '-OP'))
+        dfsl[cfg['Description']]=dfsl[cfg['Description']].where(~filtrT, "Note: 'Type'≠'Material'")
 
     if cfg['drop_bool']==True and cfg['drop']:
        filtr3 = is_in(cfg['drop'], dfsl[cfg['Item']], cfg['exceptions'])
@@ -1393,6 +1468,7 @@ def collect_checked_boms(swdic, sldic):
         Keys for the dictionary are assembly part numbers.
 
     '''
+
     lone_sw_dic = {}  # sw boms with no matching sl bom found
     combined_dic = {}   # sl bom found for given sw bom.  Then merged
     for key, dfsw in swdic.items():
@@ -1623,6 +1699,61 @@ def view_help(help_type='bomcheck_help', version='master', dbdic=None):
         webbrowser.open(d[help_type])
     else:
         print("bomcheck.view_help didn't function correctly")
+
+
+def partsOnly(k, dic_assys):
+    '''
+    dic_assys is a dictionary of key/value pairs.  The key/value pairs are
+    assembly part nos. and their BOMs.
+
+    This partsOnly function takes all the values within the dictionary and
+    combines them into one BOM, i.e. one df (Pandas dataframe object).
+    Assembly part numbers (the keys) are removed from the new BOM.  That is,
+    only the children of the assemblies remain.
+
+    Parameters
+    ----------
+    k : str
+        k is the main assembly part number of the assemblies within dic_assys.
+    dic_assys : dictionary
+        keys are assembly part numbers.  Values are BOMs pertaining to each
+        of the keys.  Each BOM is a Pandas DataFrame object, i.e. a df.
+
+    Returns
+    -------
+    dict
+       {k: concatenated_df}.  That is, the returned dictionary contains only
+       one key and it's value.  The key is equal to k.  The contatenated df has
+       removed from it all part nos. that had children.
+    '''
+
+    values = list(dic_assys.values())
+    keys = list(dic_assys.keys())
+    df = pd.concat(values)
+
+    __pn = get_col_name(df, cfg['part_num'])  # get the column name for pns
+    __qty = get_col_name(df, cfg['qty'])
+    __descrip = get_col_name(df, cfg['descrip'])
+    __um = get_col_name(df, cfg['um_sl'])
+
+    if not __um:
+        printStr = ('\nYou used "partsonly" on a file that came from a CAD\n'
+                    'BOM.  This is not allowed.  Only apply partsonly to a \n'
+                    'file that comes from ERP. Your attempt to apply \n'
+                    'partsonly will be ignored.  If you wish to apply \n'
+                    "partsonly to a file from CAD, use the CAD program's \n"
+                    'method of doing this, and do not invoke "partsonly"\n'
+                    'on that file.\n')
+        printStrs.append(printStr)
+        print(printStr)
+        return dic_assys
+
+    df = df[~df[__pn].isin(keys)]  # elimanate assy pns from BOM.  df[__pn] is the column that has pns.
+    dd = {__qty: 'sum', __descrip: 'first', __um: 'first'}   # funtions to apply to next line
+    df = df.groupby(__pn, as_index=False).aggregate(dd)
+
+    return {k: df}
+
 
 
 # before program begins, create global variables
