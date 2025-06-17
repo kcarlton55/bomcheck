@@ -20,7 +20,7 @@ these trailing characters will be ignored.
 For more information, see the help files for this program.
 """
 
-__version__ = '1.9.8'
+__version__ = '1.9.9'
 __author__ = 'Kenneth E. Carlton'
 
 #import pdb # use with pdb.set_trace()
@@ -32,6 +32,7 @@ import fnmatch
 import ast
 import webbrowser
 import json
+import re
 toml_imported = False
 if sys.version_info >= (3, 11):
     import tomllib
@@ -700,6 +701,9 @@ def gatherBOMs_from_fnames(filename):
                 printStrs.append(XLSnotAllowed)
                 print(XLSnotAllowed)
                 dfsw_found = False
+            elif file_extension.lower() == '.csv':
+                df = csv_to_df(v, descrip=cfg['descrip'], encoding="ISO-8859-1")
+                dfsw_found=True
             else:
                 dfsw_found = False
             if 'partsonly' in v.lower() or 'onlyparts' in v.lower():
@@ -1685,12 +1689,11 @@ def view_help(help_type='bomcheck_help', version='master', dbdic=None):
         # if dbdic provided, comes from bomcheckgui
         cfg.update(get_bomcheckcfg(dbdic['cfgpathname']))
 
-    d = {'bomcheck_help': 'https://htmlpreview.github.io/?https://github.com/'
-             'kcarlton55/bomcheck/blob/' + version + '/help_files/bomcheck_help_section1.html',
-         'bomcheckgui_help': 'https://htmlpreview.github.io/?https://github.com/'
-             'kcarlton55/bomcheckgui/blob/' + version +'/help_files/bomcheckgui_help.html',
-         'bomcheck_troubleshoot': 'https://htmlpreview.github.io/?https://github.com/'
-             'kcarlton55/bomcheck/blob/' + version + '/help_files/bomcheck_troubleshoot.html',
+    print(__file__)
+
+    d = {'bomcheck_help': 'data/bomcheck_help_section1.html',
+         'bomcheckgui_help': 'data/bomcheckgui_help.html',
+         'bomcheck_troubleshoot': '/data/bomcheck_troubleshoot.html',
          'license': 'https://github.com/kcarlton55/bomcheckgui/blob/main/LICENSE.txt'}
 
     if help_type in cfg:
@@ -1753,6 +1756,80 @@ def partsOnly(k, dic_assys):
     df = df.groupby(__pn, as_index=False).aggregate(dd)
 
     return {k: df}
+
+
+def csv_to_df(filename, descrip=['DESCRIPTION'], encoding=None):
+    '''
+    Create a DataFrame from a comma delimited csv file.  The csv file contains
+    a BOM derived from the CAD program.  This function is different from
+    pandas' read_csv function in that this function compensates for the extra
+    commas that, on ocasion, may be found in the DESCRIPION field of the BOM.
+    Without this copensation, these extra commas will cause the pandas'
+    read_csv function, or similar function, to crash.
+
+    Parmeters
+    =========
+
+    filename: string
+        Name of the csv file that contains a BOM (Bill of Material) that was
+        derived from SolidWorks.
+
+    descrip: list
+        list of names that may be used as the column header for part descriptions
+        E.g. ["DESCRIPTION", "Material Description", "Description"].  The first
+        of these names that is found in the BOM will be used.
+
+    encoding: string
+        Tell python's "open" function, which csv_to_df employs, what encoding
+        to use when opens the csv file.  ISO-8859-1 seems to work best, but
+        languages other than english may require different encoding.
+
+    Returns
+    =======
+
+    out: pandas DataFrame
+        The BOM converted to a DataFrame
+    '''
+    with open(filename, encoding=encoding) as f:
+        data0 = f.readlines()
+
+    n0 = data0[0].count(',')
+    if data0[0].strip()[-3:] == ',,,':   # if 1st line ends in 3 or more commas, line is not column headers
+        columns = data0[1].strip().split(',')
+        data1 = data0[2:]
+    else:
+        columns = data0[0].strip().split(',')
+        data1 = data0[1:]
+
+    for c in descrip:
+        if c in columns:
+            n3 = columns.index(c)  # n3 = number of commas before the word DESCRIPTION
+            break
+        else:
+            printStr = ('\n"DESCRIPTION" column (or equivalent) not found in the csv file\n')
+            printStrs.append(printStr)
+
+    data2 = list(map(lambda x: x.replace(',', '$') , data1)) # replace ALL commas with $
+    data = []
+    for row in data2:
+        row = re.sub('<[^>]+>', '', row) # if exists, remove junk like <FONT size=12PTS> from line
+        n4 = row.count('$')
+        if n4 != n0:
+            # n5 = location of 1st $ character within the DESCRIPTION field that should be a , character
+            n5 = row.replace('$', '?', n3).find('$')
+            # In the DESCRIPTION field, replace the '$' chars with ',' chars
+            data.append(row[:n5] + row[n5:].replace('$', ',', (n4-n0))) # n4-n0: no. commas needed
+        else:
+            data.append(row)
+
+    dlist = []
+    for d in data:
+        dlist.append(d.strip().split('$'))
+    df = pd.DataFrame(dlist, columns=columns)
+    df = df.replace('', 0)
+    return df
+
+
 
 
 
