@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bomcheck"
-version = "1.9.9"
+version = "2.0.0"
 authors = [
     {name="Ken Carlton", email="kencarlton55@gmail.com"},
 ]

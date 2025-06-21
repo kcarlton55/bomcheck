@@ -20,7 +20,7 @@ these trailing characters will be ignored.
 For more information, see the help files for this program.
 """
 
-__version__ = '1.9.9'
+__version__ = '2.0.0'
 __author__ = 'Kenneth E. Carlton'
 
 #import pdb # use with pdb.set_trace()
@@ -1691,9 +1691,12 @@ def view_help(help_type='bomcheck_help', version='master', dbdic=None):
 
     print(__file__)
 
-    d = {'bomcheck_help': 'data/bomcheck_help_section1.html',
-         'bomcheckgui_help': 'data/bomcheckgui_help.html',
-         'bomcheck_troubleshoot': '/data/bomcheck_troubleshoot.html',
+    d = {'bomcheck_help': 'https://htmlpreview.github.io/?https://github.com/'
+             'kcarlton55/bomcheck/blob/' + version + '/help_files/bomcheck_help.html',
+         'bomcheckgui_help': 'https://htmlpreview.github.io/?https://github.com/'
+             'kcarlton55/bomcheckgui/blob/' + version +'/help_files/bomcheckgui_help.html',
+         'bomcheck_troubleshoot': 'https://htmlpreview.github.io/?https://github.com/'
+             'kcarlton55/bomcheck/blob/' + version + '/help_files/bomcheck_troubleshoot.html',
          'license': 'https://github.com/kcarlton55/bomcheckgui/blob/main/LICENSE.txt'}
 
     if help_type in cfg:
