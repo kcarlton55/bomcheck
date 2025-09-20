@@ -1,0 +1,44 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Sep  6 15:28:36 2025
+
+@author: ken
+
+Allow a comparison of SW parts to those in obsolete inventory (o.i.) to see
+if any o.i. parts can be used up.
+
+
+"""
+
+import pandas as pd
+
+
+
+def check_obs_parts(swfiles, cfg, filter1=r'.{10}'):
+    ##### collect all SolidWorks' DataFrames, put in one object: dfsw_collect
+    df = pd.DataFrame()
+    for k, v in swfiles.items():
+        dfi = v.copy()
+        values = dict.fromkeys(cfg['part_num'], 'pn_sw')   # make sure pns headers same for all sw dfs
+        values.update(dict.fromkeys(cfg['descrip'], 'descrip_sw'))  # make sure descrip headers same for all sw dfs
+        dfi.rename(columns=values, inplace=True)   # rename column headers to names we want
+        dfi = dfi[['pn_sw', 'descrip_sw']]   # delete all columns but the two that we want to keep
+        df = pd.concat([df, dfi])
+    df.reset_index(drop=True, inplace=True)
+
+    df.drop_duplicates(subset=['pn_sw'], keep='first')
+    df['common_pn'] = df['pn_sw'].str.extract('(' + filter1 +')')
+
+
+
+    dfinv = pd.read_excel('/home/ken/shared/projects/bomcheck/src/inventory_inv.xlsx', usecols=['Item', 'Item Description', 'Age (Days)'], na_values=[' '], skiprows=2)
+    dfinv['common_pn'] = dfinv['Item'].str.extract('(' + filter1 +')')
+    dfinv = dfinv.dropna(subset=['common_pn'])
+
+
+    df.merge(dfinv, left_on='common_pn', right_on='common_pn', how='left')
+    #df = df.drop('common_pn', axis=1)
+    #df = df.drop('pn_sw', axis=1)
+
+    print(df)

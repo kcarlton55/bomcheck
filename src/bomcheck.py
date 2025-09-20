@@ -17,10 +17,13 @@ contain SW BOMs, and append the characters _sl.xlsx to the
 files that contain ERP BOMs. Any submitted files without
 these trailing characters will be ignored.
 
+The main hub, i.e. the main function, for the functions in
+this program is "bomcheck".
+
 For more information, see the help files for this program.
 """
 
-__version__ = '2.0.0'
+__version__ = '2.1'
 __author__ = 'Kenneth E. Carlton'
 
 #import pdb # use with pdb.set_trace()
@@ -33,6 +36,7 @@ import ast
 import webbrowser
 import json
 import re
+import check_obs_parts
 toml_imported = False
 if sys.version_info >= (3, 11):
     import tomllib
@@ -513,6 +517,24 @@ def bomcheck(fn, dic={}, **kwargs):
 
     dirname, swfiles, slfiles = gatherBOMs_from_fnames(fn)
 
+    obs_pts_comparison = check_obs_parts.check_obs_parts(swfiles, cfg)
+
+    ##### collect all SolidWorks' DataFrames, put in one object: dfsw_collect
+# =============================================================================
+#     dfsw_collect = pd.DataFrame()
+#     for k, v in swfiles.items():
+#         df = v.copy()
+#         values = dict.fromkeys(cfg['part_num'], 'pn_sw')   # make sure pns headers same for all sw dfs
+#         values.update(dict.fromkeys(cfg['descrip'], 'descrip_sw'))  # make sure descrip headers same for all sw dfs
+#         df.rename(columns=values, inplace=True)
+#         df = df[['pn_sw', 'descrip_sw']]   # delete all columns but two
+#         dfsw_collect = pd.concat([dfsw_collect, df])
+#     dfsw_collect.reset_index(drop=True, inplace=True)
+#     print('aaa')
+#     print(dfsw_collect)
+# =============================================================================
+
+
     if ('mtltest' in cfg) and cfg['mtltest']:
         typeNotMtl(slfiles) # report on corrupt data within SyteLine.  See function typeNotMtl
 
@@ -768,6 +790,7 @@ def gatherBOMs_from_fnames(filename):
         pass
     if os.path.islink(dirname):
         dirname = os.readlink(dirname)
+
     return dirname, swdfsdic, sldfsdic
 
 
