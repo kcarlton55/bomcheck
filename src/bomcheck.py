@@ -26,7 +26,7 @@ For more information, see the help files for this program.
 __version__ = '2.1'
 __author__ = 'Kenneth E. Carlton'
 
-#import pdb # use with pdb.set_trace()
+import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -36,7 +36,7 @@ import ast
 import webbrowser
 import json
 import re
-import check_obs_parts
+import check_sm_parts
 toml_imported = False
 if sys.version_info >= (3, 11):
     import tomllib
@@ -178,7 +178,7 @@ def set_globals():
     cfg = {'accuracy': 2,   'ignore': ['3086-*'], 'drop': [],  'exceptions': [],
            'from_um': 'IN', 'to_um': 'FT', 'toL_um': 'GAL', 'toA_um': 'SQF',
            'part_num':  ["Material", "PARTNUMBER", "PART NUMBER", "Part Number", "Item"],
-           'qty':       ["QTY", "QTY.", "Qty", "Quantity", "Qty Per"],
+           'qty':       ["QTY", "QTY.", "Qty", "Quantity", "Qty Per", "Quantity Per"],
            'descrip':   ["DESCRIPTION", "Material Description", "Description"],
            'um_sl':     ["UM", "U/M"],
            'level_sl':  ["Level"],
@@ -266,6 +266,16 @@ def main():
                         'will be automatically set to True.)', type=str)
     parser.add_argument('-exc', '--exceptions', help='Exceptions to part numbers shown in '
                         "the drop list.  E.g. -exc \"['3142-3034-025', '3081-*-001']\"", type=str)
+    parser.add_argument('-fd', '--filter_descrip', action='store_true', default=None,
+                        help="Filter the \"Description\" field of the slow_moving part's "
+                        'BOM; i.e., show only pns of descrips that pass through this filter. '
+                        '(filter is regex expression)'),
+    parser.add_argument('-fp', '--filter_pn', action='store_true', default=r'....-....-',
+                        help='Truncate pns in the SW/SL BOM to allow a comparison of '
+                        "the slow_moving part's BOM. "
+                        'E.g. 3002-0025-025 truncated to 3002-0025- will match '
+                        '3002-0025-000, 3002-0025-005, and 3002-0025-007 from the '
+                        "slow_moving part's BOM. (filter is regex expression)"),
     parser.add_argument('-v', '--version', action='version', version=__version__,
                         help="Show program's version number and exit")
     parser.add_argument('-x', '--text', help='Export results to a text file.',
@@ -448,7 +458,8 @@ def bomcheck(fn, dic={}, **kwargs):
     if c:
         cfg.update(get_bomcheckcfg(c))
 
-    # Set settings
+    ####################################################################
+    # Set settings.  dic is only called upon when bomcheck is ran from a command line
     cfg['drop_bool'] = (dic.get('drop_bool') if dic.get('drop_bool')
                         else kwargs.get('d', False))
     cfg['cspartnumber'] = (dic.get('cspartnumber') if dic.get('cspartnumber')
@@ -472,16 +483,28 @@ def bomcheck(fn, dic={}, **kwargs):
             print('\nExecution stoped.  Improper syntax for exceptions list.  Example of proper syntax:\n\n'
                     "bomcheck filename --drop \"['3*-025', '3018-*'] --exceptions \"['32*-025', '3018-7*']\"\n")
             exit()
+    if dic.get('filter_descrip'):
+        cfg['filter_desrip'] = dic.get('filter_descrip', None)
+    if dic.get('filter_pn'):
+        cfg['filter_pn'] = dic.get('filter_pn', r'....-....-')
+
+    ####################################################################
+    # kwargs are present with the bomcheck() function is run directly by the user
     if kwargs.get('drop'):
         cfg['drop'] = kwargs.get('drop')
         cfg['drop_bool'] = True
     if kwargs.get('exeptions'):
         cfg['exceptions'] = kwargs.get('exceptions')
+    if kwargs.get('filter_descrip'):
+        cfg['filter_descrip'] = dic.get('filter_descrip', None)
+    if kwargs.get('filter_pn'):
+        cfg['filter_pn'] = dic.get('filter_pn', '....-....-')
     f = kwargs.get('f', False)
     m = kwargs.get('m', None)
     outputFileName = kwargs.get('o', 'bomcheck')
     x = (dic.get('excel') if dic.get('excel') else kwargs.get('x', False))
 
+    ####################################################################
     # If dbdic is in kwargs, it comes from bomcheckgui.
     # Variables therefrom take precedence.
     if 'dbdic' in kwargs:
@@ -503,8 +526,18 @@ def bomcheck(fn, dic={}, **kwargs):
         cfg['from_um'] = dbdic.get('from_um', 'in')
         cfg['to_um'] = dbdic.get('to_um', 'FT')
         cfg['mtltest'] = dbdic.get('mtltest', True)
+        cfg['run_bomcheck'] = kwargs.get('run_bomcheck', True)
+        cfg['repeat'] = kwargs.get('repeat', False)
+        cfg['filter_pn'] = kwargs.get('filter_pn', r'....-....-')
+        cfg['filter_descrip'] = kwargs.get('filter_descrip', None)
+        cfg['filter_descrip'] = kwargs.get('filter_descrip', None)
+        cfg['similarity'] = kwargs.get('similarity', 0)
+        cfg['filter_age'] = kwargs.get('filter_age', 30)
+        cfg['merge'] = kwargs.get('merge', 'inner')
     else:
         cfg['overwrite'] = False
+
+    ####################################################################
 
     if isinstance(fn, str) and fn.startswith('[') and fn.endswith(']'):
         fn = ast.literal_eval(fn)  # change a string to a list
@@ -515,25 +548,12 @@ def bomcheck(fn, dic={}, **kwargs):
 
     fn = get_fnames(fn, followlinks=f)  # get filenames with any extension.
 
-    dirname, swfiles, slfiles = gatherBOMs_from_fnames(fn)
+    dirname, swfiles, slfiles, smfiles = gatherBOMs_from_fnames(fn)
 
-    obs_pts_comparison = check_obs_parts.check_obs_parts(swfiles, cfg)
-
-    ##### collect all SolidWorks' DataFrames, put in one object: dfsw_collect
-# =============================================================================
-#     dfsw_collect = pd.DataFrame()
-#     for k, v in swfiles.items():
-#         df = v.copy()
-#         values = dict.fromkeys(cfg['part_num'], 'pn_sw')   # make sure pns headers same for all sw dfs
-#         values.update(dict.fromkeys(cfg['descrip'], 'descrip_sw'))  # make sure descrip headers same for all sw dfs
-#         df.rename(columns=values, inplace=True)
-#         df = df[['pn_sw', 'descrip_sw']]   # delete all columns but two
-#         dfsw_collect = pd.concat([dfsw_collect, df])
-#     dfsw_collect.reset_index(drop=True, inplace=True)
-#     print('aaa')
-#     print(dfsw_collect)
-# =============================================================================
-
+    if smfiles and cfg['run_bomcheck'] == False:
+        sm_pts_comparison = check_sm_parts.check_sm_parts([slfiles, swfiles], smfiles, cfg)
+    else:
+        sm_pts_comparison = None
 
     if ('mtltest' in cfg) and cfg['mtltest']:
         typeNotMtl(slfiles) # report on corrupt data within SyteLine.  See function typeNotMtl
@@ -575,14 +595,14 @@ def bomcheck(fn, dic={}, **kwargs):
     if title_dfsw or title_dfmerged:
         print('calculation done')
     else:
-        print('program produced no results')
+        print('bomcheck reports: program produced no results')
 
-    if dic:  # if bomcheck run from the command line, show results
+    if dic and cfg['run_bomcheck'] == True:  # if bomcheck run from the command line, show results
         print('\n', getresults(0))
         print('\n', getresults(1))
         print('\n', printStrs)
 
-    return getresults(0), getresults(1), printStrs
+    return getresults(0), getresults(1), sm_pts_comparison, printStrs
 
 
 def get_fnames(fn, followlinks=False):
@@ -646,11 +666,12 @@ def gatherBOMs_from_fnames(filename):
     strings.  These files (BOMs) will be converted to Pandas
     DataFrame objects.
 
-    Only files suffixed with _sw.xlsx or _sl.xlsx will be
-    chosen.  Others are discarded.  These files will then be
-    converted into two python dictionaries.  One dictionary
-    will contain SolidWorks BOMs only, and the other will
-    contain only SyteLine BOMs.
+    Only files suffixed with _sw.xlsx,  _sl.xlsx, or _sm will
+    be chosen.  Others are discarded.  These files will then
+    be converted into two python dictionaries.  One dictionary
+    will contain SolidWorks BOMs only, another other will
+    contain only SyteLine BOMs, and a third will contain
+    slow_moving parts only.
 
     If a filename has a BOM containing a multiple level BOM,
     then the subassembly BOMs will be extracted from that
@@ -672,10 +693,11 @@ def gatherBOMs_from_fnames(filename):
         the directory corresponding to the first file in the
         filename list.  If this directory is an empty
         string, then it refers to the current working
-        directory.  The remainder of the tuple items are two
+        directory.  The remainder of the tuple items are three
         python dictionaries. The first dictionary contains
-        SolidWorks BOMs, and the second contains SyteLine
-        BOMs.  The keys for these two dictionaries are part
+        SolidWorks BOMs, the second contains SyteLine
+        BOMs, and the third contains slow_moving parts BOMs.
+        The keys for these two dictionaries are part
         nos. of assemblies derived from the filenames (e.g.
         085952 from 085953_sw.xlsx), or derived from
         subassembly part numbers of a file containing
@@ -685,11 +707,12 @@ def gatherBOMs_from_fnames(filename):
     global printStrs
     swfilesdic = {}
     slfilesdic = {}
+    smfilesdic = {}
     XLSnotAllowed = ('\nBomcheck does not support .xls formated Excel files.\n'
                      'Those files will be ignored.  Save to .xlsx instead\n')
     for f in filename:  # from filename extract all _sw & _sl files and put into swfilesdic & slfilesdic
         i = f.rfind('_')
-        if f[i:i+4].lower() == '_sw.' or f[i:i+4].lower() == '_sl.':
+        if f[i:i+4].lower() == '_sw.' or f[i:i+4].lower() == '_sl.' or f[i:i+4].lower() == '_sm.'  :
             dname, fname = os.path.split(f)
             k = fname.find('_')
             fntrunc = fname[:k]  # Name of the sw file, excluding path, and excluding _sw.xlsx
@@ -699,6 +722,9 @@ def gatherBOMs_from_fnames(filename):
                     dirname = os.path.dirname(os.path.abspath(f)) # use 1st dir where a _sw file is found to put bomcheck.xlsx
             elif f[i:i+4].lower() == '_sl.' and '~' not in fname:
                 slfilesdic.update({fntrunc: f})
+            elif f[i:i+4].lower() == '_sm.' and '~' not in fname:
+                smfilesdic.update({fntrunc: f})
+
     swdfsdic = {}  # for collecting SW BOMs to a dic
     for k, v in swfilesdic.items():   # e.g., k = '0300-2024-045', v = 'C:\path\0300-2024-045_sw.xlsx'
         ptsonlyflag = False
@@ -744,6 +770,7 @@ def gatherBOMs_from_fnames(filename):
                         'Or possibly the BOM is misconstructed.\n\n')
             printStrs.append(printStr)
             print(printStr)
+
     sldfsdic = {}  # for collecting SL BOMs to a dic
     for k, v in slfilesdic.items():
         ptsonlyflag = False
@@ -751,6 +778,12 @@ def gatherBOMs_from_fnames(filename):
             _, file_extension = os.path.splitext(v)
             if file_extension.lower() == '.xlsx':
                 df = pd.read_excel(v, na_values=[' '])
+                if 'Item' in df.columns:
+                    df.dropna(subset=['Item'], inplace=True)  # Costed BOM has useless 2nd row that starts with "BOM Alternate ID: 0".  Item in that row is NaN.  Delete that row.
+
+                if 'Type' in df.columns:
+                    df['Type'].fillna('Material', inplace=True) # costed BOM and a black value in 'Type' column. Give it value 'Material'.  This will keep bomcheck quiet.
+
                 dfsl_found=True
             elif file_extension.lower() == '.xls' and XLSnotAllowed not in printStrs:
                 printStrs.append(XLSnotAllowed)
@@ -768,6 +801,9 @@ def gatherBOMs_from_fnames(filename):
                 # df[df.iloc[:,0].str.contains('1')].index      yields: Index([0, 2, 3, 6, 10, 47, 52, 57, 58, 59, 60, 61, 73], dtype='int64')
                 # df.drop(index=[0, 8, 12, 23])                 will drop rows 0, 8, 12, 23
                 # reference: https://www.geeksforgeeks.org/drop-a-list-of-rows-from-a-pandas-dataframe/, see row: Drop Rows with Conditions in Pandas
+                if 'Labor' in df.columns:  # df comes from a costed BOM
+                    df['cost'] = (df['Outside'] + df['Material'] + df['Labor'] + df['Overhead']).astype(int)
+                    df.drop(columns=['Outside', 'Material', 'Labor', 'Overhead'], inplace=True) # Most importantly, drop "Material".  It causes issues in function "typeNotMtl"
             if 'partsonly' in v.lower() or 'onlyparts' in v.lower():
                 ptsonlyflag = True
             if (dfsl_found and (not (test_for_missing_columns('sl', df, k))) and
@@ -776,22 +812,36 @@ def gatherBOMs_from_fnames(filename):
                 sldfsdic.update(deconstructMultilevelBOM(df, 'sl', k, toplevel, ptsonlyflag))
             elif dfsl_found and (not test_for_missing_columns('sl', df, k)):
                 sldfsdic.update(deconstructMultilevelBOM(df, 'sl', k, ptsonlyflag))
+
         except:
             printStr = ('\nError 201. '
                         'File has been excluded from analysis:\n\n ' + v + '\n\n'
                         'Perhaps you have it open in another application?\n\n')
             printStrs.append(printStr)
             print(printStr)
-    try:
-        df = pd.read_clipboard(engine='python', na_values=[' '])
-        if not test_for_missing_columns('sl', df, 'BOMfromClipboard', showErrMsg=False):
-            sldfsdic.update(deconstructMultilevelBOM(df, 'sl', k, toplevel=True))
-    except:
-        pass
+
+    smdfsdic = {}
+    for k, v in smfilesdic.items():
+        try:
+            _, file_extension = os.path.splitext(v)
+            if file_extension.lower() == '.xlsx':
+                df = pd.read_excel(v, usecols=['Item', 'Description', 'Unit Cost'], na_values=[' '])
+                dfsm_found=True
+            else:
+                dfsm_found=False
+        except:
+            printStr = ('\nError 205. '
+                        'File has been excluded from analysis:\n\n ' + v + '\n\n'
+                        'Perhaps you have it open in another application?\n\n')
+            printStrs.append(printStr)
+            print(printStr)
+        if dfsm_found:
+            smdfsdic.update({k: df})
+
     if os.path.islink(dirname):
         dirname = os.readlink(dirname)
 
-    return dirname, swdfsdic, sldfsdic
+    return dirname, swdfsdic, sldfsdic, smdfsdic
 
 
 def typeNotMtl(sldic):
@@ -816,6 +866,7 @@ def typeNotMtl(sldic):
     None.  (global value "printStrs" will be appended to.  This will result
             in the contatenation of printStrs being shown to the user.)
     '''
+
     global printStrs
     printStr = None
     flag = False
@@ -823,6 +874,7 @@ def typeNotMtl(sldic):
     for key, value in sldic.items():
         if 'Type' in value.columns: # and 'WC' in value.columns:
             value.rename(columns=_values_, inplace=True)
+
             value_filtered = value[(value.Type != 'Material') & (value[cfg['Item']].str.slice(-3) != '-OP')]
             corrupt_pns = list(value_filtered[cfg['Item']])
             if corrupt_pns and not flag:
@@ -949,7 +1001,8 @@ def get_col_name(df, col):
         # numbers.
         if ('Item' in s and 'Material' in s
                 and 'Item' in col and 'Material' in col
-                and s.index('Material') > s.index('Item')):
+                and s.index('Material') > s.index('Item')
+                and not 'Labor' in s):   #if 'Labor' in s, then dealing w/ a costed BOM, and so 'Item' is correct column for pns.
             printStr = ('\n\nA SyteLine BOM found that is not arranged\n'
                         "correctly.  See page 3, item 2 of bomcheck's help\n"
                         'to see how to best arrange BOMs\n')
@@ -1040,7 +1093,6 @@ def deconstructMultilevelBOM(df, source, k, toplevel=False, ptsonlyflag=False):
         BOMs; and BOM1, BOM2, etc. are pandas DataFrame
         objects that pertain to those part numbers.
     '''
-
     __lvl = get_col_name(df, cfg['level_sl'])  # if not a multilevel BOM from SL, then is empty string, ""
     __itm = get_col_name(df, cfg['itm_sw'])
     __pn = get_col_name(df, cfg['part_num'])  # get the column name for pns
