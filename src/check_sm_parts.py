@@ -12,6 +12,7 @@ currently being built so that slow_moving parts can be used up.
 
 import pdb # use with pdb.set_trace()
 import pandas as pd
+from difflib import SequenceMatcher
 
 def check_sm_parts(files_list, sm_files, cfg):
     ''' Collect part numbers and their descriptions that come from SolidWorks
@@ -118,15 +119,17 @@ def check_sm_parts(files_list, sm_files, cfg):
     if descrip_filter and cfg['repeat']:
         for f in descrip_filter.split('&'):
             df = df[df['descrip sw/sl'].str.contains(f, case=False, regex=True)]
-
+            
     ##### merge df & dfinv
-    print('zzz')
-    print(cfg['inner'])
-    print(cfg)
-
-
-    df = df.merge(dfinv, on='common_pn', how=cfg['inner'])
+    df = df.merge(dfinv, on='common_pn', how=cfg['merge'])
     df = df.drop('common_pn', axis=1)
+    
+    if float(cfg['similarity'].text()) > .5:
+        similarity_score = df.apply(lambda row: SequenceMatcher(None, row['descrip sw/sl'], row['Description']).ratio(), axis=1) 
+        similarity_bool = similarity_score*100 > float(cfg['similarity'].text())
+        df['similarity'] = (similarity_score*100).round().astype(int).astype('string') + '%'
+        #df['similarity'] = (similarity_score*100).astype(int).to_string().str.cat('%')
+        df = df[similarity_bool]
 
 
 
