@@ -26,17 +26,17 @@ For more information, see the help files for this program.
 __version__ = '2.1'
 __author__ = 'Kenneth E. Carlton'
 
-import pdb # use with pdb.set_trace()
+#import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
 import os
-import fnmatch
 import ast
 import webbrowser
 import json
 import re
 import check_sm_parts
+from check_sm_parts import is_in
 toml_imported = False
 if sys.version_info >= (3, 11):
     import tomllib
@@ -402,14 +402,17 @@ def bomcheck(fn, dic={}, **kwargs):
     =======
 
     out: tuple
-        Return a tuple containing three items.  Items are:
-        0: A pandas dataframe containing SolidWorks BOMs for
+        Return a tuple containing four items.  Items are:
+        0: pandas dataframe containing SolidWorks BOMs for
            which with no matching SyteLine BOMs were found.
            If no BOMs exist, None is returned.
-        1: A pandas dataframe showing a side-by-side
+        1: pandas dataframe showing a side-by-side
            comparison of SolidWorks BOMs and ERP BOMs. If
            not BOMs exist, None is returned.
-        2: A python list object containing a list of errors
+        2: pandas dataframe containing a comparison of parts
+           from a system to those of a slow-moving-parts 
+           BOM.
+        3: python list object containing a list of errors
            that occured during bomchecks' execution.  If no
            errors occured, then an empty string is returned.
 
@@ -526,14 +529,16 @@ def bomcheck(fn, dic={}, **kwargs):
         cfg['from_um'] = dbdic.get('from_um', 'in')
         cfg['to_um'] = dbdic.get('to_um', 'FT')
         cfg['mtltest'] = dbdic.get('mtltest', True)
-        cfg['run_bomcheck'] = kwargs.get('run_bomcheck', True)
-        cfg['repeat'] = kwargs.get('repeat', False)
+        cfg['run_bomcheck'] = kwargs.get('run_bomcheck', True) 
         cfg['filter_pn'] = kwargs.get('filter_pn', r'....-....-')
         cfg['filter_descrip'] = kwargs.get('filter_descrip', None)
-        cfg['filter_descrip'] = kwargs.get('filter_descrip', None)
-        cfg['similarity'] = kwargs.get('similarity', 0)
-        cfg['filter_age'] = kwargs.get('filter_age', 30)
+        cfg['similar'] = kwargs.get('similar', 0)
+        cfg['filter_age'] = kwargs.get('filter_age', 60)
         cfg['merge'] = kwargs.get('merge', 'inner')
+        cfg['repeat'] = kwargs.get('repeat', False)
+        cfg['show_demand'] = kwargs.get('show_demand', False)
+        cfg['on_hand'] = kwargs.get('on_hand', False)
+        
     else:
         cfg['overwrite'] = False
 
@@ -575,23 +580,30 @@ def bomcheck(fn, dic={}, **kwargs):
     title_dfsw, title_dfmerged = concat_boms(title_dfsw, title_dfmerged)
     results = title_dfsw, title_dfmerged
 
-    if x:
-        try:
-            if title_dfsw or title_dfmerged:
-                export2txt(dirname, outputFileName, title_dfsw + title_dfmerged)
-            else:
-                printStr = ('\nNotice 203\n\n' +
-                            'No SolidWorks files found to process.  (Lone SyteLine\n' +
-                            'BOMs will be ignored.)  Make sure file names end with\n' +
-                            '_sw.xlsx or _sl.xlsx.\n')
-                printStrs.append(printStr)
-                print(printStr)
-        except PermissionError:
-            printStr = ('\nError 202:\n\nFailed to write to bomcheck.xlsx\n'
-                        'Cause unknown')
-            printStrs.append(printStr)
-            print(printStr)
-
+# =============================================================================
+#     if x:
+#         try:
+#             if title_dfsw or title_dfmerged:
+#                 export2txt(dirname, outputFileName, title_dfsw + title_dfmerged)
+#             else:
+#                 pass
+# =============================================================================
+# =============================================================================
+#                 printStr = ('\nNotice 203\n\n' +
+#                             'No SolidWorks files found to process.  (Lone SyteLine\n' +
+#                             'BOMs will be ignored.)  Make sure file names end with\n' +
+#                             '_sw.xlsx or _sl.xlsx.\n')
+#                 printStrs.append(printStr)
+#                 print(printStr)
+# =============================================================================
+# =============================================================================
+#         except PermissionError:
+#             printStr = ('\nError 202:\n\nFailed to write to bomcheck.xlsx\n'
+#                         'Cause unknown')
+#             printStrs.append(printStr)
+#             print(printStr)
+# 
+# =============================================================================
     if title_dfsw or title_dfmerged:
         print('calculation done')
     else:
@@ -801,9 +813,9 @@ def gatherBOMs_from_fnames(filename):
                 # df[df.iloc[:,0].str.contains('1')].index      yields: Index([0, 2, 3, 6, 10, 47, 52, 57, 58, 59, 60, 61, 73], dtype='int64')
                 # df.drop(index=[0, 8, 12, 23])                 will drop rows 0, 8, 12, 23
                 # reference: https://www.geeksforgeeks.org/drop-a-list-of-rows-from-a-pandas-dataframe/, see row: Drop Rows with Conditions in Pandas
-                if 'Labor' in df.columns:  # df comes from a costed BOM
-                    df['cost'] = (df['Outside'] + df['Material'] + df['Labor'] + df['Overhead']).astype(int)
-                    df.drop(columns=['Outside', 'Material', 'Labor', 'Overhead'], inplace=True) # Most importantly, drop "Material".  It causes issues in function "typeNotMtl"
+            if 'Labor' in df.columns:  # df comes from a costed BOM
+                df['cost'] = (df['Outside'] + df['Material'] + df['Labor'] + df['Overhead']).astype(int)
+                df.drop(columns=['Outside', 'Material', 'Labor', 'Overhead'], inplace=True) # Most importantly, drop "Material".  It causes issues in function "typeNotMtl"
             if 'partsonly' in v.lower() or 'onlyparts' in v.lower():
                 ptsonlyflag = True
             if (dfsl_found and (not (test_for_missing_columns('sl', df, k))) and
@@ -821,18 +833,38 @@ def gatherBOMs_from_fnames(filename):
             print(printStr)
 
     smdfsdic = {}
+    dfsm_found = False
     for k, v in smfilesdic.items():
         try:
             _, file_extension = os.path.splitext(v)
             if file_extension.lower() == '.xlsx':
-                df = pd.read_excel(v, usecols=['Item', 'Description', 'Unit Cost'], na_values=[' '])
+                df = pd.read_excel(v, usecols=['Item', 'Description', 'Unit Cost',
+                                               'Movement?', 'Qty On Hand', 'Year n-1 Usage',
+                                               'Year n-2 Usage', 'Last Movement (Days)'])
+                df = df.drop(df.index[-2:])  # Last two rows of a SM BOM are garbage
+                df = df.fillna({'Item': '', 'Description': '', 'Qty On Hand': 0, 'Last Movement (Days)': 0,
+                           'Unit Cost': 0, 'Movement?': '', 'Year n-1 Usage': 0,
+                           'Year n-2 Usage': 0})
+                df = df.astype({'Qty On Hand': int, 'Last Movement (Days)': int,
+                                'Unit Cost': int, 'Year n-1 Usage': int, 
+                                'Year n-2 Usage': int, 'Last Movement (Days)': int})
+                df = df.rename(columns={'Unit Cost':'Unit\nCost', 
+                                        'Qty On Hand':'On\nHand', 'Movement?': 'Need?',
+                                        'Year n-1 Usage': 'Yr n-1\nUsage',
+                                        'Year n-2 Usage': 'Yr n-2\nUsage',
+                                        'Last Movement (Days)': 'Last Used\n(Days)'} )
                 dfsm_found=True
             else:
                 dfsm_found=False
         except:
             printStr = ('\nError 205. '
                         'File has been excluded from analysis:\n\n ' + v + '\n\n'
-                        'Perhaps you have it open in another application?\n\n')
+                        '1) Perhaps you have it open in another application?\n\n'
+                        '2) At minimum, columns with these names are expected\n'
+                        '   to be in the SM BOM: Item, Description, Unit Cost,\n' 
+                        '   Movement?, Qty On Hand, Year n-1 Usage,\n' 
+                        '   Year n-2 Usage,  Last Movement (Days).\n'
+                        '   Names are case sensitive.')
             printStrs.append(printStr)
             print(printStr)
         if dfsm_found:
@@ -874,7 +906,6 @@ def typeNotMtl(sldic):
     for key, value in sldic.items():
         if 'Type' in value.columns: # and 'WC' in value.columns:
             value.rename(columns=_values_, inplace=True)
-
             value_filtered = value[(value.Type != 'Material') & (value[cfg['Item']].str.slice(-3) != '-OP')]
             corrupt_pns = list(value_filtered[cfg['Item']])
             if corrupt_pns and not flag:
@@ -1190,72 +1221,6 @@ def deconstructMultilevelBOM(df, source, k, toplevel=False, ptsonlyflag=False):
     return dic_assys
 
 
-def is_in(find, series, xcept):
-    '''Argument "find" is a list of strings that are glob
-    expressions.  The Pandas Series "series" will be
-    evaluated to see if any members of find exists as
-    substrings within each member of series.  Glob
-    expressions are strings like '3086-*-025' or *2020*.
-    '3086-*-025' for example will match'3086-0050-025'
-    and '3086-0215-025'.
-
-    The output of the is_in function is a Pandas Series.
-    Each member of the Series is True or False depending on
-    whether a substring has been found or not.
-
-    xcept is a list of exceptions to those in the find list.
-    For example, if '3086-*-025' is in the find list and
-    '3086-3*-025' is in the xcept list, then series members
-    like '3086-0515-025' or '3086-0560-025' will return a
-    True, and '3086-3050-025' or '3086-3060-025' will
-    return a False.
-
-    For reference, glob expressions are explained at:
-    https://en.wikipedia.org/wiki/Glob_(programming)
-
-    Parmeters
-    =========
-
-    find: string or list of strings
-        Items to search for
-
-    series:  Pandas Series
-        Series to search
-
-    xcept: string or list of strings
-        Exceptions to items to search for
-
-    Returns
-    =======
-
-    out: Pandas Series, dtype: bool
-        Each item is True or False depending on whether a
-        match was found or not
-    '''
-    if not isinstance(find, list):
-        find = [find]
-    if not isinstance(xcept, list) and xcept:
-        xcept = [xcept]
-    elif isinstance(xcept, list):
-        pass
-    else:
-        xcept = []
-    series = series.astype(str).str.strip()  # ensure that all elements are strings & strip whitespace from ends
-    find2 = []
-    for f in find:
-        find2.append('^' + fnmatch.translate(str(f)) + '$')  # reinterpret user input with a regex expression
-    xcept2 = []
-    for x in xcept:  # exceptions is also a global variable
-        xcept2.append('^' +  fnmatch.translate(str(x))  + '$')
-    if find2 and xcept2:
-        filtr = (series.str.contains('|'.join(find2)) &  ~series.str.contains('|'.join(xcept2)))
-    elif find2:
-        filtr = series.str.contains('|'.join(find2))
-    else:
-        filtr = pd.Series([False]*series.size)
-    return filtr
-
-
 def convert_sw_bom_to_sl_format(df):
     '''Take a SolidWorks BOM and restructure it to be like
     that of a SyteLine BOM.  That is, the following is done:
@@ -1351,9 +1316,11 @@ def convert_sw_bom_to_sl_format(df):
     if cfg['del_whitespace']:
         df[cfg['Item']] = df[cfg['Item']].str.replace(' ', '')
 
-    if cfg['drop_bool']==True and cfg['drop']:
-        filtr3 = is_in(cfg['drop'], df[cfg['Item']], cfg['exceptions'])
-        df.drop(df[filtr3].index, inplace=True)
+# =============================================================================
+#     if cfg['drop_bool']==True and cfg['drop']:
+#         filtr3 = is_in(cfg['drop'], df[cfg['Item']], cfg['exceptions'])
+#         df.drop(df[filtr3].index, inplace=True)
+# =============================================================================
 
     df[cfg['WC']] = cfg['WCvalue']    # WC is a standard column shown in a SL BOM.
     df[cfg['Op']] = cfg['OpValue']   # Op is a standard column shown in a SL BOM, usually set to 10
@@ -1459,9 +1426,11 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
         filtrT = ((dfsl['Type'] != 'Material') & (dfsl[cfg['Item']].str.slice(-3) != '-OP'))
         dfsl[cfg['Description']]=dfsl[cfg['Description']].where(~filtrT, "Note: 'Type'≠'Material'")
 
-    if cfg['drop_bool']==True and cfg['drop']:
-       filtr3 = is_in(cfg['drop'], dfsl[cfg['Item']], cfg['exceptions'])
-       dfsl.drop(dfsl[filtr3].index, inplace=True)
+# =============================================================================
+#     if cfg['drop_bool']==True and cfg['drop']:
+#        filtr3 = is_in(cfg['drop'], dfsl[cfg['Item']], cfg['exceptions'])
+#        dfsl.drop(dfsl[filtr3].index, inplace=True)
+# =============================================================================
 
     dfmerged = pd.merge(dfsw, dfsl, on=cfg['Item'], how='outer', suffixes=('_sw', '_sl') ,indicator=True)
     dfmerged[cfg['Q'] + '_sw'].fillna(0, inplace=True)
@@ -1631,7 +1600,7 @@ def concat_boms(title_dfsw, title_dfmerged):
     return swresults, mrgresults
 
 
-def export2txt(dirname, filename, results2export):
+def export2xlsx(dirname, filename, df):
     '''Export to a txt file the results of all the BOM
     checks.
 
@@ -1645,16 +1614,8 @@ def export2txt(dirname, filename, results2export):
     filename: string
         The name of the txt file.
 
-    results2export: list
-        List of two tuples with each tuple containing two
-        items. First item of each tuple is a string.  The
-        second item of each tuple is a Pandas Dataframe.
-
-        The list has this form:
-
-        - [('SW BOMs', dfForSWboms), ('BOM Check', dfForMergedBoms)]
-
-        The two strings are to be either 'SW BOMs' or 'BOM Check'
+    results2export: DataFrame
+        DataFrame that will coverted to an Excel file.
 
     Returns
     =======
@@ -1667,18 +1628,11 @@ def export2txt(dirname, filename, results2export):
 
     fn = definefn(dirname, filename)
     d, f = os.path.split(fn)
-    sw_fn = os.path.join(d, "sw_"+ f)
+    f, e = os.path.splitext(f)
+    fn2 = os.path.join(d, f + '_alts' + e )
     try:
-        if len(results2export) == 1:
-            df = prepare_multiindex_for_export(results2export[0][1])
-            df.to_csv(fn, sep='\t',  encoding='utf-8', index=False)
-            print('\n' + fn + ' created\n')
-        if len(results2export) == 2:
-            sw_df = prepare_multiindex_for_export(results2export[0][1])
-            sw_df.to_csv(sw_fn, sep='\t',  encoding='utf-8', index=False)
-            df = prepare_multiindex_for_export(results2export[1][1])
-            df.to_csv(fn, sep='\t',  encoding='utf-8', index=False)
-            print('\n' + sw_fn + ' created\n' + fn + ' created\n')
+        df.to_excel(fn2, index=False)
+        print('\n' + fn2 + ' created\n')
     except Exception as e:
         printStr = ('\nOverwrite of output file failed.' +
         '\n' + str(e) + '\n')
@@ -1687,60 +1641,60 @@ def export2txt(dirname, filename, results2export):
 
 def definefn(dirname, filename, i=0):
     ''' If bomcheck.txt already exists or sw_bomcheck.txt, return
-    bomcheck(1).txt.  If that or sw_bomcheck(1).txt exists, return
-    bomcheck(2).txt, and so forth.'''
+    bomcheck(1).xlsx.  If that or sw_bomcheck(1).xlsx exists, return
+    bomcheck(2).xlsx, and so forth.'''
     global printStrs
     d, f = os.path.split(filename)
     f, e = os.path.splitext(f)
     if d:
         dirname = d   # if user specified a directory, use d instead
-    if e and not e.lower()=='.txt':
-        printStr = '\n(Output filename extension needs to be .txt' + '\nProgram aborted.\n'
+    if e and not e.lower()=='.xlsx':
+        printStr = '\n(Output filename extension needs to be .xlsx' + '\nProgram aborted.\n'
         printStrs.append(printStr)
         print(printStr)
         sys.exit(0)
     else:
-        e = '.txt'
+        e = '.xlsx'
     if i == 0:
         fn = os.path.join(dirname, f+e)
-        sw_fn = os.path.join(dirname, "sw_"+f+e)
     else:
         fn = os.path.join(dirname, f+ '(' + str(i) + ')'+e)
-        sw_fn = os.path.join(dirname, "sw_"+f+ '(' + str(i) + ')'+e)
-    if os.path.exists(fn) or os.path.exists(sw_fn):
+    if os.path.exists(fn):
         return definefn(dirname, filename, i+1)
     else:
         return fn
 
 
-def prepare_multiindex_for_export(df):
-    '''  Remove the duplicate index items created before writing a multiindex
-    dataframe to txt.  E.g.:
-
-    from: 083119 2321-0600-001   to: 083119 2321-0600-001
-          083119 3085-0050-025              3085-0050-025
-          083119 3180-DV27-000              3180-DV27-000
-
-    Parameters
-    ----------
-    df : Pandas Dataframe
-
-    Returns
-    -------
-    out : Pandas Dataframe.
-    '''
-    new_df = df.copy()
-    for i in range(df.index.nlevels, 0, -1):
-        new_df = new_df.sort_index(level=i-1)
-    replace_cols = dict()
-    for i in range(new_df.index.nlevels):
-        idx = new_df.index.get_level_values(i)
-        new_df.insert(i, idx.name, idx)
-        replace_cols[idx.name] = new_df[idx.name].where(
-            ~new_df.duplicated(subset=new_df.index.names[:i+1]))
-    for col, ser in replace_cols.items():
-        new_df[col] = ser
-    return new_df.reset_index(drop=True)
+# =============================================================================
+# def prepare_multiindex_for_export(df):
+#     '''  Remove the duplicate index items created before writing a multiindex
+#     dataframe to txt.  E.g.:
+# 
+#     from: 083119 2321-0600-001   to: 083119 2321-0600-001
+#           083119 3085-0050-025              3085-0050-025
+#           083119 3180-DV27-000              3180-DV27-000
+# 
+#     Parameters
+#     ----------
+#     df : Pandas Dataframe
+# 
+#     Returns
+#     -------
+#     out : Pandas Dataframe.
+#     '''
+#     new_df = df.copy()
+#     for i in range(df.index.nlevels, 0, -1):
+#         new_df = new_df.sort_index(level=i-1)
+#     replace_cols = dict()
+#     for i in range(new_df.index.nlevels):
+#         idx = new_df.index.get_level_values(i)
+#         new_df.insert(i, idx.name, idx)
+#         replace_cols[idx.name] = new_df[idx.name].where(
+#             ~new_df.duplicated(subset=new_df.index.names[:i+1]))
+#     for col, ser in replace_cols.items():
+#         new_df[col] = ser
+#     return new_df.reset_index(drop=True)
+# =============================================================================
 
 
 def view_help(help_type='bomcheck_help', version='master', dbdic=None):
