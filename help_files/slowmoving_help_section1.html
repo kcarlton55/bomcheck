@@ -27,72 +27,78 @@
     <ul>
       <li><a href="#intro" style="text-decoration:none">Introduction</a></li>
       <li><a href="#obtaining" style="text-decoration:none">Obtaining a slow moving (SM) BOM</a></li>
-      <li><a href="#menu" style="text-decoration:none">Menu options</a></li>
+      <li><a href="#menu" style="text-decoration:none">Slow moving's menu options</a></li>
       <li><a href="#settings" style="text-decoration:none">Settings</a></li>
+      <li><a href="#output" style="text-decoration:none">Sample output</a></li>
+      <li><a href="#export" style="text-decoration:none">Export results to Excel</a></li>
     </ul>
       
     <h2 id="intro">Introduction</h2>
     <p>Parts nos. from slow moving inventory can be compared with part nos. of your
-	  current project in order to look for possible substitions of parts in order to
+	  current project in order to look for possible substitutions of parts in order to
 	  use up inventory.&nbsp;  File names of BOMs form SolidWorks and SyteLine end with
       _sw.csv and _sl.xlsx respectively.&nbsp;  By adding a third file to the mix ending
       with _sm.xlsx, which contains a BOM of slow moving parts, the comparison can be
-      made by clicking the 2nd run button on the menu bar; i.e, the green triangle icon. 	  
+      made by clicking the 2nd run button on the menu bar, i.e, the green triangle icon. 	  
 
       
     <h2 id="obtaining">Obtaining a slow moving (SM) BOM</h2>
-      <p>Go to 
+    <p>Go to 
       <a href="https://app.powerbi.com/" target="_blank" rel="noopener noreferrer">
 	  https://app.powerbi.com/</a>, then click PC Indiana Dashboards > Inventory
-	  (on the left side menu) > Inventory Forecast.&nbsp;  This will lead to a page looking like
+	  (on the left side menu) > Inventory Forecast.&nbsp;  This will lead to a page that looks like
 	  this: <div class="container" style="border: 20px solid transparent;">
       <img src="inventory_forecast.png" alt="inventory forecast pic" width=900></div>
 	  
-	  <p>At the upper right is the "View" drop down menu.&nbsp;   From that pick "Actual size".
-	  &nbsp;Next, from the "More options" menu (the three dots, ...), also at the upper right,
-	  pick "Export data" and from the menu that pops up choose "Data with current layout".&nbsp; 
-	  Save Excel file to the folder of your choice.&nbsp;   Name the file anything you want,
-	  except the name should end with "_sm.xlsx".&nbsp;   For example: slowmoving_sm.xlsx.&nbsp;  
+	<p>At the upper right is the "View" drop down menu.&nbsp;   From that pick "Actual size".
 	  (If you don't resize to "Actual size", then the "More options" menu is difficult
-      to access.) </p>	  
-	    
-    <h2 id="menu">Menu options</h2>
+      to access.)&nbsp; Now go to the "More options" menu (the three dots, ...).   
+      and choose "Export data" and "Data with current layout".&nbsp;  Name the
+      file anything you want, except the end of the file name must end with "_sm.xlsx",
+      for example <i>slowmoving_sm.xlsx</i>.</p>
+      
+    <p>To use this file, drag and drop it into the bomcheck program the same way
+      that you drag and drop _sw.xlsx and _sl.xlsx files.</p>
+       
+       
+    <h2 id="menu">Slow moving's menu options</h2>
       <div class="container" style="border: 20px solid transparent;">
       <img src="bomcheck_s_look.png" alt="bomcheck menu options pic" width=900></div>
 	
 	<p> You'll notice on the top menu bar a number of icons and buttons.  These are:</p>
 	
 	<ol>
-      <li><b>Run bomcheck button:</b>&nbsp; This button runs the bomcheck program in order to compare
-          _sw BOMs to _sl BOMs.</li>
+      <li><b>Run bomcheck button:</b>&nbsp; This button runs the bomcheck program.
+          (Does not access the _sm BOM.)  It compares sm to sl BOMs.</li>
 	  <li><b>Run comparator button:</b>&nbsp; The button runs the comparator in order to compare
-          _sw/_sl BOMs to parts with in the _sm BOM</li>
+          _sw and/or_sl BOMs to parts with in the _sm BOM</li>
 	  <li><b>The "clear", X, button:</b>&nbsp; Delete all entries from bomcheck's drag/drop list so 
 	      that you can repopulate it with other files that you want to examine.</li>
 	  <li><b>folder button:</b>&nbsp; Open the last folder you used from which you dragged files from. </li>
 	  <li><b>filter: </b> This is a mask by which you can select what part nos. the comparator compares.
           &nbsp;This filter is examined in more detail on page two.</li>
 	  <li><b>% similarity: </b>&nbsp; When the comparator is run, you'll see a column named "similar" in the results.
-	      The number there indicates the similarity of the text from the sw/sl descriptions to
-		  those from the sm BOM.&nbsp;  This similarity does not garantee that the sm 
-		  part can replace a part from the sw/sl BOM, but rather allows the user to examine first
-		  those parts that are more likely to be alternate part candidates.&nbsp;  You can enter a number
-		  in this field to not show lesser scoring parts.&nbsp;  For example, if you enter 
+	      The number there indicates the similarity of the text from the sw/sl descriptions to those
+		  of the pn descriptions from the sm BOM.&nbsp;  This similarity does not guarantee that the sm 
+		  part can replace a part from the sw/sl BOM, but rather allows the user to examine
+		  those parts first since they are more likely to be a candidates for alternate parts.&nbsp;  You can enter a number
+		  in this field to mask out lesser scoring parts.&nbsp;  For example, if you enter 
 		  50, then only scores of 50% and above will show in the results.</li>
-	  <li><b>age: </b>&nbsp; In the comparator's results is a column named "age".  This is how long ago that
-	      the part has last been used (days).&nbsp;  If, for example, 60 is entered, then on parts that
-		  have been sitting in the warehouse more that 60 days will be shown.</li>
-	  <li><b>switches: </b>&nbsp; Check boxes by which you can further filter results.
+	  <li><b>age: </b>&nbsp; In the comparator's results is a column named "age".  This is how long ago
+	      it's been since that part was last used (days).&nbsp;  If for example 60 is entered, then only parts that
+		  have been sitting on the shelf for more that 60 days will be shown.</li>
+	  <li><b>switches: </b>&nbsp; Check boxes by which you can filter results even more:
           <ol>
-		      <li><b><i>Include "No Demand" pns.</b></i>&nbsp;The default is to filter out parts where there is a Demand for those parts.</li>   
+		      <li><b><i>Include "Demand" pns.</b></i>&nbsp;The default is to filter out parts where there is a Demand for those parts.</li>   
 			  <li><b><i>Include "On Hand" pns.</b></i>&nbsp;The default is to filter out "Qty On Hand" parts that are zero.</li>
-			  <li><b><i>Do not show pns listed in the drop list. </b></i>&nbsp;Do not show SW/SL/SM parts listed in the drop list (list is shown in "settings").</li>
+			  <li><b><i>Do not show pns listed in the drop list. </b></i>&nbsp;Do not show sw/sl/sm parts that are in the drop list (list is shown in "settings").</li>
 		  </ol>
 	  </li>
  	</ol>
 	
-	<p>Note: When you hover the mouse over any of this buttons, you'll see a description
-	of the button at the bottom of the main window.</p>
+	<p><i>Note: Whenever you hover your mouse over any of these buttons, you'll see a description
+	of the button at the bottom of the main window.</i></p>
+	
 	
 	<h2 id="settings">Settings</h2>
 	   <div class="container" style="border: 20px solid transparent;">
@@ -106,9 +112,28 @@
 	  are in the exceptions list.&nbsp;  For example, 2672 is for VFD electrical 
 	  components.</p>
 	  
+	<h2 id="output">Sample output</h2>
+	   <div class="container" style="border: 20px solid transparent;">
+	   <img src="slowmoving_output.png" alt="sample of output pic" width=900></div>	  
+	   
+	<p>The first three columns, i.e. pn sw/sl, desrip sw/sl, and cost_, come from the
+	  SolidWorks and/or SyteLine data that you entered (_sw.csv and _sl_.xlsx files).&nbsp;
+	  The remainder of the columns are a result of the comparison of the sw/sl
+	  BOMs to the sm BOM.</p>
+	  
+	<p>Blank cells in the first three columns means that the first non-blank
+	  cell above that blank cell has the same value as the non-blank cell.&nbsp;  That is,
+	  the cells that are blank were made that way in order to remove clutter.</p>   
 	  
 	
-	
+	<h2 id="export">Export results to Excel</h2>
+	<p>Always export results to Excel.&nbsp;  Place the file in the Engineering folder of
+	  the CO (Teams: VIN UWF US - PCI Sys Fldrs > Documents).&nbsp;  The end of the
+	  file name should be <i>_alts.xlsx.</i>&nbsp;  For example: <i>alternativePts_alts.xlsx</i>.&nbsp;
+	  The last column of that file will have a column named "alt qty".&nbsp;  In
+	  that column at the appropriate row enter the number of alternate parts that will be used.</p>
+	  
+
 
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.10.2/dist/umd/popper.min.js"
     integrity="sha384-7+zCNj/IqJ95wo16oMtfsKbZ9ccEh31eOz1HGyDuCQ6wgnyJNSYdrPa03rtR1zdB"

@@ -849,7 +849,7 @@ def gatherBOMs_from_fnames(filename):
                                 'Unit Cost': int, 'Year n-1 Usage': int, 
                                 'Year n-2 Usage': int, 'Last Movement (Days)': int})
                 df = df.rename(columns={'Unit Cost':'Unit\nCost', 
-                                        'Qty On Hand':'On\nHand', 'Movement?': 'Need?',
+                                        'Qty On Hand':'On\nHand', 'Movement?': 'De-\nmand?',
                                         'Year n-1 Usage': 'Yr n-1\nUsage',
                                         'Year n-2 Usage': 'Yr n-2\nUsage',
                                         'Last Movement (Days)': 'Last Used\n(Days)'} )
@@ -1726,6 +1726,8 @@ def view_help(help_type='bomcheck_help', version='master', dbdic=None):
              'kcarlton55/bomcheckgui/blob/' + version +'/help_files/bomcheckgui_help.html',
          'bomcheck_troubleshoot': 'https://htmlpreview.github.io/?https://github.com/'
              'kcarlton55/bomcheck/blob/' + version + '/help_files/bomcheck_troubleshoot.html',
+         'slowmoving_help': 'https://htmlpreview.github.io/?https://github.com/'
+             'kcarlton55/bomcheck/blob/' + version + '/help_files/slowoving_help_section1.html', 
          'license': 'https://github.com/kcarlton55/bomcheckgui/blob/main/LICENSE.txt'}
 
     if help_type in cfg:

@@ -10,7 +10,7 @@ This allows possible substitution of slow_moving parts in systems
 currently being built so that slow_moving parts can be used up.
 """
 
-# import pdb # use with pdb.set_trace()
+#import pdb # use with pdb.set_trace()
 import pandas as pd
 from difflib import SequenceMatcher
 import fnmatch
@@ -126,12 +126,12 @@ def check_sm_parts(files_list, sm_files, cfg):
     df['cost_'] = '$' + df['cost_'].round(2).astype('string')
     
     
-    dfinv['Need?']= dfinv['Need?'].replace('No Demand', 'No')
-    dfinv['Need?']= dfinv['Need?'].replace('Demand', 'Yes')
+    dfinv['De-\nmand?']= dfinv['De-\nmand?'].replace('No Demand', 'No')
+    dfinv['De-\nmand?']= dfinv['De-\nmand?'].replace('Demand', 'Yes')
     
     if not cfg['show_demand']:    
-        dfinv = dfinv[dfinv['Need?'] == 'No']
-        # dfinv = dfinv.drop('Demand?', axis=1)
+        dfinv = dfinv[dfinv['De-\nmand?'] == 'No']
+        dfinv = dfinv.drop('De-\nmand?', axis=1)
     if not cfg['on_hand']:    
         dfinv = dfinv[dfinv['On\nHand'] != 0.0]
         
@@ -176,10 +176,12 @@ def check_sm_parts(files_list, sm_files, cfg):
     # similarity_score is based on what the module SequenceMatcher produces.  However
     # I want the score reduced more if, for example, the "descrip sw/sl" is SS and
     # "Description" is not SS.  In this case, reduce similarity_score by %20.
-    # The variable 'alter_score' looks for these adjustments.
+    # The variable 'alter_score' looks for these adjustments.    
     alter_score = [(r'S/S|[^A-Z]SS[^A-Z]|304|316|STAINLESS|LSS|SST|[^A-Z]SS$', .2),
                               (r'NEMA 7|N7', .2), (r'24\s*V', .2), (r'1[0-2][0-5]\s*V', .2),
-                              (r'230/460\s*V|230\s*V|460\s*V', .2), (r'575\s*V', .2), (r'200\s*V', .2)]    
+                              (r'230/460\s*V|230\s*V|460\s*V', .2), (r'575\s*V', .2), (r'200\s*V', .2)] 
+    
+    df['descrip sw/sl'] = df['descrip sw/sl'].replace(0, 'missing description')
     if cfg['merge'] == 'inner':
         similarity_score = df.apply(lambda row: SequenceMatcher(None, row['descrip sw/sl'], row['Description']).ratio(), axis=1) 
         for alter in alter_score:
@@ -220,9 +222,15 @@ def check_sm_parts(files_list, sm_files, cfg):
 #                             'Unit Cost', 'On Hand', 'Yr n-1 Usage', 'Yr n-2 Usage', 'Last Used']
 #     df = df[new_column_order]
 # =============================================================================
-    new_column_order = ['pn sw/sl', 'descrip sw/sl', 'cost_', 'Item', 'Description',
-                        'similar', 'Unit\nCost', 'Yr n-1\nUsage', 'Yr n-2\nUsage',
-                        'Last Used\n(Days)', 'Need?']
+    if 'De-\nmand?' in df.columns:
+        new_column_order = ['pn sw/sl', 'descrip sw/sl', 'cost_', 'Item', 'Description',
+                            'similar', 'Unit\nCost', 'Yr n-1\nUsage', 'Yr n-2\nUsage',
+                            'Last Used\n(Days)', 'De-\nmand?']
+    else:
+        new_column_order = ['pn sw/sl', 'descrip sw/sl', 'cost_', 'Item', 'Description',
+                            'similar', 'Unit\nCost', 'Yr n-1\nUsage', 'Yr n-2\nUsage',
+                            'Last Used\n(Days)']
+  
     df = df[new_column_order]
 
     if 'cost' in df.columns:
