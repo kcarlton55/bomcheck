@@ -224,11 +224,11 @@ def check_sm_parts(files_list, sm_files, cfg):
 # =============================================================================
     if 'De-\nmand?' in df.columns:
         new_column_order = ['pn sw/sl', 'descrip sw/sl', 'cost_', 'Item', 'Description',
-                            'similar', 'Unit\nCost', 'Yr n-1\nUsage', 'Yr n-2\nUsage',
+                            'similar', 'On\nHand', 'Unit\nCost', 'Yr n-1\nUsage', 'Yr n-2\nUsage',
                             'Last Used\n(Days)', 'De-\nmand?']
     else:
         new_column_order = ['pn sw/sl', 'descrip sw/sl', 'cost_', 'Item', 'Description',
-                            'similar', 'Unit\nCost', 'Yr n-1\nUsage', 'Yr n-2\nUsage',
+                            'similar', 'On\nHand', 'Unit\nCost', 'Yr n-1\nUsage', 'Yr n-2\nUsage',
                             'Last Used\n(Days)']
   
     df = df[new_column_order]

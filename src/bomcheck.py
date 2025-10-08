@@ -1727,7 +1727,7 @@ def view_help(help_type='bomcheck_help', version='master', dbdic=None):
          'bomcheck_troubleshoot': 'https://htmlpreview.github.io/?https://github.com/'
              'kcarlton55/bomcheck/blob/' + version + '/help_files/bomcheck_troubleshoot.html',
          'slowmoving_help': 'https://htmlpreview.github.io/?https://github.com/'
-             'kcarlton55/bomcheck/blob/' + version + '/help_files/slowoving_help_section1.html', 
+             'kcarlton55/bomcheck/blob/' + version + '/help_files/slowmoving_help_section1.html', 
          'license': 'https://github.com/kcarlton55/bomcheckgui/blob/main/LICENSE.txt'}
 
     if help_type in cfg:
