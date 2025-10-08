@@ -1723,7 +1723,7 @@ def view_help(help_type='bomcheck_help', version='master', dbdic=None):
     d = {'bomcheck_help': 'https://htmlpreview.github.io/?https://github.com/'
              'kcarlton55/bomcheck/blob/' + version + '/help_files/bomcheck_help.html',
          'bomcheckgui_help': 'https://htmlpreview.github.io/?https://github.com/'
-             'kcarlton55/bomcheckgui/blob/' + version +'/help_files/bomcheckgui_help.html',
+             'kcarlton55/bomcheck/blob/' + version +'/help_files/bomcheckgui_help.html',
          'bomcheck_troubleshoot': 'https://htmlpreview.github.io/?https://github.com/'
              'kcarlton55/bomcheck/blob/' + version + '/help_files/bomcheck_troubleshoot.html',
          'slowmoving_help': 'https://htmlpreview.github.io/?https://github.com/'
