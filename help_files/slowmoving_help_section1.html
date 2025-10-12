@@ -36,7 +36,7 @@
     <h2 id="intro">Introduction</h2>
     <p>Parts nos. from slow moving inventory can be compared with part nos. of your
 	  current project in order to look for possible substitutions of parts in order to
-	  use up inventory.&nbsp;  File names of BOMs form SolidWorks and SyteLine end with
+	  use up inventory.&nbsp;  File names of BOMs from SolidWorks and SyteLine end with
       _sw.csv and _sl.xlsx respectively.&nbsp;  By adding a third file to the mix ending
       with _sm.xlsx, which contains a BOM of slow moving parts, the comparison can be
       made by clicking the 2nd run button on the menu bar, i.e, the green triangle icon. 	  
@@ -52,9 +52,9 @@
 	  
 	<p>At the upper right is the "View" drop down menu.&nbsp;   From that pick "Actual size".
 	  (If you don't resize to "Actual size", then the "More options" menu is difficult
-      to access.)&nbsp; Now go to the "More options" menu (the three dots, ...).   
+      to access.)&nbsp; Now go to the "More options" menu (the three dots, ...)   
       and choose "Export data" and "Data with current layout".&nbsp;  Name the
-      file anything you want, except the end of the file name must end with "_sm.xlsx",
+      file you are exporting to anything you want, except that the end of the file name must end with "_sm.xlsx",
       for example <i>slowmoving_sm.xlsx</i>.</p>
       
     <p>To use this file, drag and drop it into the bomcheck program the same way
@@ -71,7 +71,7 @@
       <li><b>Run bomcheck button:</b>&nbsp; This button runs the bomcheck program.
           (Does not access the _sm BOM.)  It compares sm to sl BOMs.</li>
 	  <li><b>Run comparator button:</b>&nbsp; The button runs the comparator in order to compare
-          _sw and/or_sl BOMs to parts with in the _sm BOM</li>
+          sw and/or sl BOMs to parts with in the sm BOM</li>
 	  <li><b>The "clear", X, button:</b>&nbsp; Delete all entries from bomcheck's drag/drop list so 
 	      that you can repopulate it with other files that you want to examine.</li>
 	  <li><b>folder button:</b>&nbsp; Open the last folder you used from which you dragged files from. </li>
@@ -81,8 +81,9 @@
 	      The number there indicates the similarity of the text from the sw/sl descriptions to those
 		  of the pn descriptions from the sm BOM.&nbsp;  This similarity does not guarantee that the sm 
 		  part can replace a part from the sw/sl BOM, but rather allows the user to examine
-		  those parts first since they are more likely to be a candidates for alternate parts.&nbsp;  You can enter a number
-		  in this field to mask out lesser scoring parts.&nbsp;  For example, if you enter 
+		  those parts first since they are more likely to be a candidates for alternate parts.&nbsp;  In 
+		  the menu's text entry box for <i>% similarity</i> you can enter a number
+		  to mask out lesser scoring parts.&nbsp;  For example, if you enter 
 		  50, then only scores of 50% and above will show in the results.</li>
 	  <li><b>age: </b>&nbsp; In the comparator's results is a column named "age".  This is how long ago
 	      it's been since that part was last used (days).&nbsp;  If for example 60 is entered, then only parts that
@@ -116,22 +117,24 @@
 	   <div class="container" style="border: 20px solid transparent;">
 	   <img src="slowmoving_output.png" alt="sample of output pic" width=900></div>	  
 	   
-	<p>The first three columns, i.e. pn sw/sl, desrip sw/sl, and cost_, come from the
-	  SolidWorks and/or SyteLine data that you entered (_sw.csv and _sl_.xlsx files).&nbsp;
+	<p>The first three columns, i.e. pn sw/sl, desrip sw/sl, and cost_ come from the
+	  SolidWorks and/or SyteLine data that you entered (i.e. _sw.csv and _sl_.xlsx files).&nbsp;
 	  The remainder of the columns are a result of the comparison of the sw/sl
 	  BOMs to the sm BOM.</p>
 	  
 	<p>Blank cells in the first three columns means that the first non-blank
-	  cell above that blank cell has the same value as the non-blank cell.&nbsp;  That is,
+	  cell above a blank cell has the same value as the non-blank cell.&nbsp;  That is,
 	  the cells that are blank were made that way in order to remove clutter.</p>   
 	  
 	
 	<h2 id="export">Export results to Excel</h2>
-	<p>Always export results to Excel.&nbsp;  Place the file in the Engineering folder of
-	  the CO (Teams: VIN UWF US - PCI Sys Fldrs > Documents).&nbsp;  The end of the
+	<p>Export your results to Excel.&nbsp;  Place the file in the Engineering folder for
+	  the CO (in Teams at <i>VIN UWF US - PCI Sys Fldrs > Documents</i>).&nbsp;  The end of the
 	  file name should be <i>_alts.xlsx.</i>&nbsp;  For example: <i>alternativePts_alts.xlsx</i>.&nbsp;
-	  The last column of that file will have a column named "alt qty".&nbsp;  In
-	  that column at the appropriate row enter the number of alternate parts that will be used.</p>
+	  Bomcheck will atomatically add the text <i>_alts</i> to the end of your file name.&nbsp;   The last
+	  column in the Excel file will have a heading named "alt qty".&nbsp;  In
+	  that column, at the appropriate row, enter the number of alternate parts that will be used
+	  for your project.</p>
 	  
 
 

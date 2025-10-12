@@ -34,27 +34,27 @@
       <a href="https://en.wikipedia.org/wiki/Regular_expression">regex</a> for short.&nbsp;
       You are more familiar with 
       <a href="https://en.wikipedia.org/wiki/Glob_(programming)">glob</a> filtering.&nbsp;
-      Glob filtering primarily uses the astericks, *.&nbsp;  For example, <i><mark>5010-0300-*</mark></i>
-      will yield results like 5010-0300-000, 5010-0300-001, 5010-0300-003, 
-      5010-0300-004, etc.&nbsp;  The equivalent using regex as a filter is "<mark><i>5010-0300-.*</i></mark>".&nbsp;
-      In this case, the dot (.) represents any charater, i.e. a, b, c, ..., z, 0, 1, 2, .... 9.&nbsp;
-      Here the dot, ., means any character, and the * means 0 or more of that 'any character'.</p>
+      Glob filtering primarily uses the asterisk, *.&nbsp;  For example, <i><mark>5010-*-</mark></i>, if the filter
+      type was glob, which it is not, would yield results like 5010-0300-000, 5010-0700-001, and 5010-2500-013.&nbsp;
+	  The equivalent using regex as a filter is "<mark><i>5010-.*-</i></mark>".&nbsp;
+      In this case, the dot (.) represents any character, i.e. a, b, c, etc. , A, B, C, etc., 0, 1, 2, etc..&nbsp;
+      The asterisk, *, after the dot means 0 or more of that 'any character'.  </p>
     
     <p>So then, if part nos. from a sw/sl BOM were 6415-2013-076 and 7302-0050-002,
       the <mark>....-....-</mark>" filter would match numbers like 6415-2013-108, 6415-2013-118,
-      6415-2013-202, 7302-0050-000, 7302-0050-003, and 7302-0040-C from the sm BOM.&nbsp;
-      On the other hand, if any those 'any charaters' were replaced, then the
+      6415-2013-202, 7302-0050-000, 7302-0050-003, and 7302-0040-103-C from the sm BOM.&nbsp;
+      On the other hand, if any of those dots were replaced, then the
       filter is altered accordingly.&nbsp;  For example, <mark>300.-01..-</mark> will match 3001-0100-001, 
       3005-0150-003, etc., and <mark>3...-0050-</mark> will match 3001-0050-006 and 3214-0050-001-C.</p>
       
-    <p>Another usefull filter is <mark>..........</mark>, i.e 10 dots.&nbsp; In this case, the first
-      10 characaters are, again, 'any character'.  The equivalent, shortened filter is <mark>.{10}</mark>.
+    <p>Another useful filter is <mark>..........</mark>, i.e 10 dots.&nbsp; In this case, the first
+      10 characters are, again, 'any character'.  The equivalent regex filter is <mark>.{10}</mark>.&nbsp;
       This means, 'any charater' 10 times.&nbsp;  Both of these will match values like 9000-0006-000,
-      9263K297, A0013854-006, 3180-VMX05-000.  And  <mark>....-.*-</mark> will match 9000-0006-000
+      9263K297, A0013854-006, 3180-VMX05-000.&nbsp;   <mark>....-.*-</mark> will match 9000-0006-000
       and 3180-VMX05-000.</p>
       
-    <p>This is only the bare basics of regex filtering, and for use in bomcheck
-      it should be all that is required.  However if one wishes to delve into more
+    <p>The regex filtering examples introduced on this page is only the basics.&nbsp;  For use in bomcheck these basics
+      are all you need to know.&nbsp;  However if one wishes to delve into more
       complex examples, you can do a google search for "regex".</p>   
             
 
