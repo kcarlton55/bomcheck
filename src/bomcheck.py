@@ -23,7 +23,7 @@ this program is "bomcheck".
 For more information, see the help files for this program.
 """
 
-__version__ = '2.1'
+__version__ = '2.2'
 __author__ = 'Kenneth E. Carlton'
 
 #import pdb # use with pdb.set_trace()
@@ -504,8 +504,8 @@ def bomcheck(fn, dic={}, **kwargs):
         cfg['filter_pn'] = dic.get('filter_pn', '....-....-')
     f = kwargs.get('f', False)
     m = kwargs.get('m', None)
-    outputFileName = kwargs.get('o', 'bomcheck')
-    x = (dic.get('excel') if dic.get('excel') else kwargs.get('x', False))
+    # outputFileName = kwargs.get('o', 'bomcheck')
+    # x = (dic.get('excel') if dic.get('excel') else kwargs.get('x', False))
 
     ####################################################################
     # If dbdic is in kwargs, it comes from bomcheckgui.
@@ -523,7 +523,7 @@ def bomcheck(fn, dic={}, **kwargs):
             cfg['drop'] = udrop.split()  # e.g. '3*025 NO_PN' -> ['3*025', 'NO_PN']
         if uexceptions:
             cfg['exceptions'] = uexceptions.split()
-        outputFileName = dbdic.get('file2save2', 'bomcheck')
+    #outputFileName = dbdic.get('file2save2', 'bomcheck')
        #cfg['overwrite'] = dbdic.get('overwrite', True)
         cfg['accuracy'] = dbdic.get('accuracy', 2)
         cfg['from_um'] = dbdic.get('from_um', 'in')
@@ -559,7 +559,7 @@ def bomcheck(fn, dic={}, **kwargs):
         sm_pts_comparison = check_sm_parts.check_sm_parts([slfiles, swfiles], smfiles, cfg)
     else:
         sm_pts_comparison = None
-
+        
     if ('mtltest' in cfg) and cfg['mtltest']:
         typeNotMtl(slfiles) # report on corrupt data within SyteLine.  See function typeNotMtl
 
@@ -720,6 +720,10 @@ def gatherBOMs_from_fnames(filename):
     swfilesdic = {}
     slfilesdic = {}
     smfilesdic = {}
+    count_sw_csv = 0
+    count_sw_xlsx = 0
+    count_sl = 0
+    count_sm = 0
     XLSnotAllowed = ('\nBomcheck does not support .xls formated Excel files.\n'
                      'Those files will be ignored.  Save to .xlsx instead\n')
     for f in filename:  # from filename extract all _sw & _sl files and put into swfilesdic & slfilesdic
@@ -743,6 +747,7 @@ def gatherBOMs_from_fnames(filename):
         try:
             _, file_extension = os.path.splitext(v)
             if file_extension.lower() == '.xlsx':
+                count_sw_xlsx += 1
                 df = pd.read_excel(v, na_values=[' '])
                 df.columns = df.columns.str.replace(r'\n', '', regex=True)
                 df.replace(r'\n',' ', regex=True, inplace=True)
@@ -762,6 +767,7 @@ def gatherBOMs_from_fnames(filename):
                 print(XLSnotAllowed)
                 dfsw_found = False
             elif file_extension.lower() == '.csv':
+                count_sw_csv += 1
                 df = csv_to_df(v, descrip=cfg['descrip'], encoding="ISO-8859-1")
                 dfsw_found=True
             else:
@@ -789,6 +795,7 @@ def gatherBOMs_from_fnames(filename):
         try:
             _, file_extension = os.path.splitext(v)
             if file_extension.lower() == '.xlsx':
+                count_sl += 1
                 df = pd.read_excel(v, na_values=[' '])
                 if 'Item' in df.columns:
                     df.dropna(subset=['Item'], inplace=True)  # Costed BOM has useless 2nd row that starts with "BOM Alternate ID: 0".  Item in that row is NaN.  Delete that row.
@@ -838,6 +845,7 @@ def gatherBOMs_from_fnames(filename):
         try:
             _, file_extension = os.path.splitext(v)
             if file_extension.lower() == '.xlsx':
+                count_sm += 1
                 df = pd.read_excel(v, usecols=['Item', 'Description', 'Unit Cost',
                                                'Movement?', 'Qty On Hand', 'Year n-1 Usage',
                                                'Year n-2 Usage', 'Last Movement (Days)'])
@@ -869,6 +877,24 @@ def gatherBOMs_from_fnames(filename):
             print(printStr)
         if dfsm_found:
             smdfsdic.update({k: df})
+    
+
+                    
+    if count_sl > 0 and (count_sw_csv + count_sw_xlsx) ==  0 and count_sm == 0:
+        printStr = ('_sl.xlsx file(s) submitted, but no _sw.csv/_sw.xlsx or _sm.xlsx '
+                    'to match against.  Therefore no results to show.  ')
+        printStrs.append(printStr)
+        print(printStr)
+    elif count_sm > 0 and (count_sw_csv + count_sw_xlsx) ==  0 and count_sl == 0:
+        printStr = ('\n\n3) _sm.xlsx file(s) submitted, but no _sw.csv/_sw.xlsx or _sl.xlsx '
+                    'to match against.  Therefore no results to show.  ')
+        printStrs.append(printStr)
+        print(printStr)
+    elif count_sm == 0 and (count_sw_csv + count_sw_xlsx) ==  0 and count_sl == 0:
+        printStr = ('No _sm.xlsx,  _sw.csv/_sw.xlsx, or _sl.xlsx files found.  '
+                    'Therefore this program has nothing to work with.  ')
+        printStrs.append(printStr)
+        print(printStr)
 
     if os.path.islink(dirname):
         dirname = os.readlink(dirname)
@@ -898,23 +924,33 @@ def typeNotMtl(sldic):
     None.  (global value "printStrs" will be appended to.  This will result
             in the contatenation of printStrs being shown to the user.)
     '''
-
     global printStrs
     printStr = None
     flag = False
     _values_ = dict.fromkeys(cfg['part_num'], cfg['Item'])  # type(cfg['Item']) is a str
     for key, value in sldic.items():
+        # Elminate useless columns from SyteLine that cause bomcheck to be confused
+        # about which contains part nos. and which contains part no. descriptions.
+        # If Material and Material Description both present, they contain the pns and pn descrips
+        if 'Material' in value.columns and 'Material Description' in value.columns:
+            if 'Item' in value.columns:
+                value.drop('Item', axis=1, inplace=True)
+            if 'Description' in value.columns:
+                value.drop('Description', axis=1, inplace=True)
         if 'Type' in value.columns: # and 'WC' in value.columns:
             value.rename(columns=_values_, inplace=True)
             value_filtered = value[(value.Type != 'Material') & (value[cfg['Item']].str.slice(-3) != '-OP')]
             corrupt_pns = list(value_filtered[cfg['Item']])
             if corrupt_pns and not flag:
-                printStr = ('\nCorrupt data found in SyteLine.  Error will result in parts '
-                            "not being purchased.  Problem is 'Type' ≠ 'Material'.  "
-                            "Please fix issue.  Problem parts are:")
+                printStr = ('\nCorrupt subassemblies found from SyteLine.  Though the "Source" ' 
+                            'of various items is "Material", in the subassembly BOM however '
+                            'they are shown otherwise.  That is, when "Type" is not "Material" '
+                            'in the subassembly BOM, the items will not be placed on order.  '
+                            'To correct, open up the subassembly, and for the problematic item '
+                            'change "Type" to "Material".')
                 flag = True
             if corrupt_pns:
-                printStr = printStr + f'\n\nAssembly {key} is parent of:\n'
+                printStr = printStr + f'\n\nSubassembly {key}.  Problematic parts are:\n'
                 for corrupt_pn in corrupt_pns:
                     printStr = printStr + f'{corrupt_pn}, '
     if printStr:
@@ -1145,7 +1181,7 @@ def deconstructMultilevelBOM(df, source, k, toplevel=False, ptsonlyflag=False):
     if source=='sw' and __itm and __itm in df.columns:
         __itm = df[__itm].astype('str')
         __itm = __itm.str.replace('.0', '') # stop something like 5.0 from slipping through
-        df['__Level'] = __itm.str.count('\.') # level is the number of periods (.) in the string
+        df['__Level'] = __itm.str.count('\.') # level is the number of periods (.) in the string.
     elif __lvl and __lvl in df.columns:  # dealing w/ SL
         df['__Level'] = df[__lvl].astype(float).astype(int)
     else:
@@ -1298,10 +1334,10 @@ def convert_sw_bom_to_sl_format(df):
         ignore_filter = ~is_in(cfg['ignore'], df[cfg['Item']], [])
         df[cfg['U']] = to_um.str.upper().mask(value <= 0.0001, 'EA').mask(~ignore_filter, 'EA')
         factors = (from_um.map(factorpool) * 1/to_um.map(factorpool)).fillna(-1)
-        q = df[cfg['Q']].replace('[^\d]', '', regex=True).apply(str).str.strip('.')  # strip away any text
-        q = q.replace('', '0').astype(float)  # if any empty strings, set to '0'
-        value2 = value * q * factors * ignore_filter
-        df[cfg['Q']] = q*(value2<.0001) + value2    # move lengths to the Qty column
+        _q = df[cfg['Q']].replace('[^\d]', '', regex=True).apply(str).str.strip('.')  # strip away any text (problem found 10/18/25: \d captures the . in 37.5)
+        _q = _q.replace('', '0').astype(float)  # if any empty strings, set to '0'
+        value2 = value * _q * factors * ignore_filter
+        df[cfg['Q']] = _q*(value2<.0001) + value2    # move lengths to the Qty column
 
     else:
         df[cfg['Q']] = df[cfg['Q']].astype(float)  # If elements strings, 'sum' adds like '2' + '1' = '21'.  But want 2 + 1 = 3
@@ -1415,6 +1451,7 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     values.update(dict.fromkeys(cfg['qty'], cfg['Q']))
     values.update(dict.fromkeys(cfg['obs'], 'Obsolete'))
     dfsl.rename(columns=values, inplace=True) # rename columns so proper comparison can be made
+        
     if not cfg['cspartnumber']:
         dfsl[cfg['Item']] = dfsl[cfg['Item']].str.upper()
 
@@ -1528,6 +1565,7 @@ def collect_checked_boms(swdic, sldic):
             df = convert_sw_bom_to_sl_format(dfsw)
             df[cfg['Q']] = round(df[cfg['Q']].astype(float), cfg['accuracy'])
             lone_sw_dic[key2] = df
+            
     return lone_sw_dic, combined_dic
 
 

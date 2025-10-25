@@ -10,7 +10,7 @@ This allows possible substitution of slow_moving parts in systems
 currently being built so that slow_moving parts can be used up.
 """
 
-#import pdb # use with pdb.set_trace()
+import pdb # use with pdb.set_trace()
 import pandas as pd
 from difflib import SequenceMatcher
 import fnmatch
@@ -102,7 +102,7 @@ def check_sm_parts(files_list, sm_files, cfg):
                 dfi = dfi[['pn sw/sl', 'descrip sw/sl']]
             df = pd.concat([df, dfi])
     #df.sort_values(by='pn sw/sl', ascending=True, inplace=True)
-    df.drop_duplicates(subset=['pn sw/sl'], keep='first')
+    df = df.drop_duplicates(subset=['pn sw/sl'], keep='first')
     df['common_pn'] = df['pn sw/sl'].str.extract('(' + pn_fltr +')')  # apply the pn_fltr
         
     if cfg['drop_bool']==True and cfg['drop']:
@@ -240,6 +240,7 @@ def check_sm_parts(files_list, sm_files, cfg):
 
 
     df.reset_index(drop=True, inplace=True)
+    
     return df
 
 
