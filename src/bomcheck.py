@@ -36,6 +36,7 @@ import webbrowser
 import json
 import re
 import check_sm_parts
+from pathlib import Path
 from check_sm_parts import is_in
 toml_imported = False
 if sys.version_info >= (3, 11):
@@ -254,18 +255,15 @@ def main():
     parser.add_argument('-c', '--cfgpathname', help='pathname where configuration file ' +
                         'resides (e.g. C:/folder1/folder2/bomcheck.cfg).  Note: use ' +
                         "forward slashes; backslashes won't work.") ,
-    parser.add_argument('-csdsc', '--csdescription', action='store_true', default=False,
-                        help='Enable case sensitive checking of descriptions'),
-    parser.add_argument('-cspn', '--cspartnuber', action='store_true', default=False,
-                        help='Enable case sensitive checking of part numbers'),
     parser.add_argument('-d', '--drop_bool', action='store_true', default=False,
-                        help="Don't show part nos. from the drop list in check results.")
+                        help="Don't show part nos. from the drop list in check results."),
     parser.add_argument('-dp', '--drop', help='A "drop list"; i.e. a list of part '
-                        'numbers from the CAD BOM that will be ignored.  '
-                        "E.g. -dp \"['3*-025', '3081-*']\" (Switch -d "
-                        'will be automatically set to True.)', type=str)
+                        'numbers.  These part number will be omitted from results '
+                        'when searching for slow moving parts, E.g. -dp \"[\'10*\','
+                        ' \'26*\', \'479*\']\" (When user submits this list, switch '
+                        ' -d will be automatically set to True.)', type=str),
     parser.add_argument('-exc', '--exceptions', help='Exceptions to part numbers shown in '
-                        "the drop list.  E.g. -exc \"['3142-3034-025', '3081-*-001']\"", type=str)
+                        "the drop list.  E.g. -exc \"['2672*']\"", type=str)
     parser.add_argument('-fd', '--filter_descrip', action='store_true', default=None,
                         help="Filter the \"Description\" field of the slow_moving part's "
                         'BOM; i.e., show only pns of descrips that pass through this filter. '
@@ -278,8 +276,6 @@ def main():
                         "slow_moving part's BOM. (filter is regex expression)"),
     parser.add_argument('-v', '--version', action='version', version=__version__,
                         help="Show program's version number and exit")
-    parser.add_argument('-x', '--text', help='Export results to a text file.',
-                        default=False, action='store_true')
 
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
@@ -386,18 +382,6 @@ def bomcheck(fn, dic={}, **kwargs):
             cannot be a path name; that is, it cannot
             contain / or \\ characters.  Default: bomcheck
 
-        csdsc: bool
-            Enable case sensitive matching of part
-            descriptions.  Devalult = False
-
-        cspn: bool
-            Enable case sensitive matching of part numbers.
-            Devalult = False
-
-        x: bool
-            If True (or = 1), export results to a txt file.
-            Default: False
-
     Returns
     =======
 
@@ -465,10 +449,6 @@ def bomcheck(fn, dic={}, **kwargs):
     # Set settings.  dic is only called upon when bomcheck is ran from a command line
     cfg['drop_bool'] = (dic.get('drop_bool') if dic.get('drop_bool')
                         else kwargs.get('d', False))
-    cfg['cspartnumber'] = (dic.get('cspartnumber') if dic.get('cspartnumber')
-                        else kwargs.get('cspn', False))
-    cfg['csdescription'] = (dic.get('csdescription') if dic.get('csdescription')
-                        else kwargs.get('csdsc', False))
     if dic.get('drop'):
         try:
             string = dic.get('drop')
@@ -492,7 +472,7 @@ def bomcheck(fn, dic={}, **kwargs):
         cfg['filter_pn'] = dic.get('filter_pn', r'....-....-')
 
     ####################################################################
-    # kwargs are present with the bomcheck() function is run directly by the user
+    # kwargs are present when the bomcheck() function is run directly by the user
     if kwargs.get('drop'):
         cfg['drop'] = kwargs.get('drop')
         cfg['drop_bool'] = True
@@ -505,7 +485,6 @@ def bomcheck(fn, dic={}, **kwargs):
     f = kwargs.get('f', False)
     m = kwargs.get('m', None)
     # outputFileName = kwargs.get('o', 'bomcheck')
-    # x = (dic.get('excel') if dic.get('excel') else kwargs.get('x', False))
 
     ####################################################################
     # If dbdic is in kwargs, it comes from bomcheckgui.
@@ -523,8 +502,6 @@ def bomcheck(fn, dic={}, **kwargs):
             cfg['drop'] = udrop.split()  # e.g. '3*025 NO_PN' -> ['3*025', 'NO_PN']
         if uexceptions:
             cfg['exceptions'] = uexceptions.split()
-    #outputFileName = dbdic.get('file2save2', 'bomcheck')
-       #cfg['overwrite'] = dbdic.get('overwrite', True)
         cfg['accuracy'] = dbdic.get('accuracy', 2)
         cfg['from_um'] = dbdic.get('from_um', 'in')
         cfg['to_um'] = dbdic.get('to_um', 'FT')
@@ -537,8 +514,7 @@ def bomcheck(fn, dic={}, **kwargs):
         cfg['merge'] = kwargs.get('merge', 'inner')
         cfg['repeat'] = kwargs.get('repeat', False)
         cfg['show_demand'] = kwargs.get('show_demand', False)
-        cfg['on_hand'] = kwargs.get('on_hand', False)
-        
+        cfg['on_hand'] = kwargs.get('on_hand', False)   
     else:
         cfg['overwrite'] = False
 
@@ -548,25 +524,19 @@ def bomcheck(fn, dic={}, **kwargs):
         fn = ast.literal_eval(fn)  # change a string to a list
     elif isinstance(fn, str):
         fn = [fn]
-
     pd.set_option('display.max_rows', m)
-
     fn = get_fnames(fn, followlinks=f)  # get filenames with any extension.
-
     dirname, swfiles, slfiles, smfiles = gatherBOMs_from_fnames(fn)
-
     if smfiles and cfg['run_bomcheck'] == False:
         sm_pts_comparison = check_sm_parts.check_sm_parts([slfiles, swfiles], smfiles, cfg)
     else:
-        sm_pts_comparison = None
-        
+        sm_pts_comparison = None     
     if ('mtltest' in cfg) and cfg['mtltest']:
         typeNotMtl(slfiles) # report on corrupt data within SyteLine.  See function typeNotMtl
 
     # lone_sw is a dic; Keys are assy nos; Values are DataFrame objects (SW
     # BOMs only).  merged_sw2sl is a dic; Keys are assys nos; Values are
     # Dataframe objects (merged SW and SL BOMs).
-
     lone_sw, merged_sw2sl = collect_checked_boms(swfiles, slfiles)
 
     title_dfsw = []                # Create a list of tuples: [(title, swbom)... ]
@@ -580,30 +550,6 @@ def bomcheck(fn, dic={}, **kwargs):
     title_dfsw, title_dfmerged = concat_boms(title_dfsw, title_dfmerged)
     results = title_dfsw, title_dfmerged
 
-# =============================================================================
-#     if x:
-#         try:
-#             if title_dfsw or title_dfmerged:
-#                 export2txt(dirname, outputFileName, title_dfsw + title_dfmerged)
-#             else:
-#                 pass
-# =============================================================================
-# =============================================================================
-#                 printStr = ('\nNotice 203\n\n' +
-#                             'No SolidWorks files found to process.  (Lone SyteLine\n' +
-#                             'BOMs will be ignored.)  Make sure file names end with\n' +
-#                             '_sw.xlsx or _sl.xlsx.\n')
-#                 printStrs.append(printStr)
-#                 print(printStr)
-# =============================================================================
-# =============================================================================
-#         except PermissionError:
-#             printStr = ('\nError 202:\n\nFailed to write to bomcheck.xlsx\n'
-#                         'Cause unknown')
-#             printStrs.append(printStr)
-#             print(printStr)
-# 
-# =============================================================================
     if title_dfsw or title_dfmerged:
         print('calculation done')
     else:
@@ -1305,10 +1251,7 @@ def convert_sw_bom_to_sl_format(df):
     df[cfg['Q']] = pd.to_numeric(df[cfg['Q']], errors='coerce').fillna(0.0)
 
     checkforbaddata(df)
-
-    if not cfg['cspartnumber']:
-        df[cfg['Item']] = df[cfg['Item']].str.upper()
-
+    df[cfg['Item']] = df[cfg['Item']].str.upper()
     __len = get_col_name(df, cfg['length_sw'])
 
     if __len:  # convert lengths to other unit of measure, i.e. to_um
@@ -1352,12 +1295,6 @@ def convert_sw_bom_to_sl_format(df):
     if cfg['del_whitespace']:
         df[cfg['Item']] = df[cfg['Item']].str.replace(' ', '')
 
-# =============================================================================
-#     if cfg['drop_bool']==True and cfg['drop']:
-#         filtr3 = is_in(cfg['drop'], df[cfg['Item']], cfg['exceptions'])
-#         df.drop(df[filtr3].index, inplace=True)
-# =============================================================================
-
     df[cfg['WC']] = cfg['WCvalue']    # WC is a standard column shown in a SL BOM.
     df[cfg['Op']] = cfg['OpValue']   # Op is a standard column shown in a SL BOM, usually set to 10
 
@@ -1377,7 +1314,6 @@ def checkforbaddata(df):
             printStrs.append(printStr)
             print(printStr)
     if cfg['Item No.'] in df.columns and df[cfg['Item No.']].eq(0).any():
-    #if 'Item_no.' in df.columns and (df['Item'].str.len() == 1).any():
         printStr = ('\n\nThere are item numbers missing from the CAD\n'
                     'BOM.  Results will be incorrect.  Perhaps you\n'
                     'forgot to select "Detailed numbering" at\n'
@@ -1452,8 +1388,7 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     values.update(dict.fromkeys(cfg['obs'], 'Obsolete'))
     dfsl.rename(columns=values, inplace=True) # rename columns so proper comparison can be made
         
-    if not cfg['cspartnumber']:
-        dfsl[cfg['Item']] = dfsl[cfg['Item']].str.upper()
+    dfsl[cfg['Item']] = dfsl[cfg['Item']].str.upper()
 
     if 'Obsolete' in dfsl.columns:  # Don't use any obsolete pns (even though shown in the SL BOM)
         filtr4 = dfsl['Obsolete'].notnull()
@@ -1462,12 +1397,6 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     if 'Type' in dfsl.columns and 'mtltest' in cfg and cfg['mtltest']:
         filtrT = ((dfsl['Type'] != 'Material') & (dfsl[cfg['Item']].str.slice(-3) != '-OP'))
         dfsl[cfg['Description']]=dfsl[cfg['Description']].where(~filtrT, "Note: 'Type'≠'Material'")
-
-# =============================================================================
-#     if cfg['drop_bool']==True and cfg['drop']:
-#        filtr3 = is_in(cfg['drop'], dfsl[cfg['Item']], cfg['exceptions'])
-#        dfsl.drop(dfsl[filtr3].index, inplace=True)
-# =============================================================================
 
     dfmerged = pd.merge(dfsw, dfsl, on=cfg['Item'], how='outer', suffixes=('_sw', '_sl') ,indicator=True)
     dfmerged[cfg['Q'] + '_sw'].fillna(0, inplace=True)
@@ -1490,10 +1419,8 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     filtrI = dfmerged['_merge'].str.contains('both')  # this filter determines if pn in both SW and SL
     maxdiff = .51 / (10**cfg['accuracy'])
     filtrQ = abs(dfmerged[cfg['Q'] + '_sw'].astype(float) - dfmerged[cfg['Q'] + '_sl']) < maxdiff  # If diff in qty greater than this value, show X
-    if not cfg['csdescription']:
-        filtrD = dfmerged[cfg['Description'] + '_sw'].str.upper().str.split() == dfmerged[cfg['Description'] + '_sl'].str.upper().str.split()
-    else:
-        filtrD = dfmerged[cfg['Description'] + '_sw'].str.split() == dfmerged[cfg['Description'] + '_sl'].str.split()
+    filtrD = dfmerged[cfg['Description'] + '_sw'].str.upper().str.split() == dfmerged[cfg['Description'] + '_sl'].str.upper().str.split()
+
     filtrU = dfmerged[cfg['U'] + '_sw'].astype('str').str.upper().str.strip() == dfmerged[cfg['U'] + '_sl'].astype('str').str.upper().str.strip()
     _pass = '\u2012' #   character name: figure dash
     _fail = 'X'
@@ -1638,143 +1565,40 @@ def concat_boms(title_dfsw, title_dfmerged):
     return swresults, mrgresults
 
 
-def export2xlsx(dirname, filename, df):
-    '''Export to a txt file the results of all the BOM
-    checks.
+def export2xlsx(filename, df, run_bomcheck):  
+    '''Export to an Excel file.  
+    (This function is imported into bomcheckgui)
 
     Parmeters
     =========
 
-    dirname: string
-        The directory to which the txt file that this
-        function generates will be sent.
-
     filename: string
-        The name of the txt file.
+        Pathname where file is to be saved
 
-    results2export: DataFrame
-        DataFrame that will coverted to an Excel file.
+    df: DataFrame
+        Dataframe table that is exported.
+
+    run_bomcheck: bool
+        If run_bomcheck it False the df object that shows includes slow moving
+        parts.  In this case, the file name is prepended with the text
+        "substituted_pns_"
 
     Returns
     =======
 
     out: None
-        A txt file named bomcheck.txt unless txt file name otherwise specified.
-
+    
     '''
-    global printStrs
-
-    fn = definefn(dirname, filename)
-    d, f = os.path.split(fn)
-    f, e = os.path.splitext(f)
-    fn2 = os.path.join(d, f + '_alts' + e )
-    try:
-        df.to_excel(fn2, index=False)
-        print('\n' + fn2 + ' created\n')
-    except Exception as e:
-        printStr = ('\nOverwrite of output file failed.' +
-        '\n' + str(e) + '\n')
-        printStrs.append(printStr)
-
-
-def definefn(dirname, filename, i=0):
-    ''' If bomcheck.txt already exists or sw_bomcheck.txt, return
-    bomcheck(1).xlsx.  If that or sw_bomcheck(1).xlsx exists, return
-    bomcheck(2).xlsx, and so forth.'''
-    global printStrs
-    d, f = os.path.split(filename)
-    f, e = os.path.splitext(f)
-    if d:
-        dirname = d   # if user specified a directory, use d instead
-    if e and not e.lower()=='.xlsx':
-        printStr = '\n(Output filename extension needs to be .xlsx' + '\nProgram aborted.\n'
-        printStrs.append(printStr)
-        print(printStr)
-        sys.exit(0)
-    else:
-        e = '.xlsx'
-    if i == 0:
-        fn = os.path.join(dirname, f+e)
-    else:
-        fn = os.path.join(dirname, f+ '(' + str(i) + ')'+e)
-    if os.path.exists(fn):
-        return definefn(dirname, filename, i+1)
-    else:
-        return fn
-
-
-# =============================================================================
-# def prepare_multiindex_for_export(df):
-#     '''  Remove the duplicate index items created before writing a multiindex
-#     dataframe to txt.  E.g.:
-# 
-#     from: 083119 2321-0600-001   to: 083119 2321-0600-001
-#           083119 3085-0050-025              3085-0050-025
-#           083119 3180-DV27-000              3180-DV27-000
-# 
-#     Parameters
-#     ----------
-#     df : Pandas Dataframe
-# 
-#     Returns
-#     -------
-#     out : Pandas Dataframe.
-#     '''
-#     new_df = df.copy()
-#     for i in range(df.index.nlevels, 0, -1):
-#         new_df = new_df.sort_index(level=i-1)
-#     replace_cols = dict()
-#     for i in range(new_df.index.nlevels):
-#         idx = new_df.index.get_level_values(i)
-#         new_df.insert(i, idx.name, idx)
-#         replace_cols[idx.name] = new_df[idx.name].where(
-#             ~new_df.duplicated(subset=new_df.index.names[:i+1]))
-#     for col, ser in replace_cols.items():
-#         new_df[col] = ser
-#     return new_df.reset_index(drop=True)
-# =============================================================================
-
-
-def view_help(help_type='bomcheck_help', version='master', dbdic=None):
-    '''  Open a help webpage for bomcheck, bomcheckgui, troubleshoot, or the
-    software license.  (This function is used by bomcheckgui)
-
-    Parameters
-    ----------
-    type_of_help : string
-        valid values: 'bomcheck_help', 'bomcheckgui_help',
-        'bomcheck_troubleshoot', 'license'.  Default: 'bomcheck_help'
-    version : string
-        software version.  The version is used to open up help on github's
-        site based on the software version.  Default: bomcheck's version no.
-
-    Returns
-    -------
-    out : None
-    '''
-    if dbdic and 'cfgpathname' in dbdic:
-        # if dbdic provided, comes from bomcheckgui
-        cfg.update(get_bomcheckcfg(dbdic['cfgpathname']))
-
-    print(__file__)
-
-    d = {'bomcheck_help': 'https://htmlpreview.github.io/?https://github.com/'
-             'kcarlton55/bomcheck/blob/' + version + '/help_files/bomcheck_help.html',
-         'bomcheckgui_help': 'https://htmlpreview.github.io/?https://github.com/'
-             'kcarlton55/bomcheck/blob/' + version +'/help_files/bomcheckgui_help.html',
-         'bomcheck_troubleshoot': 'https://htmlpreview.github.io/?https://github.com/'
-             'kcarlton55/bomcheck/blob/' + version + '/help_files/bomcheck_troubleshoot.html',
-         'slowmoving_help': 'https://htmlpreview.github.io/?https://github.com/'
-             'kcarlton55/bomcheck/blob/' + version + '/help_files/slowmoving_help_section1.html', 
-         'license': 'https://github.com/kcarlton55/bomcheckgui/blob/main/LICENSE.txt'}
-
-    if help_type in cfg:
-        webbrowser.open(cfg[help_type])
-    elif help_type in d:
-        webbrowser.open(d[help_type])
-    else:
-        print("bomcheck.view_help didn't function correctly")
-
+    file_path = Path(filename)
+    parent = file_path.parent
+    name = str(file_path.name)
+    if run_bomcheck==0:
+        name = 'substituted_pns_' + name
+    fn = parent / name
+    with pd.ExcelWriter(fn) as writer:
+        df.to_excel(writer, sheet_name='Sheet1')
+    print(f'Saved to: {fn}')    
+        
 
 def partsOnly(k, dic_assys):
     '''
