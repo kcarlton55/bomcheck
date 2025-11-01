@@ -24,7 +24,7 @@ classifiers = [
     "Operating System :: OS Independent"]
 keywords = ["BOM", "BOMs", "compare" ,"bill" ,"materials", "SolidWorks",
            "SyteLine", "ERP", "CAD"]
-dependencies = ["tomli >= 1.1.0", "pandas>=1.2", "openpyxl>=3.0", "requests>=2.29"]
+dependencies = ["tomli >= 1.1.0", "pandas>=1.2", "openpyxl>=3.0", "requests>=2.29", "xlsxwriter>=3.2.9"]
 license = {text = "GPL-3.0-or-later"}
 
 [project.scripts]

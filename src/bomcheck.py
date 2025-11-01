@@ -26,7 +26,7 @@ For more information, see the help files for this program.
 __version__ = '2.2'
 __author__ = 'Kenneth E. Carlton'
 
-#import pdb # use with pdb.set_trace()
+import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -1558,10 +1558,14 @@ def concat_boms(title_dfsw, title_dfmerged):
         dfmergedDFrames.append(t[1])
     if dfswDFrames:
         dfswCCat = pd.concat(dfswDFrames).reset_index()
-        swresults.append(('SW BOMs', dfswCCat.set_index([cfg['assy'], cfg['Op']]).sort_index(axis=0)))
+        swresults.append(('SW BOMs', dfswCCat.set_index([cfg['assy'], cfg['Op']]).sort_index(axis=0)))          
     if dfmergedDFrames:
         dfmergedCCat = pd.concat(dfmergedDFrames).reset_index()
         mrgresults.append(('BOM Check', dfmergedCCat.set_index([cfg['assy'], cfg['Item']]).sort_index(axis=0)))
+    
+
+
+          
     return swresults, mrgresults
 
 
@@ -1589,16 +1593,104 @@ def export2xlsx(filename, df, run_bomcheck):
     out: None
     
     '''
+    def len2(s):
+        ''' Extract from within a string either a decimal number truncated to two
+        decimal places, or an int value; then return the length of that substring.
+        Why used?  Q_sw, Q_sl, Q, converted to string, are on ocasion something
+        like 3.1799999999999997.  This leads to wrong length calc using len.'''
+        match = re.search(r"\d*\.\d\d|\d+", s)
+        if match:
+            return len(match.group())
+        else:
+            return 0
+        
+    def autosize_excel_columns(worksheet, df):
+        ''' Adjust column width of an Excel worksheet (ref.: https://stackoverflow.com/questions/
+            17326973/is-there-a-way-to-auto-adjust-excel-column-widths-with-pandas-excelwriter)'''
+        autosize_excel_columns_df(worksheet, df.index.to_frame())
+        autosize_excel_columns_df(worksheet, df, offset=df.index.nlevels)
+    
+    def autosize_excel_columns_df(worksheet, df, offset=0):
+        wrap_format = workbook.add_format({'text_wrap': True})
+        worksheet.set_row_pixels(0, 40)
+        worksheet.freeze_panes(1, 0)
+             
+        for idx, col in enumerate(df):
+            x = 1 # add a little extra width to the Excel column
+            series = df[col]
+            if df.columns[idx][0] == 'Q':
+                max_len = max((
+                    series.astype(str).map(len2).max(),
+                    len(str(series.name))
+                )) + x
+            else:
+                max_len = max((
+                    series.astype(str).map(len).max(),
+                    len(str(series.name))
+                )) + x
+            worksheet.set_column(idx+offset, idx+offset, max_len, wrap_format)
+    
     file_path = Path(filename)
     parent = file_path.parent
-    name = str(file_path.name)
+    stem = str(file_path.stem)
     if run_bomcheck==0:
-        name = 'substituted_pns_' + name
+        name = stem + '_alts.xlsx'
+    else:
+        name = stem + '.xlsx'
     fn = parent / name
-    with pd.ExcelWriter(fn) as writer:
+    
+    with pd.ExcelWriter(fn, engine='xlsxwriter') as writer:
         df.to_excel(writer, sheet_name='Sheet1')
+         
+        # Get the xlsxwriter workbook and worksheet objects
+        workbook = writer.book
+        worksheet = writer.sheets['Sheet1']
+        autosize_excel_columns(worksheet, df)           
+        writer.close()
+        
     print(f'Saved to: {fn}')    
         
+
+def view_help(help_type='bomcheck_help', version='master', dbdic=None):
+    '''  Open a help webpage for bomcheck, bomcheckgui, troubleshoot, or the
+    software license.  (This function is used by bomcheckgui)
+
+    Parameters
+    ----------
+    type_of_help : string
+        valid values: 'bomcheck_help', 'bomcheckgui_help',
+        'bomcheck_troubleshoot', 'license'.  Default: 'bomcheck_help'
+    version : string
+        software version.  The version is used to open up help on github's
+        site based on the software version.  Default: bomcheck's version no.
+
+    Returns
+    -------
+    out : None
+    '''
+    if dbdic and 'cfgpathname' in dbdic:
+        # if dbdic provided, comes from bomcheckgui
+        cfg.update(get_bomcheckcfg(dbdic['cfgpathname']))
+
+    print(__file__)
+
+    d = {'bomcheck_help': 'https://htmlpreview.github.io/?https://github.com/'
+             'kcarlton55/bomcheck/blob/' + version + '/help_files/bomcheck_help.html',
+         'bomcheckgui_help': 'https://htmlpreview.github.io/?https://github.com/'
+             'kcarlton55/bomcheck/blob/' + version +'/help_files/bomcheckgui_help.html',
+         'bomcheck_troubleshoot': 'https://htmlpreview.github.io/?https://github.com/'
+             'kcarlton55/bomcheck/blob/' + version + '/help_files/bomcheck_troubleshoot.html',
+         'slowmoving_help': 'https://htmlpreview.github.io/?https://github.com/'
+             'kcarlton55/bomcheck/blob/' + version + '/help_files/slowmoving_help_section1.html', 
+         'license': 'https://github.com/kcarlton55/bomcheckgui/blob/main/LICENSE.txt'}
+
+    if help_type in cfg:
+        webbrowser.open(cfg[help_type])
+    elif help_type in d:
+        webbrowser.open(d[help_type])
+    else:
+        print("bomcheck.view_help didn't function correctly")
+
 
 def partsOnly(k, dic_assys):
     '''

@@ -238,8 +238,9 @@ def check_sm_parts(files_list, sm_files, cfg):
         
     df['alt\nqty'] = ''
 
-
-    df.reset_index(drop=True, inplace=True)
+    #df.reset_index(drop=True, inplace=True)
+      
+    df = df.set_index(['pn sw/sl', 'descrip sw/sl','cost_', 'Item']).sort_index(axis=0)
     
     return df
 
