@@ -1584,8 +1584,8 @@ def export2xlsx(filename, df, run_bomcheck):
 
     run_bomcheck: bool
         If run_bomcheck it False the df object that shows includes slow moving
-        parts.  In this case, the file name is prepended with the text
-        "substituted_pns_"
+        parts.  In this case, this function will append the file name with
+        "_alts.xlsx"
 
     Returns
     =======
@@ -1624,30 +1624,45 @@ def export2xlsx(filename, df, run_bomcheck):
                     len(str(series.name))
                 )) + x
             else:
-                max_len = max((
+                max_width_of_header = max([len(word) for word in str(series.name).split('\n')])
+                max_len = max([
                     series.astype(str).map(len).max(),
-                    len(str(series.name))
-                )) + x
+                    max_width_of_header
+                    ]) + x
             worksheet.set_column(idx+offset, idx+offset, max_len, wrap_format)
     
     file_path = Path(filename)
     parent = file_path.parent
     stem = str(file_path.stem)
-    if run_bomcheck==0:
+    if run_bomcheck==0 and stem.endswith(('_alts')):
+        name = stem + '.xlsx'
+    elif run_bomcheck==0:
         name = stem + '_alts.xlsx'
     else:
         name = stem + '.xlsx'
     fn = parent / name
     
     with pd.ExcelWriter(fn, engine='xlsxwriter') as writer:
-        df.to_excel(writer, sheet_name='Sheet1')
+        df.to_excel(writer, sheet_name='Sheet1', startrow=1, header=False)
          
         # Get the xlsxwriter workbook and worksheet objects
         workbook = writer.book
         worksheet = writer.sheets['Sheet1']
-        autosize_excel_columns(worksheet, df)           
-        writer.close()
+        # Add a header format. ref: https://xlsxwriter.readthedocs.io/working_with_pandas.html
+        header_format = workbook.add_format({
+            'bold': True,
+            'text_wrap': True,
+            'valign': 'top',
+            'align': 'center',
+            'fg_color': '#D7E4BC',
+            'border': 1})
         
+        autosize_excel_columns(worksheet, df)           
+        headers = list(df.index.names) + list(df.columns)
+        # Write the column headers with the defined format.
+        for col_num, value in enumerate(headers):
+            worksheet.write(0, col_num + 0, value, header_format)   
+        writer.close()
     print(f'Saved to: {fn}')    
         
 
