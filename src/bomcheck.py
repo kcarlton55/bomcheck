@@ -52,9 +52,9 @@ else:
               'Therefore bomcheck.cfg will not be used.\n\n')
 warnings.filterwarnings('ignore')  # the program has its own error checking.
 pd.set_option('display.max_rows', None)  # was pd.set_option('display.max_rows', 150)
-pd.set_option('display.max_columns', 10)
+pd.set_option('display.max_columns', None)
 pd.set_option('display.max_colwidth', 100)
-pd.set_option('display.width', 200)
+pd.set_option('display.width', 250)
 
 
 
@@ -240,11 +240,11 @@ def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                         description='Program compares CAD BOMs to ERP BOMs.  ' +
                         'Output can be sent to a text file.')
-    parser.add_argument('filename', help='Name of Excel file, or list of Excel ' +
-                        'files, containing BOMs.  Names must end with _sw.xlsx ' +
-                        'or _sl.xlsx, otherwise they\'re ignored. ' +
-                        'Examples: "6890-*", "*", "[\'1139*\', \'68*0\', ' +
-                        '\'3086-*\']", "filepath/*".  Name must be enclosed by ' +
+    parser.add_argument('filename',  help='String or list. If a string, it is the '
+                        'filename(s) of a BOM.  Extension is .xlsx or .csv.'
+                        'Filenames must end with _sw, _sl, or _sm.  If a list, it is a list '  
+                        'of BOMs.  Examples: "6890-*", "*", "[\'1139*\', \'68*0\', ' 
+                        '\'3086-*\']", "filepath/*".  Name must be enclosed by '
                         'quotation marks, "".')
     parser.add_argument('-a', '--about', action='version',
                         version="Author: " + __author__ +
@@ -252,9 +252,6 @@ def main():
                         "bomcheck's home: https://github.com/kcarlton55/bomcheck."
                         '  Version: ' + __version__,
                         help="Show author, date, web site, version, then exit")
-    parser.add_argument('-c', '--cfgpathname', help='pathname where configuration file ' +
-                        'resides (e.g. C:/folder1/folder2/bomcheck.cfg).  Note: use ' +
-                        "forward slashes; backslashes won't work.") ,
     parser.add_argument('-d', '--drop_bool', action='store_true', default=False,
                         help="Don't show part nos. from the drop list in check results."),
     parser.add_argument('-dp', '--drop', help='A "drop list"; i.e. a list of part '
@@ -264,26 +261,32 @@ def main():
                         ' -d will be automatically set to True.)', type=str),
     parser.add_argument('-exc', '--exceptions', help='Exceptions to part numbers shown in '
                         "the drop list.  E.g. -exc \"['2672*']\"", type=str)
-    parser.add_argument('-fd', '--filter_descrip', action='store_true', default=None,
+    parser.add_argument('-fd', '--filter_descrip', default=None,
                         help="Filter the \"Description\" field of the slow_moving part's "
                         'BOM; i.e., show only pns of descrips that pass through this filter. '
                         '(filter is regex expression)'),
-    parser.add_argument('-fp', '--filter_pn', action='store_true', default=r'....-....-',
+    parser.add_argument('-fp', '--filter_pn', default=r'....-....-',
                         help='Truncate pns in the SW/SL BOM to allow a comparison of '
                         "the slow_moving part's BOM. "
                         'E.g. 3002-0025-025 truncated to 3002-0025- will match '
                         '3002-0025-000, 3002-0025-005, and 3002-0025-007 from the '
                         "slow_moving part's BOM. (filter is regex expression)"),
+    parser.add_argument('-s', '--save',  
+                        help='Save output to specified Excel filename.  File will be created '
+                        'in the current working directory unless a pathname is prepended to '
+                        'the filename.  If filename ends with _alts or _alts.xlsx '
+                        'then, if a _sm.xlsx file is present, a comparison of '
+                        'the sm BOM will be made to a sw and/or sl BOM.')
     parser.add_argument('-v', '--version', action='version', version=__version__,
-                        help="Show program's version number and exit")
+                        help="Show program's version number and exit"),
 
+  
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
-        sys.exit(1)
-    args = parser.parse_args()
-
-    bomcheck(args.filename, vars(args))
-
+    else:
+        args = parser.parse_args()
+        bomcheck(args.filename, vars(args))
+        
 
 def bomcheck(fn, dic={}, **kwargs):
     '''
@@ -345,15 +348,6 @@ def bomcheck(fn, dic={}, **kwargs):
         bomcheck program.  Other keys and types of
         values that those keys can accept are:
 
-        c:  str
-            Pathname of the file bomcheck.cfg. For MS
-            Windows, the format should look like this:
-            "C:/myfolder/bomcheck.cfg".  That it, use
-            a forward slash instead of a backslash.
-            Otherwise the file will not be read. For a
-            unix-like operating system, like this:
-            "/home/ken/bomcheck.cfg"/
-
         d: bool
             If True (or = 1), make use of the list named
             "drop".  See bomcheck_help for more
@@ -376,11 +370,8 @@ def bomcheck(fn, dic={}, **kwargs):
         m: int
             Display only m rows of the results to the user.
 
-        o: str
-            Output file name.  x has to be set to True
-            for this to function.  The output file name
-            cannot be a path name; that is, it cannot
-            contain / or \\ characters.  Default: bomcheck
+        s: str
+            Output file name. Default: bomcheck
 
     Returns
     =======
@@ -466,11 +457,19 @@ def bomcheck(fn, dic={}, **kwargs):
             print('\nExecution stoped.  Improper syntax for exceptions list.  Example of proper syntax:\n\n'
                     "bomcheck filename --drop \"['3*-025', '3018-*'] --exceptions \"['32*-025', '3018-7*']\"\n")
             exit()
-    if dic.get('filter_descrip'):
-        cfg['filter_desrip'] = dic.get('filter_descrip', None)
-    if dic.get('filter_pn'):
-        cfg['filter_pn'] = dic.get('filter_pn', r'....-....-')
 
+    cfg['filter_descrip'] = dic.get('filter_descrip', None)   
+    cfg['filter_pn'] = dic.get('filter_pn', r'....-....-')
+
+    cfg['run_bomcheck'] = True   
+    if dic.get('save'):
+        cfg['export'] = dic['save']
+        if '_alts' in cfg['export']:
+            cfg['run_bomcheck'] = False
+            
+    cfg['merge'] = 'inner'
+    cfg['similar'] = '0'
+            
     ####################################################################
     # kwargs are present when the bomcheck() function is run directly by the user
     if kwargs.get('drop'):
@@ -479,16 +478,21 @@ def bomcheck(fn, dic={}, **kwargs):
     if kwargs.get('exeptions'):
         cfg['exceptions'] = kwargs.get('exceptions')
     if kwargs.get('filter_descrip'):
-        cfg['filter_descrip'] = dic.get('filter_descrip', None)
+        cfg['filter_descrip'] = kwargs.get('filter_description')
     if kwargs.get('filter_pn'):
-        cfg['filter_pn'] = dic.get('filter_pn', '....-....-')
+        cfg['filter_pn'] = kwargs.get('filter_pn')
     f = kwargs.get('f', False)
     m = kwargs.get('m', None)
-    # outputFileName = kwargs.get('o', 'bomcheck')
+      
+    if kwargs.get('s'):
+        cfg['export'] = kwargs.get('s')
+        if cfg['export'].endswith('_alts') or cfg['export'].endswith('_alts.xlsx'):
+            cfg['run_bomcheck'] = False
 
     ####################################################################
-    # If dbdic is in kwargs, it comes from bomcheckgui.
-    # Variables therefrom take precedence.
+    # If subset dictionary named dbdic is within kwargs, it comes from bomcheckgui.
+    # Variables from dbdic take precedence.  Otherwise many of the variables of 
+    # kwargs shown below come from bomcheckgui.
     if 'dbdic' in kwargs:
         dbdic = kwargs['dbdic']
         c = dbdic.get('cfgpathname')   # activated if from bomcheckgui
@@ -511,54 +515,82 @@ def bomcheck(fn, dic={}, **kwargs):
         cfg['filter_descrip'] = kwargs.get('filter_descrip', None)
         cfg['similar'] = kwargs.get('similar', 0)
         cfg['filter_age'] = kwargs.get('filter_age', 60)
-        cfg['merge'] = kwargs.get('merge', 'inner')
         cfg['repeat'] = kwargs.get('repeat', False)
         cfg['show_demand'] = kwargs.get('show_demand', False)
         cfg['on_hand'] = kwargs.get('on_hand', False)   
     else:
         cfg['overwrite'] = False
-
+        
+        
     ####################################################################
 
     if isinstance(fn, str) and fn.startswith('[') and fn.endswith(']'):
         fn = ast.literal_eval(fn)  # change a string to a list
     elif isinstance(fn, str):
-        fn = [fn]
+        fn = [fn]        
     pd.set_option('display.max_rows', m)
     fn = get_fnames(fn, followlinks=f)  # get filenames with any extension.
     dirname, swfiles, slfiles, smfiles = gatherBOMs_from_fnames(fn)
+        
     if smfiles and cfg['run_bomcheck'] == False:
         sm_pts_comparison = check_sm_parts.check_sm_parts([slfiles, swfiles], smfiles, cfg)
     else:
         sm_pts_comparison = None     
-    if ('mtltest' in cfg) and cfg['mtltest']:
-        typeNotMtl(slfiles) # report on corrupt data within SyteLine.  See function typeNotMtl
-
-    # lone_sw is a dic; Keys are assy nos; Values are DataFrame objects (SW
-    # BOMs only).  merged_sw2sl is a dic; Keys are assys nos; Values are
-    # Dataframe objects (merged SW and SL BOMs).
-    lone_sw, merged_sw2sl = collect_checked_boms(swfiles, slfiles)
-
-    title_dfsw = []                # Create a list of tuples: [(title, swbom)... ]
-    for k, v in lone_sw.items():   # where "title" is is the title of the BOM,
-        title_dfsw.append((k, v))  # usually the part no. of the BOM.
-
-    title_dfmerged = []            # Create a list of tuples: [(title, mergedbom)... ]
-    for k, v in merged_sw2sl.items():
-        title_dfmerged.append((k, v))  # e.g. {assynum1:bomdf1, ... assynumn:bomdfn}
-
-    title_dfsw, title_dfmerged = concat_boms(title_dfsw, title_dfmerged)
-    results = title_dfsw, title_dfmerged
-
-    if title_dfsw or title_dfmerged:
-        print('calculation done')
-    else:
-        print('bomcheck reports: program produced no results')
-
+        
+    if cfg['run_bomcheck']:    
+        if ('mtltest' in cfg) and cfg['mtltest']:
+            typeNotMtl(slfiles) # report on corrupt data within SyteLine.  See function typeNotMtl
+            
+        # lone_sw is a dic; Keys are assy nos; Values are DataFrame objects (SW
+        # BOMs only).  merged_sw2sl is a dic; Keys are assys nos; Values are
+        # Dataframe objects (merged SW and SL BOMs).
+        lone_sw, merged_sw2sl = collect_checked_boms(swfiles, slfiles)
+    
+        title_dfsw = []                # Create a list of tuples: [(title, swbom)... ]
+        for k, v in lone_sw.items():   # where "title" is is the title of the BOM,
+            title_dfsw.append((k, v))  # usually the part no. of the BOM.
+    
+        title_dfmerged = []            # Create a list of tuples: [(title, mergedbom)... ]
+        for k, v in merged_sw2sl.items():
+            title_dfmerged.append((k, v))  # e.g. {assynum1:bomdf1, ... assynumn:bomdfn}
+    
+        title_dfsw, title_dfmerged = concat_boms(title_dfsw, title_dfmerged)
+        results = title_dfsw, title_dfmerged
+    
+        if title_dfsw or title_dfmerged:
+            print('calculation done')
+        else:
+            print('bomcheck reports: program produced no results')
+                    
     if dic and cfg['run_bomcheck'] == True:  # if bomcheck run from the command line, show results
         print('\n', getresults(0))
         print('\n', getresults(1))
         print('\n', printStrs)
+    elif dic:
+        pd.set_option('display.max_columns', None)
+        print('\n', sm_pts_comparison)
+        print('\n', printStrs)
+
+        
+    if cfg.get('export') and not cfg['run_bomcheck'] and not sm_pts_comparison.empty: 
+        cfg['export'] = cfg['export'].replace('_alts', '')
+        export2xlsx(cfg['export'], sm_pts_comparison, False) 
+    if cfg.get('export') and cfg['run_bomcheck'] and not getresults(1).empty:
+        export2xlsx(cfg['export'], getresults(1), True) 
+    if cfg.get('export') and cfg['run_bomcheck'] and not getresults(0).empty:
+        export2xlsx(cfg['export'], getresults(0), True) 
+        
+        
+# =============================================================================
+#         
+#     if cfg.get('export') and not '_alts' in cfg['export'] and not getresults(0).empty: 
+#         export2xlsx(cfg['export']+'_lone_sw_boms', sm_pts_comparison, True)
+#     if cfg.get('export') and '_alts' in cfg['export'] and not getresults(1).empty: 
+#         cfg['export'] = cfg['export'].replace('_alts', '')
+#         export2xlsx(cfg['export'], getresults(1), False) 
+#     elif cfg.get('export') and not getresults(1).empty: 
+#         export2xlsx(cfg['export'], getresults(1), True) 
+# =============================================================================
 
     return getresults(0), getresults(1), sm_pts_comparison, printStrs
 
@@ -1127,7 +1159,7 @@ def deconstructMultilevelBOM(df, source, k, toplevel=False, ptsonlyflag=False):
     if source=='sw' and __itm and __itm in df.columns:
         __itm = df[__itm].astype('str')
         __itm = __itm.str.replace('.0', '') # stop something like 5.0 from slipping through
-        df['__Level'] = __itm.str.count('\.') # level is the number of periods (.) in the string.
+        df['__Level'] = __itm.str.count(r'\.') # level is the number of periods (.) in the string.
     elif __lvl and __lvl in df.columns:  # dealing w/ SL
         df['__Level'] = df[__lvl].astype(float).astype(int)
     else:
@@ -1277,7 +1309,7 @@ def convert_sw_bom_to_sl_format(df):
         ignore_filter = ~is_in(cfg['ignore'], df[cfg['Item']], [])
         df[cfg['U']] = to_um.str.upper().mask(value <= 0.0001, 'EA').mask(~ignore_filter, 'EA')
         factors = (from_um.map(factorpool) * 1/to_um.map(factorpool)).fillna(-1)
-        _q = df[cfg['Q']].replace('[^\d]', '', regex=True).apply(str).str.strip('.')  # strip away any text (problem found 10/18/25: \d captures the . in 37.5)
+        _q = df[cfg['Q']].replace(r'[^\d]', '', regex=True).apply(str).str.strip('.')  # strip away any text (problem found 10/18/25: \d captures the . in 37.5)
         _q = _q.replace('', '0').astype(float)  # if any empty strings, set to '0'
         value2 = value * _q * factors * ignore_filter
         df[cfg['Q']] = _q*(value2<.0001) + value2    # move lengths to the Qty column

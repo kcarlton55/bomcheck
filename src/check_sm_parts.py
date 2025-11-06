@@ -83,8 +83,12 @@ def check_sm_parts(files_list, sm_files, cfg):
     '''
         
     # extract from "cfg" args from the user.
-    pn_fltr = cfg['filter_pn'].text()
-    descrip_filter = cfg['filter_descrip'].text() if cfg['filter_descrip'] else ''
+    try:
+        pn_fltr = cfg['filter_pn'].text()
+        descrip_filter = cfg['filter_descrip'].text() if cfg['filter_descrip'] else ''
+    except:
+        pn_fltr = cfg['filter_pn']
+        descrip_filter = cfg['filter_descrip'] if cfg['filter_descrip'] else ''
 
     ####################################################################################
     ##### create df and populate it.  df is a collection of BOMs from SW & SL      #####
@@ -118,7 +122,7 @@ def check_sm_parts(files_list, sm_files, cfg):
         dfinv = pd.concat([dfinv, v])
             
     # Some more preperation to df. Get costs of parts from dfinv.  
-    df2 = df.merge(dfinv, left_on='pn sw/sl', right_on='Item', how='left')
+    df2 = df.merge(dfinv, left_on='pn sw/sl', right_on='Item', how=cfg['merge'])
     df2 = df2.rename(columns={'Unit\nCost': 'cost2'})
     s = df2['cost2'].copy(deep=True)
     s = s.fillna(0).tolist()
@@ -129,15 +133,18 @@ def check_sm_parts(files_list, sm_files, cfg):
     dfinv['De-\nmand?']= dfinv['De-\nmand?'].replace('No Demand', 'No')
     dfinv['De-\nmand?']= dfinv['De-\nmand?'].replace('Demand', 'Yes')
     
-    if not cfg['show_demand']:    
+    if not cfg.get('show_demand', False):    
         dfinv = dfinv[dfinv['De-\nmand?'] == 'No']
         dfinv = dfinv.drop('De-\nmand?', axis=1)
-    if not cfg['on_hand']:    
+    if not cfg.get('on_hand', False):    
         dfinv = dfinv[dfinv['On\nHand'] != 0.0]
         
     # match sure only number, e.g. "100, extracted from 'Last Used\n(Days)'
-    # and not "100 days", that a user could enter.    
-    match = re.search(r'\d+', cfg['filter_age'].text())
+    # and not "100 days", that a user could enter. 
+    try:
+        match = re.search(r'\d+', cfg['filter_age'].text())
+    except:
+        match = re.search(r'\d+', cfg.get('filter_age', '60'))
     if match:
         min_age = float(match.group())
     else:
@@ -162,7 +169,7 @@ def check_sm_parts(files_list, sm_files, cfg):
     ####################################################################################
     ##### merge df & dfinv                                                         #####
     ####################################################################################    
-    df = df.merge(dfinv, on='common_pn', how=cfg['merge'])
+    df = df.merge(dfinv, on='common_pn', how='inner')
     df = df.drop('common_pn', axis=1)
     
     alter_score = [(r'S/S|[^A-Z]SS[^A-Z]|304|316|STAINLESS|LSS|SST', .2),
@@ -191,7 +198,10 @@ def check_sm_parts(files_list, sm_files, cfg):
         # If someone enters a percent character, %, when indicating the min similarity he wishes
         # to see, for example 86%, the % chacter will crash the program.  So this program will
         # fix the problem by extracting the number, i.e. 86, from the text, i.e. 86%
-        match = re.search(r'\d+', cfg['similar'].text())
+        try:
+            match = re.search(r'\d+', cfg['similar'].text())
+        except:
+            match = re.search(r'\d+', cfg['similar'])
         if match:
             min_similarity = float(match.group())
         else:
@@ -199,10 +209,7 @@ def check_sm_parts(files_list, sm_files, cfg):
         similarity_bool = similarity_score*100 > min_similarity
         df['similar'] = (similarity_score*100).round().astype(int)
         df = df[similarity_bool]
-        
-    if 'cost' in df.columns:
-        df['cost'] = '$' + df['cost'].round(2).astype('string')
-    
+            
     # if leading or trailing spaces differ, for example, between a text
     # in one descrip and another, then the df.drop_duplicates() won't work
     # to catch the duplicate line.
@@ -213,37 +220,24 @@ def check_sm_parts(files_list, sm_files, cfg):
     df = df.drop_duplicates()
     df.sort_values(by=['pn sw/sl', 'similar'], ascending=[True, False], inplace=True)
     df['similar'] = df['similar'].astype('string') + '%'
-# =============================================================================
-#     if 'cost' in df.columns:
-#         new_column_order = ['pn sw/sl', 'descrip sw/sl', 'cost', 'similar', 'Item', 'Description',
-#                             'Unit Cost', 'On Hand', 'Yr n-1 Usage', 'Yr n-2 Usage', 'Last Used']
-#     else:
-#         new_column_order = ['pn sw/sl', 'descrip sw/sl', 'similar', 'Item', 'Description',
-#                             'Unit Cost', 'On Hand', 'Yr n-1 Usage', 'Yr n-2 Usage', 'Last Used']
-#     df = df[new_column_order]
-# =============================================================================
+   
+    df = df.set_index(['pn sw/sl', 'descrip sw/sl','cost_', 'Item']).sort_index(axis=0)
+    
     if 'De-\nmand?' in df.columns:
-        new_column_order = ['pn sw/sl', 'descrip sw/sl', 'cost_', 'Item', 'Description',
+        new_column_order = ['Description',
                             'similar', 'On\nHand', 'Unit\nCost', 'Yr n-1\nUsage', 'Yr n-2\nUsage',
                             'Last Used\n(Days)', 'De-\nmand?']
     else:
-        new_column_order = ['pn sw/sl', 'descrip sw/sl', 'cost_', 'Item', 'Description',
+        new_column_order = ['Description',
                             'similar', 'On\nHand', 'Unit\nCost', 'Yr n-1\nUsage', 'Yr n-2\nUsage',
-                            'Last Used\n(Days)']
-  
+                            'Last Used\n(Days)']    
     df = df[new_column_order]
-
     if 'cost' in df.columns:
         df.drop(columns=['cost'])
+    df['alt\nqty'] = ''     
         
-    df['alt\nqty'] = ''
-
-    #df.reset_index(drop=True, inplace=True)
-      
-    df = df.set_index(['pn sw/sl', 'descrip sw/sl','cost_', 'Item']).sort_index(axis=0)
-    
     return df
-
+    
 
 def is_in(find, series, xcept):
     '''Argument "find" is a list of strings that are glob
