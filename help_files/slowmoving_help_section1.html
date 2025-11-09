@@ -30,7 +30,7 @@
       <li><a href="#menu" style="text-decoration:none">Slow moving's menu options</a></li>
       <li><a href="#settings" style="text-decoration:none">Settings</a></li>
       <li><a href="#output" style="text-decoration:none">Sample output</a></li>
-      <li><a href="#export" style="text-decoration:none">Export results to Excel</a></li>
+      <li><a href="#record" style="text-decoration:none">Record substituted parts</a></li>
     </ul>
       
     <h2 id="intro">Introduction</h2>
@@ -39,7 +39,7 @@
 	  use up inventory.&nbsp;  File names of BOMs from SolidWorks and SyteLine end with
       _sw.csv and _sl.xlsx respectively.&nbsp;  By adding a third file to the mix ending
       with _sm.xlsx, which contains a BOM of slow moving parts, the comparison can be
-      made by clicking the 2nd run button on the menu bar, i.e, the green triangle icon. 	  
+      made by clicking the 2nd run button on the menu bar, i.e, the second green triangle icon. 	  
 
       
     <h2 id="obtaining">Obtaining a slow moving (SM) BOM</h2>
@@ -92,7 +92,7 @@
           <ol>
 		      <li><b><i>Include "Demand" pns.</b></i>&nbsp;The default is to filter out parts where there is a Demand for those parts.</li>   
 			  <li><b><i>Include "On Hand" pns.</b></i>&nbsp;The default is to filter out "Qty On Hand" parts that are zero.</li>
-			  <li><b><i>Do not show pns listed in the drop list. </b></i>&nbsp;Do not show sw/sl/sm parts that are in the drop list (list is shown in "settings").</li>
+			  <li><b><i>Ignore drop list settings. </b></i>Ignore the settings shown at <i>File > Settings > drop list</i></li>
 		  </ol>
 	  </li>
  	</ol>
@@ -126,15 +126,24 @@
 	  cell above a blank cell has the same value as the non-blank cell.&nbsp;  That is,
 	  the cells that are blank were made that way in order to remove clutter.</p>   
 	  
+	<h2 id="record">Record substituted parts</h2>  
+	    <ol>
+	      <li> If necessary, especially if the alternate part is a higher cost,
+	           verify with management that the subsitution is OK.&nbsp;  Add those
+	           part numbers to the assembly BOM in SyteLine.</li> 
+	      <li> For the part numbers that are being substituted, in SyteLine make the "Effective date" 
+	           for those parts later than the date that the system is to be built.&nbsp; For the
+	           alternate parts that you just added set the "Obsolete date" to be
+	           that same date.</li>
+          <li> The last column in the slow moving comparisons table is titled
+               <i>alt qty</i>.&nbsp;  Enter there the quantity of alternate part numbers
+               that will be substituted for the original part.&nbsp;  Export that table
+               to an Excel file.&nbsp;  Place it in the Engineering folder under the
+               CO for that order.&nbsp;  The file name should end with _alts.xlsx.
+        </ol>
+	  
 	
-	<h2 id="export">Export results to Excel</h2>
-	<p>Export your results to Excel.&nbsp;  Place the file in the Engineering folder for
-	  the CO (in Teams at <i>VIN UWF US - PCI Sys Fldrs > Documents</i>).&nbsp;  The end of the
-	  file name should be <i>_alts.xlsx.</i>&nbsp;  For example: <i>alternativePts_alts.xlsx</i>.&nbsp;
-	  Bomcheck will atomatically add the text <i>_alts</i> to the end of your file name.&nbsp;   The last
-	  column in the Excel file will have a heading named "alt qty".&nbsp;  In
-	  that column, at the appropriate row, enter the number of alternate parts that will be used
-	  for your project.</p>
+
 	  
 
 

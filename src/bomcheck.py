@@ -3,7 +3,7 @@
 """
 File initial creation on Sun Nov 18 2018
 
-@author: Kenneth E. Carlton
+@author: Ken Carlton
 
 This program compares two Bills of Materials (BOMs). One BOM
 originating from a Computer Aided Design (CAD) program like
@@ -12,13 +12,18 @@ Planning (ERP) program like SyteLine (SL).
 
 BOMs are extracted from Microsoft Excel files.  For bomcheck
 to be able to identify files that are suitable for
-evaluation, append the characters _sw.xlsx to the files that
-contain SW BOMs, and append the characters _sl.xlsx to the
-files that contain ERP BOMs. Any submitted files without
-these trailing characters will be ignored.
+evaluation, append the characters _sw.csv or _sw.xlsx to the 
+files that contain SW BOMs, and append the characters 
+_sl.xlsx to the files that contain ERP BOMs. Any submitted 
+files without these trailing characters will be ignored.
 
 The main hub, i.e. the main function, for the functions in
 this program is "bomcheck".
+
+Secondarily this program can compare parts from a BOM
+that cantains slow moving parts that in inventory to
+the pars from SW and/or SL BOMs.  The filename of the
+slow moving parts BOM ends with _sm.xlsx. 
 
 For more information, see the help files for this program.
 """
@@ -26,7 +31,7 @@ For more information, see the help files for this program.
 __version__ = '2.2'
 __author__ = 'Kenneth E. Carlton'
 
-import pdb # use with pdb.set_trace()
+#import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -240,12 +245,15 @@ def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                         description='Program compares CAD BOMs to ERP BOMs.  ' +
                         'Output can be sent to a text file.')
-    parser.add_argument('filename',  help='String or list. If a string, it is the '
-                        'filename(s) of a BOM.  Extension is .xlsx or .csv.'
-                        'Filenames must end with _sw, _sl, or _sm.  If a list, it is a list '  
-                        'of BOMs.  Examples: "6890-*", "*", "[\'1139*\', \'68*0\', ' 
-                        '\'3086-*\']", "filepath/*".  Name must be enclosed by '
-                        'quotation marks, "".')
+    parser.add_argument('filename',  help='Filename or a list of filenames.  Each '
+                        'file contains a BOM from SolidWorks or SyteLine.  File '
+                        'extensions are .csv or .xlsx only.  If BOM is from SolidWorks, '
+                        'filename should end with _sw.csv.  If from Styeline, then _sl.xlsx.  '
+                        'If from a slow moving parts BOM, then _sm.xlsx. Examples: '
+                        '"6890-*", "*".  (Note: with * present, _sw, _sl, and _sw files ' 
+                        'will be culled from gathered files.)  Example of a list of BOMs: '
+                        '"[\'1139*\', \'68*0\', \'3086-*\']". (Note: enclose filename(s) with '
+                        'single and/or double quotes as shown.)'),
     parser.add_argument('-a', '--about', action='version',
                         version="Author: " + __author__ +
                         ".  Initial creation: Nov 18 2018.  "
@@ -261,10 +269,6 @@ def main():
                         ' -d will be automatically set to True.)', type=str),
     parser.add_argument('-exc', '--exceptions', help='Exceptions to part numbers shown in '
                         "the drop list.  E.g. -exc \"['2672*']\"", type=str)
-    parser.add_argument('-fd', '--filter_descrip', default=None,
-                        help="Filter the \"Description\" field of the slow_moving part's "
-                        'BOM; i.e., show only pns of descrips that pass through this filter. '
-                        '(filter is regex expression)'),
     parser.add_argument('-fp', '--filter_pn', default=r'....-....-',
                         help='Truncate pns in the SW/SL BOM to allow a comparison of '
                         "the slow_moving part's BOM. "
@@ -514,7 +518,7 @@ def bomcheck(fn, dic={}, **kwargs):
         cfg['filter_pn'] = kwargs.get('filter_pn', r'....-....-')
         cfg['filter_descrip'] = kwargs.get('filter_descrip', None)
         cfg['similar'] = kwargs.get('similar', 0)
-        cfg['filter_age'] = kwargs.get('filter_age', 60)
+        cfg['filter_age'] = kwargs.get('filter_age', 90)
         cfg['repeat'] = kwargs.get('repeat', False)
         cfg['show_demand'] = kwargs.get('show_demand', False)
         cfg['on_hand'] = kwargs.get('on_hand', False)   
