@@ -28,10 +28,10 @@ slow moving parts BOM ends with _sm.xlsx.
 For more information, see the help files for this program.
 """
 
-__version__ = '2.2'
+__version__ = '2.3'
 __author__ = 'Kenneth E. Carlton'
 
-#import pdb # use with pdb.set_trace()
+import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -1455,7 +1455,15 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     filtrI = dfmerged['_merge'].str.contains('both')  # this filter determines if pn in both SW and SL
     maxdiff = .51 / (10**cfg['accuracy'])
     filtrQ = abs(dfmerged[cfg['Q'] + '_sw'].astype(float) - dfmerged[cfg['Q'] + '_sl']) < maxdiff  # If diff in qty greater than this value, show X
-    filtrD = dfmerged[cfg['Description'] + '_sw'].str.upper().str.split() == dfmerged[cfg['Description'] + '_sl'].str.upper().str.split()
+   
+
+    
+    c1 = dfmerged[cfg['Description'] + '_sw'].astype('string').fillna('').str.upper().str.strip()#.str.upper().str.strip()
+    c2 = dfmerged[cfg['Description'] + '_sl'].astype('string').fillna('').str.upper().str.strip()#.str.upper().str.strip()
+    filtrD = c1==c2
+    # 11/20/25.  Was below, but on very rare occasions, caused program to crash:
+    # filtrD = dfmerged[cfg['Description'] + '_sw'].fillna('').str.upper().str.split() == dfmerged[cfg['Description'] + '_sl'].fillna('').str.upper().str.split()
+    # error was: AttributeError("Can only use .str accessor with string values!")
 
     filtrU = dfmerged[cfg['U'] + '_sw'].astype('str').str.upper().str.strip() == dfmerged[cfg['U'] + '_sl'].astype('str').str.upper().str.strip()
     _pass = '\u2012' #   character name: figure dash
