@@ -97,9 +97,9 @@ def check_sm_parts(files_list, sm_files, cfg):
     for f in files_list:
         for k, v in f.items():
             dfi = v.copy()
-            values = dict.fromkeys(cfg['part_num'], 'PN')   # make sure pns headers are all the same: pn
-            values.update(dict.fromkeys(cfg['descrip'], 'DESCRIPTION'))  # make sure descrip headers all the same: descrip
-            dfi.rename(columns=values, inplace=True)   # rename appropriate column headers to "PN" and "descrip"
+            values = dict.fromkeys(cfg['part_num'], 'pn')   # make sure pns headers are all the same: pn
+            values.update(dict.fromkeys(cfg['descrip'], 'description'))  # make sure descrip headers all the same: descrip
+            dfi.rename(columns=values, inplace=True)   # rename appropriate column headers to "pn" and "descrip"
 # =============================================================================
 #             if 'cost' in dfi.columns:
 #                 print('aaa')
@@ -107,14 +107,14 @@ def check_sm_parts(files_list, sm_files, cfg):
 #             else:
 #                 dfi = dfi[['pn', 'description']]
 # =============================================================================
-            dfi = dfi[['PN', 'DESCRIPTION']]
+            dfi = dfi[['pn', 'description']]
             df = pd.concat([df, dfi])
     #df.sort_values(by='pn', ascending=True, inplace=True)
-    df = df.drop_duplicates(subset=['PN'], keep='first')
-    df['common_pn'] = df['PN'].str.extract('(' + pn_fltr +')')  # apply the pn_fltr
+    df = df.drop_duplicates(subset=['pn'], keep='first')
+    df['common_pn'] = df['pn'].str.extract('(' + pn_fltr +')')  # apply the pn_fltr
         
     if cfg['drop_bool']==True and cfg['drop']:
-        filtr3 = is_in(cfg['drop'], df['PN'], cfg['exceptions'])
+        filtr3 = is_in(cfg['drop'], df['pn'], cfg['exceptions'])
         df.drop(df[filtr3].index, inplace=True)
     
     
@@ -126,12 +126,12 @@ def check_sm_parts(files_list, sm_files, cfg):
         dfinv = pd.concat([dfinv, v])
             
     # Some more preperation to df. Get costs of parts from dfinv.  
-    df2 = df.merge(dfinv, left_on='PN', right_on='Item', how=cfg['merge'])
+    df2 = df.merge(dfinv, left_on='pn', right_on='Item', how=cfg['merge'])
     df2 = df2.rename(columns={'Unit Cost': 'cost2'})
     s = df2['cost2'].copy(deep=True)
     s = s.fillna(0).tolist()
-    df['COST'] = s
-    df['COST'] = '$' + df['COST'].round(2).astype('string')
+    df['cost'] = s
+    df['cost'] = '$' + df['cost'].round(2).astype('string')
     
     
     dfinv['De-\nmand?']= dfinv['De-\nmand?'].replace('No Demand', 'No')
@@ -167,7 +167,7 @@ def check_sm_parts(files_list, sm_files, cfg):
             dfinv = dfinv[dfinv['Description'].str.contains(f, case=False, regex=True)]
     if descrip_filter and cfg['repeat']:
         for f in descrip_filter.split('&'):
-            df = df[df['DESCRIPTION'].str.contains(f, case=False, regex=True)]
+            df = df[df['description'].str.contains(f, case=False, regex=True)]
   
     
     ####################################################################################
@@ -192,11 +192,11 @@ def check_sm_parts(files_list, sm_files, cfg):
                               (r'NEMA 7|N7', .2), (r'24\s*V', .2), (r'1[0-2][0-5]\s*V', .2),
                               (r'230/460\s*V|230\s*V|460\s*V', .2), (r'575\s*V', .2), (r'200\s*V', .2)] 
     
-    df['DESCRIPTION'] = df['DESCRIPTION'].replace(0, 'missing description')
+    df['description'] = df['description'].replace(0, 'missing description')
     if cfg['merge'] == 'inner':
-        similarity_score = df.apply(lambda row: SequenceMatcher(None, row['DESCRIPTION'], row['Description']).ratio(), axis=1) 
+        similarity_score = df.apply(lambda row: SequenceMatcher(None, row['description'], row['Description']).ratio(), axis=1) 
         for alter in alter_score:
-            similarity_score = similarity_score.where(~(df['DESCRIPTION'].str.contains(alter[0],case=False, regex=True) &
+            similarity_score = similarity_score.where(~(df['description'].str.contains(alter[0],case=False, regex=True) &
                                           ~df['Description'].str.contains(alter[0], case=False, regex=True)),
 										  similarity_score*alter[1])
         # If someone enters a percent character, %, when indicating the min similarity he wishes
@@ -211,37 +211,35 @@ def check_sm_parts(files_list, sm_files, cfg):
         else:
             min_similarity = 0               
         similarity_bool = similarity_score*100 > min_similarity
-        df['descr\nsimi-\nlarity'] = (similarity_score*100).round().astype(int)
+        df['similar'] = (similarity_score*100).round().astype(int)
         df = df[similarity_bool]
             
     # if leading or trailing spaces differ, for example, between a text
     # in one descrip and another, then the df.drop_duplicates() won't work
     # to catch the duplicate line.
-    for col in ['PN', 'DESCRIPTION', 'Item', 'Description']:
+    for col in ['pn', 'description', 'Item', 'Description']:
         if df[col].dtype == 'object':
             df[col] = df[col].str.strip()
     
     df = df.drop_duplicates()
-    df.sort_values(by=['PN', 'descr\nsimi-\nlarity'], ascending=[True, False], inplace=True)
-    df['descr\nsimi-\nlarity'] = df['descr\nsimi-\nlarity'].astype('string') + '%'
+    df.sort_values(by=['pn', 'similar'], ascending=[True, False], inplace=True)
+    df['similar'] = df['similar'].astype('string') + '%'
    
     df = df.rename(columns={'Item': 'alt pn'})
 
    
-    df = df.set_index(['PN', 'DESCRIPTION','COST', 'alt pn']).sort_index(axis=0)
+    df = df.set_index(['pn', 'description','cost', 'alt pn']).sort_index(axis=0)
     
     if 'De-\nmand?' in df.columns:
         new_column_order = ['Description',
-                            'descr\nsimi-\nlarity', 'On\nHand', 'Unit Cost', 'Yr n-1\nUsage', 'Yr n-2\nUsage',
+                            'similar', 'On\nHand', 'Unit Cost', 'Yr n-1\nUsage', 'Yr n-2\nUsage',
                             'Last Used\n(Days)', 'De-\nmand?']
     else:
         new_column_order = ['Description',
-                            'descr\nsimi-\nlarity', 'On\nHand', 'Unit Cost', 'Yr n-1\nUsage', 'Yr n-2\nUsage',
+                            'similar', 'On\nHand', 'Unit Cost', 'Yr n-1\nUsage', 'Yr n-2\nUsage',
                             'Last Used\n(Days)']    
     df = df[new_column_order]
-    df = df.rename(columns={'Description': 'alt description', 'Unit Cost':'cost', 'On\nHand': 'on\nhand',
-                            'Yr n-1\nUsage': 'yr\nn-1\nusage', 'Yr n-2\nUsage': 'yr\nn-2\nusage',
-                            'Last Used\n(Days)': 'last\nused\n(days)'})
+    df = df.rename(columns={'Description': 'alt description'})
 # =============================================================================
 #     if 'cost' in df.columns:
 #         df.drop(columns=['cost'])

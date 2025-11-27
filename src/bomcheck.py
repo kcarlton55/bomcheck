@@ -28,7 +28,7 @@ slow moving parts BOM ends with _sm.xlsx.
 For more information, see the help files for this program.
 """
 
-__version__ = '2.3'
+__version__ = '2.4'
 __author__ = 'Kenneth E. Carlton'
 
 import pdb # use with pdb.set_trace()
@@ -803,7 +803,8 @@ def gatherBOMs_from_fnames(filename):
                 # df.drop(index=[0, 8, 12, 23])                 will drop rows 0, 8, 12, 23
                 # reference: https://www.geeksforgeeks.org/drop-a-list-of-rows-from-a-pandas-dataframe/, see row: Drop Rows with Conditions in Pandas
             if 'Labor' in df.columns:  # df comes from a costed BOM
-                df['cost'] = (df['Outside'] + df['Material'] + df['Labor'] + df['Overhead']).astype(int)
+                print('bbb')
+                #df['cost'] = (df['Outside'] + df['Material'] + df['Labor'] + df['Overhead']).astype(int)
                 df.drop(columns=['Outside', 'Material', 'Labor', 'Overhead'], inplace=True) # Most importantly, drop "Material".  It causes issues in function "typeNotMtl"
             if 'partsonly' in v.lower() or 'onlyparts' in v.lower():
                 ptsonlyflag = True
@@ -838,8 +839,7 @@ def gatherBOMs_from_fnames(filename):
                 df = df.astype({'Qty On Hand': int, 'Last Movement (Days)': int,
                                 'Unit Cost': int, 'Year n-1 Usage': int, 
                                 'Year n-2 Usage': int, 'Last Movement (Days)': int})
-                df = df.rename(columns={'Unit Cost':'Unit\nCost', 
-                                        'Qty On Hand':'On\nHand', 'Movement?': 'De-\nmand?',
+                df = df.rename(columns={'Qty On Hand':'On\nHand', 'Movement?': 'De-\nmand?',
                                         'Year n-1 Usage': 'Yr n-1\nUsage',
                                         'Year n-2 Usage': 'Yr n-2\nUsage',
                                         'Last Movement (Days)': 'Last Used\n(Days)'} )
