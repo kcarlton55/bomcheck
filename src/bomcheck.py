@@ -43,6 +43,10 @@ import re
 import check_sm_parts
 from pathlib import Path
 from check_sm_parts import is_in
+try:
+    from python_calamine.pandas import pandas_monkeypatch
+except:
+    pass
 toml_imported = False
 if sys.version_info >= (3, 11):
     import tomllib
@@ -60,6 +64,17 @@ pd.set_option('display.max_rows', None)  # was pd.set_option('display.max_rows',
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_colwidth', 100)
 pd.set_option('display.width', 250)
+
+# 
+# Set a limit on the number of columns displayed (e.g., 5 columns total)
+# pd.set_option('display.max_columns', 5)
+# display(df)
+# To show all columns again, you can reset the option or set it to None:
+# pd.set_option('display.max_columns', None)
+# also:
+# pandas.set_option('display.max_rows', None)
+# pandas.set_option('display.max_columns', None)
+# ref: https://pandas.pydata.org/pandas-docs/stable/user_guide/options.html
 
 
 
@@ -105,7 +120,7 @@ def setcfg(**kwargs):
     altering the file bomcheck.cfg.
 
     Examples
-    ========
+    ========from python_calamine.pandas import pandas_monkeypatch
 
     setcfg(drop=["3*-025", "3*-008"], accuracy=4)
     '''
@@ -697,6 +712,10 @@ def gatherBOMs_from_fnames(filename):
         subassembly part numbers of a file containing
         multilevel BOM.
     '''
+    try:
+        pandas_monkeypatch()
+    except:
+        pass
     dirname = '.'  # to this will assign the name of 1st directory a _sw is found in
     global printStrs
     swfilesdic = {}
@@ -706,8 +725,6 @@ def gatherBOMs_from_fnames(filename):
     count_sw_xlsx = 0
     count_sl = 0
     count_sm = 0
-    XLSnotAllowed = ('\nBomcheck does not support .xls formated Excel files.\n'
-                     'Those files will be ignored.  Save to .xlsx instead\n')
     for f in filename:  # from filename extract all _sw & _sl files and put into swfilesdic & slfilesdic
         i = f.rfind('_')
         if f[i:i+4].lower() == '_sw.' or f[i:i+4].lower() == '_sl.' or f[i:i+4].lower() == '_sm.'  :
@@ -728,13 +745,13 @@ def gatherBOMs_from_fnames(filename):
         ptsonlyflag = False
         try:
             _, file_extension = os.path.splitext(v)
-            if file_extension.lower() == '.xlsx':
+            if file_extension.lower() == '.xlsx' or  file_extension.lower() == '.xls':
                 count_sw_xlsx += 1
-                df = pd.read_excel(v, na_values=[' '])
+                df = pd.read_excel(v, na_values=[' '], engine='calamine')
                 df.columns = df.columns.str.replace(r'\n', '', regex=True)
                 df.replace(r'\n',' ', regex=True, inplace=True)
                 if df.columns[1] == 'Unnamed: 1':
-                    df = pd.read_excel(v, na_values=[' '], skiprows=1)
+                    df = pd.read_excel(v, na_values=[' '], skiprows=1, engine='calamine')
                     df.columns = df.columns.str.replace(r'\n', '', regex=True)
                     df.replace(r'\n',' ', regex=True, inplace=True)
                     if get_col_name(df, cfg['descrip']):
@@ -744,10 +761,6 @@ def gatherBOMs_from_fnames(filename):
                 dfsw_found=True
                 if dfsw_found:  # do this if a _sl.xlsx file renamed to a _sw.xlsx file.  That is a sl file maskarading as a sw file.
                     df.drop(df[df.iloc[:,0].astype('str').str.contains('Group')].index, inplace=True)
-            elif file_extension.lower() == '.xls' and XLSnotAllowed not in printStrs:
-                printStrs.append(XLSnotAllowed)
-                print(XLSnotAllowed)
-                dfsw_found = False
             elif file_extension.lower() == '.csv':
                 count_sw_csv += 1
                 df = csv_to_df(v, descrip=cfg['descrip'], encoding="ISO-8859-1")
@@ -776,9 +789,9 @@ def gatherBOMs_from_fnames(filename):
         ptsonlyflag = False
         try:
             _, file_extension = os.path.splitext(v)
-            if file_extension.lower() == '.xlsx':
+            if file_extension.lower() == '.xlsx' or  file_extension.lower() == '.xls':
                 count_sl += 1
-                df = pd.read_excel(v, na_values=[' '])
+                df = pd.read_excel(v, na_values=[' '], engine='calamine')
                 if 'Item' in df.columns:
                     df.dropna(subset=['Item'], inplace=True)  # Costed BOM has useless 2nd row that starts with "BOM Alternate ID: 0".  Item in that row is NaN.  Delete that row.
 
@@ -786,10 +799,6 @@ def gatherBOMs_from_fnames(filename):
                     df['Type'].fillna('Material', inplace=True) # costed BOM and a black value in 'Type' column. Give it value 'Material'.  This will keep bomcheck quiet.
 
                 dfsl_found=True
-            elif file_extension.lower() == '.xls' and XLSnotAllowed not in printStrs:
-                printStrs.append(XLSnotAllowed)
-                print(XLSnotAllowed)
-                dfsl_found=False
             else:
                 dfsl_found=False
 
@@ -803,8 +812,6 @@ def gatherBOMs_from_fnames(filename):
                 # df.drop(index=[0, 8, 12, 23])                 will drop rows 0, 8, 12, 23
                 # reference: https://www.geeksforgeeks.org/drop-a-list-of-rows-from-a-pandas-dataframe/, see row: Drop Rows with Conditions in Pandas
             if 'Labor' in df.columns:  # df comes from a costed BOM
-                print('bbb')
-                #df['cost'] = (df['Outside'] + df['Material'] + df['Labor'] + df['Overhead']).astype(int)
                 df.drop(columns=['Outside', 'Material', 'Labor', 'Overhead'], inplace=True) # Most importantly, drop "Material".  It causes issues in function "typeNotMtl"
             if 'partsonly' in v.lower() or 'onlyparts' in v.lower():
                 ptsonlyflag = True
@@ -827,9 +834,9 @@ def gatherBOMs_from_fnames(filename):
     for k, v in smfilesdic.items():
         try:
             _, file_extension = os.path.splitext(v)
-            if file_extension.lower() == '.xlsx':
+            if file_extension.lower() == '.xlsx' or  file_extension.lower() == '.xls':
                 count_sm += 1
-                df = pd.read_excel(v, usecols=['Item', 'Description', 'Unit Cost',
+                df = pd.read_excel(v, engine='calamine', usecols=['Item', 'Description', 'Unit Cost',
                                                'Movement?', 'Qty On Hand', 'Year n-1 Usage',
                                                'Year n-2 Usage', 'Last Movement (Days)'])
                 df = df.drop(df.index[-2:])  # Last two rows of a SM BOM are garbage
@@ -847,14 +854,17 @@ def gatherBOMs_from_fnames(filename):
             else:
                 dfsm_found=False
         except:
-            printStr = ('\nError 205. '
-                        'File has been excluded from analysis:\n\n ' + v + '\n\n'
-                        '1) Perhaps you have it open in another application?\n\n'
-                        '2) At minimum, columns with these names are expected\n'
+            printStr = ('\nError 205 occurred regarading file ' + v + '\n'
+                        'Some possible reasons error occured\n\n'
+                        '1) Counld not read file. Is file present at the location \n'
+                        '   that you indicated.  Has the add-on module named \n'
+                        '   calamine been installed properly?'
+                        '2) Perhaps you have it open in another application?\n\n'
+                        '3) At minimum, columns with these names are expected\n'
                         '   to be in the SM BOM: Item, Description, Unit Cost,\n' 
                         '   Movement?, Qty On Hand, Year n-1 Usage,\n' 
                         '   Year n-2 Usage,  Last Movement (Days).\n'
-                        '   Names are case sensitive.')
+                        '   (Names are case sensitive.)')
             printStrs.append(printStr)
             print(printStr)
         if dfsm_found:
@@ -1606,10 +1616,7 @@ def concat_boms(title_dfsw, title_dfmerged):
     if dfmergedDFrames:
         dfmergedCCat = pd.concat(dfmergedDFrames).reset_index()
         mrgresults.append(('BOM Check', dfmergedCCat.set_index([cfg['assy'], cfg['Item']]).sort_index(axis=0)))
-    
-
-
-          
+              
     return swresults, mrgresults
 
 
@@ -1674,7 +1681,7 @@ def export2xlsx(filename, df, run_bomcheck):
                     max_width_of_header
                     ]) + x
             worksheet.set_column(idx+offset, idx+offset, max_len, wrap_format)
-    
+            
     file_path = Path(filename)
     parent = file_path.parent
     stem = str(file_path.stem)
@@ -1686,7 +1693,7 @@ def export2xlsx(filename, df, run_bomcheck):
         name = stem + '.xlsx'
     fn = parent / name
     
-    with pd.ExcelWriter(fn, engine='xlsxwriter') as writer:
+    with pd.ExcelWriter(fn, engine='xlsxwriter') as writer:  #, if_sheet_exists='new'
         df.to_excel(writer, sheet_name='Sheet1', startrow=1, header=False)
          
         # Get the xlsxwriter workbook and worksheet objects
@@ -1707,7 +1714,7 @@ def export2xlsx(filename, df, run_bomcheck):
         for col_num, value in enumerate(headers):
             worksheet.write(0, col_num + 0, value, header_format)   
         writer.close()
-    print(f'Saved to: {fn}')    
+    print(f'Saved to: {fn}') 
         
 
 def view_help(help_type='bomcheck_help', version='master', dbdic=None):

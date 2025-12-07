@@ -10,7 +10,7 @@ This allows possible substitution of slow_moving parts in systems
 currently being built so that slow_moving parts can be used up.
 """
 
-#import pdb # use with pdb.set_trace()
+import pdb # use with pdb.set_trace()
 import pandas as pd
 from difflib import SequenceMatcher
 import fnmatch
@@ -81,7 +81,6 @@ def check_sm_parts(files_list, sm_files, cfg):
     Only the union of the SW/SL BOMs and the slow_moving BOM is output; 
     e.g. pt nos and desriptions, costs, usage, etc.
     '''
-        
     # extract from "cfg" args from the user.
     try:
         pn_fltr = cfg['filter_pn'].text()
@@ -100,39 +99,34 @@ def check_sm_parts(files_list, sm_files, cfg):
             values = dict.fromkeys(cfg['part_num'], 'PN')   # make sure pns headers are all the same: pn
             values.update(dict.fromkeys(cfg['descrip'], 'DESCRIPTION'))  # make sure descrip headers all the same: descrip
             dfi.rename(columns=values, inplace=True)   # rename appropriate column headers to "PN" and "descrip"
-# =============================================================================
-#             if 'cost' in dfi.columns:
-#                 print('aaa')
-#                 dfi = dfi[['pn', 'description', 'cost']]   # delete all columns but "pn", "descrip"
-#             else:
-#                 dfi = dfi[['pn', 'description']]
-# =============================================================================
             dfi = dfi[['PN', 'DESCRIPTION']]
             df = pd.concat([df, dfi])
-    #df.sort_values(by='pn', ascending=True, inplace=True)
     df = df.drop_duplicates(subset=['PN'], keep='first')
     df['common_pn'] = df['PN'].str.extract('(' + pn_fltr +')')  # apply the pn_fltr
-        
+            
     if cfg['drop_bool']==True and cfg['drop']:
         filtr3 = is_in(cfg['drop'], df['PN'], cfg['exceptions'])
-        df.drop(df[filtr3].index, inplace=True)
-    
-    
+        df.drop(df[filtr3].index, inplace=True)        
+      
     ####################################################################################
     ##### dfinv is the dataframe derived from the excel sheet of slow_moving parts #####
     ####################################################################################
     dfinv = pd.DataFrame()  # start with an empty DataFrame
     for k, v in sm_files.items():
         dfinv = pd.concat([dfinv, v])
-            
-    # Some more preperation to df. Get costs of parts from dfinv.  
+
+    df = df.dropna(subset=['common_pn'])  # drop rows that have NaN in column 'common_pn'
+    df.reset_index(drop=True, inplace=True)
+  
+    # Some more preperation to df. Get costs of parts from dfinv:  
     df2 = df.merge(dfinv, left_on='PN', right_on='Item', how=cfg['merge'])
-    df2 = df2.rename(columns={'Unit Cost': 'cost2'})
-    s = df2['cost2'].copy(deep=True)
-    s = s.fillna(0).tolist()
-    df['COST'] = s
-    df['COST'] = '$' + df['COST'].round(2).astype('string')
-    
+    # df contains only these columns: PN, DESCRIPTION, and common_pn
+    # df2 contains columns PN, DESCRIPTION, ..., Last Used\n(Days), De-\nmand?
+    df3 = pd.merge(df, df2, how='left')
+    # df and df2 are virually the same, except df contains any new PNs that are not in df2
+    # df3 contains these new PNs.  Its 'Unit Cost' is NaN in df3.  Next line sets that NaN to 0.
+    df['COST'] = df3['Unit Cost'].fillna(0)
+    df['COST'] = '$' + df['COST'].round(2).astype('string')  # Now a COST column is in df
     
     dfinv['De-\nmand?']= dfinv['De-\nmand?'].replace('No Demand', 'No')
     dfinv['De-\nmand?']= dfinv['De-\nmand?'].replace('Demand', 'Yes')
@@ -193,6 +187,7 @@ def check_sm_parts(files_list, sm_files, cfg):
                               (r'230/460\s*V|230\s*V|460\s*V', .2), (r'575\s*V', .2), (r'200\s*V', .2)] 
     
     df['DESCRIPTION'] = df['DESCRIPTION'].replace(0, 'missing description')
+        
     if cfg['merge'] == 'inner':
         similarity_score = df.apply(lambda row: SequenceMatcher(None, row['DESCRIPTION'], row['Description']).ratio(), axis=1) 
         for alter in alter_score:
@@ -209,7 +204,8 @@ def check_sm_parts(files_list, sm_files, cfg):
         if match:
             min_similarity = float(match.group())
         else:
-            min_similarity = 0               
+            min_similarity = 0    
+                    
         similarity_bool = similarity_score*100 > min_similarity
         df['descr\nsimi-\nlarity'] = (similarity_score*100).round().astype(int)
         df = df[similarity_bool]
@@ -242,11 +238,6 @@ def check_sm_parts(files_list, sm_files, cfg):
     df = df.rename(columns={'Description': 'alt description', 'Unit Cost':'cost', 'On\nHand': 'on\nhand',
                             'Yr n-1\nUsage': 'yr\nn-1\nusage', 'Yr n-2\nUsage': 'yr\nn-2\nusage',
                             'Last Used\n(Days)': 'last\nused\n(days)'})
-# =============================================================================
-#     if 'cost' in df.columns:
-#         df.drop(columns=['cost'])
-# =============================================================================
-
     df['alt\nqty'] = ''     
         
     return df
