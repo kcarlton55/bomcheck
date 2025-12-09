@@ -82,6 +82,9 @@ def check_sm_parts(files_list, sm_files, cfg):
     e.g. pt nos and desriptions, costs, usage, etc.
     '''
     
+    print(cfg['merge'])
+    
+    
     # extract from "cfg" args from the user.
     try:
         pn_fltr = cfg['filter_pn'].text()
@@ -119,9 +122,14 @@ def check_sm_parts(files_list, sm_files, cfg):
     df = df.dropna(subset=['common_pn'])  # drop rows that have NaN in column 'common_pn'
     df.reset_index(drop=True, inplace=True)
   
-    # df doesn't haves cost of parts.  Get them from dfinv and put them into df.  
-    df2 = df.merge(dfinv, left_on='PN', right_on='Item', how='left')
-    df['COST'] = df2['Unit Cost'].fillna(0)
+    # Some more preperation to df. Get costs of parts from dfinv:  
+    df2 = df.merge(dfinv, left_on='PN', right_on='Item', how=cfg['merge'])
+    # df contains only these columns: PN, DESCRIPTION, and common_pn
+    # df2 contains columns PN, DESCRIPTION, ..., Last Used\n(Days), De-\nmand?
+    df3 = pd.merge(df, df2, how='left')
+    # df and df2 are virually the same, except df contains any new PNs that are not in df2
+    # df3 contains these new PNs.  Its 'Unit Cost' is NaN in df3.  Next line sets that NaN to 0.
+    df['COST'] = df3['Unit Cost'].fillna(0)
     df['COST'] = '$' + df['COST'].round(2).astype('string')  # Now a COST column is in df
     
     dfinv['De-\nmand?']= dfinv['De-\nmand?'].replace('No Demand', 'No')
@@ -138,7 +146,7 @@ def check_sm_parts(files_list, sm_files, cfg):
     try:
         match = re.search(r'\d+', cfg['filter_age'].text())
     except:
-        match = re.search(r'\d+', cfg.get('filter_age', '0'))
+        match = re.search(r'\d+', cfg.get('filter_age', '60'))
     if match:
         min_age = float(match.group())
     else:
@@ -184,26 +192,27 @@ def check_sm_parts(files_list, sm_files, cfg):
     
     df['DESCRIPTION'] = df['DESCRIPTION'].replace(0, 'missing description')
         
-    similarity_score = df.apply(lambda row: SequenceMatcher(None, row['DESCRIPTION'], row['Description']).ratio(), axis=1) 
-    for alter in alter_score:
-        similarity_score = similarity_score.where(~(df['DESCRIPTION'].str.contains(alter[0],case=False, regex=True) &
-                                      ~df['Description'].str.contains(alter[0], case=False, regex=True)),
+    if cfg['merge'] == 'inner':
+        similarity_score = df.apply(lambda row: SequenceMatcher(None, row['DESCRIPTION'], row['Description']).ratio(), axis=1) 
+        for alter in alter_score:
+            similarity_score = similarity_score.where(~(df['DESCRIPTION'].str.contains(alter[0],case=False, regex=True) &
+                                          ~df['Description'].str.contains(alter[0], case=False, regex=True)),
 										  similarity_score*alter[1])
-    # If someone enters a percent character, %, when indicating the min similarity he wishes
-    # to see, for example 86%, the % chacter will crash the program.  So this program will
-    # fix the problem by extracting the number, i.e. 86, from the text, i.e. 86%
-    try:
-        match = re.search(r'\d+', cfg['similar'].text())
-    except:
-        match = re.search(r'\d+', cfg['similar'])
-    if match:
-        min_similarity = float(match.group())
-    else:
-        min_similarity = 0    
-                
-    similarity_bool = similarity_score*100 > min_similarity
-    df['descr\nsimi-\nlarity'] = (similarity_score*100).round().astype(int)
-    df = df[similarity_bool]
+        # If someone enters a percent character, %, when indicating the min similarity he wishes
+        # to see, for example 86%, the % chacter will crash the program.  So this program will
+        # fix the problem by extracting the number, i.e. 86, from the text, i.e. 86%
+        try:
+            match = re.search(r'\d+', cfg['similar'].text())
+        except:
+            match = re.search(r'\d+', cfg['similar'])
+        if match:
+            min_similarity = float(match.group())
+        else:
+            min_similarity = 0    
+                    
+        similarity_bool = similarity_score*100 > min_similarity
+        df['descr\nsimi-\nlarity'] = (similarity_score*100).round().astype(int)
+        df = df[similarity_bool]
             
     # if leading or trailing spaces differ, for example, between a text
     # in one descrip and another, then the df.drop_duplicates() won't work

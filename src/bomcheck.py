@@ -486,7 +486,6 @@ def bomcheck(fn, dic={}, **kwargs):
         if '_alts' in cfg['export']:
             cfg['run_bomcheck'] = False
             
-    cfg['merge'] = 'inner'
     cfg['similar'] = '0'
             
     ####################################################################
@@ -533,7 +532,7 @@ def bomcheck(fn, dic={}, **kwargs):
         cfg['filter_pn'] = kwargs.get('filter_pn', r'....-....-')
         cfg['filter_descrip'] = kwargs.get('filter_descrip', None)
         cfg['similar'] = kwargs.get('similar', 0)
-        cfg['filter_age'] = kwargs.get('filter_age', 90)
+        cfg['filter_age'] = kwargs.get('filter_age', 0)
         cfg['repeat'] = kwargs.get('repeat', False)
         cfg['show_demand'] = kwargs.get('show_demand', False)
         cfg['on_hand'] = kwargs.get('on_hand', False)   
