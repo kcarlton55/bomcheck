@@ -10,7 +10,7 @@ This allows possible substitution of slow_moving parts in systems
 currently being built so that slow_moving parts can be used up.
 """
 
-import pdb # use with pdb.set_trace()
+# import pdb # use with pdb.set_trace()
 import pandas as pd
 from difflib import SequenceMatcher
 import fnmatch
@@ -213,13 +213,19 @@ def check_sm_parts(files_list, sm_files, cfg):
             df[col] = df[col].str.strip()
     
     df = df.drop_duplicates()
-    df.sort_values(by=['PN', 'descr\nsimi-\nlarity'], ascending=[True, False], inplace=True)
+    df.sort_values(by=['PN', 'descr\nsimi-\nlarity'], ascending=[True, False], kind='mergesort', inplace=True)
     df['descr\nsimi-\nlarity'] = df['descr\nsimi-\nlarity'].astype('string') + '%'
-   
+      
     df = df.rename(columns={'Item': 'alt pn'})
+    
+    # Do not report pns where a match was found in sm parts, & when no demand for these parts.
+    if not cfg.get('show_demand', False):      
+        rows_showing_pns_to_drop = df[df['PN'] == df['alt pn']]
+        list_of_those_pns = rows_showing_pns_to_drop['PN'].tolist()
+        df = df[~df['PN'].isin(list_of_those_pns)] # drop ALL rows containing these pns
 
    
-    df = df.set_index(['PN', 'DESCRIPTION','COST', 'alt pn']).sort_index(axis=0)
+    df = df.set_index(['PN', 'DESCRIPTION','COST', 'alt pn']) #.sort_index(axis=0)
     
     if 'De-\nmand?' in df.columns:
         new_column_order = ['Description',
@@ -233,7 +239,7 @@ def check_sm_parts(files_list, sm_files, cfg):
     df = df.rename(columns={'Description': 'alt description', 'Unit Cost':'cost', 'On\nHand': 'on\nhand',
                             'Yr n-1\nUsage': 'yr\nn-1\nusage', 'Yr n-2\nUsage': 'yr\nn-2\nusage',
                             'Last Used\n(Days)': 'last\nused\n(days)'})
-    df['alt\nqty'] = ''     
+    df['alt\nqty'] = '' 
         
     return df
     

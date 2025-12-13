@@ -31,7 +31,7 @@ For more information, see the help files for this program.
 __version__ = '2.4'
 __author__ = 'Kenneth E. Carlton'
 
-import pdb # use with pdb.set_trace()
+#import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -551,7 +551,15 @@ def bomcheck(fn, dic={}, **kwargs):
     dirname, swfiles, slfiles, smfiles = gatherBOMs_from_fnames(fn)
         
     if smfiles and cfg['run_bomcheck'] == False:
-        sm_pts_comparison = check_sm_parts.check_sm_parts([slfiles, swfiles], smfiles, cfg)
+        try:
+            sm_pts_comparison = check_sm_parts.check_sm_parts([slfiles, swfiles], smfiles, cfg)
+        except Exception as e:
+            printStr = ('\nError 206. ' +
+                        'Unknown error occured in function sm_pts_comparison.\n' +
+                        str(e) + '\n\n')
+            printStrs.append(printStr)
+            print(printStr)
+            sm_pts_comparison = None  
     else:
         sm_pts_comparison = None     
         
@@ -1706,12 +1714,16 @@ def export2xlsx(filename, df, run_bomcheck):
             'align': 'center',
             'fg_color': '#D7E4BC',
             'border': 1})
+    
+    
+
         
         autosize_excel_columns(worksheet, df)           
         headers = list(df.index.names) + list(df.columns)
         # Write the column headers with the defined format.
         for col_num, value in enumerate(headers):
             worksheet.write(0, col_num + 0, value, header_format)   
+        worksheet.set_row(0, 50.001)
         writer.close()
     print(f'Saved to: {fn}') 
         
