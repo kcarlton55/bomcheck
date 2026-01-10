@@ -836,21 +836,6 @@ def gatherBOMs_from_fnames(filename):
             printStrs.append(printStr)
             print(printStr)
 
-    def alter_sm_df(df):
-            df = df.drop(df.index[-2:])  # Last two rows of a SM BOM are garbage
-            df['Unit Cost'] = df['Unit Cost'].replace('[$,]', '', regex=True).astype(float).astype(int)
-            df = df.fillna({'Item': '', 'Description': '', 'Qty On Hand': 0, 'Last Movement (Days)': 0,
-                       'Unit Cost': 0, 'Movement?': '', 'Year n-1 Usage': 0,
-                       'Year n-2 Usage': 0})
-            df = df.astype({'Qty On Hand': int, 'Last Movement (Days)': int,
-                            'Unit Cost': int, 'Year n-1 Usage': int, 
-                            'Year n-2 Usage': int, 'Last Movement (Days)': int})
-            df = df.rename(columns={'Qty On Hand':'On\nHand', 'Movement?': 'De-\nmand?',
-                                    'Year n-1 Usage': 'Yr n-1\nUsage',
-                                    'Year n-2 Usage': 'Yr n-2\nUsage',
-                                    'Last Movement (Days)': 'Last Used\n(Days)'} )
-            return df
-        
     smdfsdic = {}
     dfsm_found = False
     for k, v in smfilesdic.items():
@@ -860,9 +845,19 @@ def gatherBOMs_from_fnames(filename):
                 count_sm += 1
                 df = pd.read_excel(v, engine='calamine', usecols=['Item', 'Description', 'Unit Cost',
                                                'Movement?', 'Qty On Hand', 'Year n-1 Usage',
-                                               'Year n-2 Usage', 'Last Movement (Days)'])                             
-                df = alter_sm_df(df)
-                dfsm_found = True
+                                               'Year n-2 Usage', 'Last Movement (Days)'])
+                df = df.drop(df.index[-2:])  # Last two rows of a SM BOM are garbage
+                df = df.fillna({'Item': '', 'Description': '', 'Qty On Hand': 0, 'Last Movement (Days)': 0,
+                           'Unit Cost': 0, 'Movement?': '', 'Year n-1 Usage': 0,
+                           'Year n-2 Usage': 0})
+                df = df.astype({'Qty On Hand': int, 'Last Movement (Days)': int,
+                                'Unit Cost': int, 'Year n-1 Usage': int, 
+                                'Year n-2 Usage': int, 'Last Movement (Days)': int})
+                df = df.rename(columns={'Qty On Hand':'On\nHand', 'Movement?': 'De-\nmand?',
+                                        'Year n-1 Usage': 'Yr n-1\nUsage',
+                                        'Year n-2 Usage': 'Yr n-2\nUsage',
+                                        'Last Movement (Days)': 'Last Used\n(Days)'} )
+                dfsm_found=True
             else:
                 dfsm_found=False
         except:
@@ -883,11 +878,34 @@ def gatherBOMs_from_fnames(filename):
             smdfsdic.update({k: df})
             
     try:
-        df = pd.read_clipboard(engine='python')
+        df = pd.read_clipboard(engine='python', na_values=[' '])
+        print('aaa')
+        print(df.columns)
         print('Year n-1 Usage' in df.columns)
         if 'Year n-1 Usage' in df.columns:
             count_sm += 1
-            df = alter_sm_df(df)
+# =============================================================================
+#             df = pd.read_excel(v, engine='calamine', usecols=['Item', 'Description', 'Unit Cost',
+#                                            'Movement?', 'Qty On Hand', 'Year n-1 Usage',
+#                                            'Year n-2 Usage', 'Last Movement (Days)'])
+# =============================================================================
+            print('ccc')
+            df = df.drop(df.index[-2:])  # Last two rows of a SM BOM are garbage
+            df = df.fillna({'Item': '', 'Description': '', 'Qty On Hand': 0, 'Last Movement (Days)': 0,
+                       'Unit Cost': 0, 'Movement?': '', 'Year n-1 Usage': 0,
+                       'Year n-2 Usage': 0})
+            print('ddd')
+            df['Unit Cost'] = df['Unit Cost'].replace('[$,]', '', regex=True).astype(float).astype(int)
+            df = df.astype({'Qty On Hand': int, 'Last Movement (Days)': int,
+                            'Unit Cost': int, 'Year n-1 Usage': int, 
+                            'Year n-2 Usage': int, 'Last Movement (Days)': int})
+            print('eee')
+            df = df.rename(columns={'Qty On Hand':'On\nHand', 'Movement?': 'De-\nmand?',
+                                    'Year n-1 Usage': 'Yr n-1\nUsage',
+                                    'Year n-2 Usage': 'Yr n-2\nUsage',
+                                    'Last Movement (Days)': 'Last Used\n(Days)'} )
+            print('bbb')
+            print(smdfsdic)
             smdfsdic.update({'BOMfromClipboard': df})
 
     except Exception as e:

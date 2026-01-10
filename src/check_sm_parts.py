@@ -226,20 +226,20 @@ def check_sm_parts(files_list, sm_files, cfg):
 
    
     df = df.set_index(['PN', 'DESCRIPTION','COST', 'alt pn']) #.sort_index(axis=0)
+    df['alt\nqty\nused'] = '' 
     
     if 'De-\nmand?' in df.columns:
         new_column_order = ['Description',
                             'descr\nsimi-\nlarity', 'On\nHand', 'Unit Cost', 'Yr n-1\nUsage', 'Yr n-2\nUsage',
-                            'Last Used\n(Days)', 'De-\nmand?']
+                            'Last Used\n(Days)', 'De-\nmand?', 'alt\nqty\nused']
     else:
         new_column_order = ['Description',
-                            'descr\nsimi-\nlarity', 'On\nHand', 'Unit Cost', 'Yr n-1\nUsage', 'Yr n-2\nUsage',
-                            'Last Used\n(Days)']    
+                            'descr\nsimi-\nlarity', 'On\nHand', 'alt\nqty\nused', 'Unit Cost', 'Yr n-1\nUsage', 'Yr n-2\nUsage',
+                            'Last Used\n(Days)', 'alt\nqty\nused']    
     df = df[new_column_order]
     df = df.rename(columns={'Description': 'alt description', 'Unit Cost':'cost', 'On\nHand': 'on\nhand',
                             'Yr n-1\nUsage': 'yr\nn-1\nusage', 'Yr n-2\nUsage': 'yr\nn-2\nusage',
                             'Last Used\n(Days)': 'last\nused\n(days)'})
-    df['alt\nqty'] = '' 
         
     return df
     
