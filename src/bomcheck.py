@@ -31,7 +31,7 @@ For more information, see the help files for this program.
 __version__ = '2.5'
 __author__ = 'Kenneth E. Carlton'
 
-import pdb # use with pdb.set_trace()
+#import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -554,9 +554,12 @@ def bomcheck(fn, dic={}, **kwargs):
         try:
             sm_pts_comparison = check_sm_parts.check_sm_parts([swfiles, slfiles], smfiles, cfg)
         except Exception as e:
-            printStr = ('\nError 206. ' +
-                        'Unknown error occured in function sm_pts_comparison.\n' +
-                        'One possible reason: "on shelf" value set too high.\n' +
+            printStr = ('\nError 206. \n' +
+                        'Unknown error occured in the function "sm_pts_comparison".\n' +
+                        'Things to consider:\n\n' +
+                        '1) "on shelf" value set too high.\n' +
+                        '2) Activate the switch "Ignore drop list settings". \n' +
+                        '   See what affect this has.\n\n' +
                         str(e) + '\n\n')
             printStrs.append(printStr)
             print(printStr)
