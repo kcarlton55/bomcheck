@@ -30,14 +30,14 @@
       <li><a href="#menu" style="text-decoration:none">Slow moving's menu options</a></li>
       <li><a href="#settings" style="text-decoration:none">Settings</a></li>
       <li><a href="#output" style="text-decoration:none">Sample output</a></li>
-      <li><a href="#record" style="text-decoration:none">Recording substituted parts</a></li>
+      <li><a href="#record" style="text-decoration:none">Implementing sm part substitutions</a></li>
     </ul>
       
     <h2 id="intro">Introduction</h2>
-    <p>Parts nos. from slow moving inventory can be compared with part nos. of your
+    <p>Part nos. from slow moving inventory can be compared with part nos. of your
 	  current project in order to look for possible substitutions of parts in order to
 	  use up inventory.&nbsp;  File names of BOMs from SolidWorks and SyteLine end with
-      _sw.csv and _sl.xlsx respectively.&nbsp;  By adding a third file to the mix ending
+      _sw.xls (or _sw.csv) and _sl.xlsx respectively.&nbsp;  By adding a third file to the mix ending
       with _sm.xlsx, which contains a BOM of slow moving parts, the comparison can be
       made by clicking the 2nd run button on the menu bar, i.e, the second green triangle icon. 	  
 
@@ -45,39 +45,41 @@
     <h2 id="obtaining">Obtaining a slow moving (SM) BOM</h2>
     <p>Go to 
       <a href="https://app.powerbi.com/" target="_blank" rel="noopener noreferrer">
-	  https://app.powerbi.com/</a>, then click PC Indiana Dashboards > Inventory
+	  https://app.powerbi.com/</a> then click PC Indiana Dashboards > Inventory
 	  (on the left side menu) > Inventory Forecast.&nbsp;  This will lead to a page that looks like
 	  this: <div class="container" style="border: 20px solid transparent;">
       <img src="inventory_forecast.png" alt="inventory forecast pic" width=900></div>
 	  
-	<p>At the upper right is the "View" drop down menu.&nbsp;   From that pick "Actual size".
+	<p>At the upper right is the "View" drop down menu.&nbsp;   From that pick "Actual size".&nbsp; 
 	  (If you don't resize to "Actual size", then the "More options" menu is difficult
       to access.)&nbsp; Now go to the "More options" menu (the three dots, ...)   
       and choose "Export data" and "Data with current layout".&nbsp;  Name the
-      file you are exporting to anything you want, except that the end of the file name must end with "_sm.xlsx",
+      file you are exporting to anything you want except that the end of the file name must end with "_sm.xlsx",
       for example <i>slowmoving_sm.xlsx</i>.</p>
+	  
+	<p>For quicker access to this BOM, create a link to it in your web browser.</p>  
       
     <p>To use this file, drag and drop it into the bomcheck program the same way
-      that you drag and drop _sw.xlsx and _sl.xlsx files.</p>
+      that you drag and drop _sw.xls and _sl.xlsx files.</p>
        
        
     <h2 id="menu">Slow moving's menu options</h2>
       <div class="container" style="border: 20px solid transparent;">
       <img src="bomcheck_s_look.png" alt="bomcheck menu options pic" width=900></div>
 	
-	<p> You'll notice on the top menu bar a number of icons and buttons.  These are:</p>
+	<p> You'll notice on the top menu bar a number of icons and buttons.&nbsp;  These are:</p>
 	
 	<ol>
       <li><b>Run bomcheck button:</b>&nbsp; This button runs the bomcheck program.
           (Does not access the _sm BOM.)  It compares sm to sl BOMs.</li>
-	  <li><b>Run comparator button:</b>&nbsp; The button runs the comparator in order to compare
-          sw and/or sl BOMs to parts with in the sm BOM</li>
-	  <li><b>The "clear", X, button:</b>&nbsp; Delete all entries from bomcheck's drag/drop list so 
-	      that you can repopulate it with other files that you want to examine.</li>
-	  <li><b>folder button:</b>&nbsp; Open the last folder you used from which you dragged files from. </li>
+	  <li><b>Run the slow moving (sm) function:</b>&nbsp; The button runs the comparator that compares
+          sw (or sl) BOMs to parts in the slow moving (sm) BOM.</li>
+	  <li><b>The X, i.e. clear button:</b>&nbsp; Delete all entries from bomcheck's drag/drop list so 
+	      that it can repopulated with other files.</li>
+	  <li><b>folder button:</b>&nbsp; Open the last folder used from which files were dragged. </li>
 	  <li><b>filter: </b> This is a mask by which you can select what part nos. the comparator compares.
           &nbsp;This filter is examined in more detail on page two.</li>
-	  <li><b>% similarity: </b>&nbsp; When the comparator is run, you'll see a column named "similar" in the results.
+	  <li><b>% similarity: </b>&nbsp; When the sm comparator is run, you'll see a column named "similar" in the results.
 	      The number there indicates the similarity of the text from the sw/sl descriptions to those
 		  of the pn descriptions from the sm BOM.&nbsp;  This similarity does not guarantee that the sm 
 		  part can replace a part from the sw/sl BOM, but rather allows the user to examine
@@ -85,19 +87,21 @@
 		  the menu's text entry box for <i>% similarity</i> you can enter a number
 		  to mask out lesser scoring parts.&nbsp;  For example, if you enter 
 		  50, then only scores of 50% and above will show in the results.</li>
-	  <li><b>age: </b>&nbsp; In the comparator's results is a column named "age".  This is how long ago
-	      it's been since that part was last used (days).&nbsp;  If for example 60 is entered, then only parts that
-		  have been sitting on the shelf for more that 60 days will be shown.</li>
+	  <li><b>on shelf: </b>&nbsp; In the comparator's results is a column named "on shelf".&nbsp;  
+	      This is how long that the part has been on the shelf (days).&nbsp;  If for example 60 
+		  is entered, then only parts that have been sitting on the shelf for more that 60 days will
+		  be shown.</li>
 	  <li><b>switches: </b>&nbsp; Check boxes by which you can filter results even more:
           <ol>
-		      <li><b><i>Include "Demand" pns.</b></i>&nbsp;The default is to filter out parts where there is a Demand for those parts.</li>   
+		      <li><b><i>Include "Demand" pns.</b></i>&nbsp;The default is to filter out parts where there is 
+			  a Demand for those parts.&nbsp;  <span style="color: red; font-weight: bold;">Only a portion of the parts in inventory may have a demand.</span>  &nbsp; To see if some of these demand parts are available, in SyteLine go to <i>Time phased inventory status.</i></li>   
 			  <li><b><i>Include "On Hand" pns.</b></i>&nbsp;The default is to filter out "Qty On Hand" parts that are zero.</li>
 			  <li><b><i>Ignore drop list settings. </b></i>Ignore the settings shown at <i>File > Settings > drop list</i></li>
 		  </ol>
 	  </li>
  	</ol>
 	
-	<p><i>Note: Whenever you hover your mouse over any of these buttons, you'll see a description
+	<p><i><u>Note:</u> Whenever you hover your mouse over any of these buttons, you'll see a description
 	of the button at the bottom of the main window.</i></p>
 	
 	
@@ -105,43 +109,82 @@
 	   <div class="container" style="border: 20px solid transparent;">
 	   <img src="settings.png" alt="settings pic" width=450></div>
 	   
-	<p>If you go to File > Settings, you will find a "drop list" and an
-	  "exceptions list".&nbsp; Any part number in the drop list will not appear in
-	  results of the comparison of slow moving parts.&nbsp;  In the example above, any
-	  part nos. that begin with 10, 24, 25, etc. will not be shown.&nbsp;  These numbers
-	  are pump, paint, stickers, etc. part numbers.&nbsp;  Exceptions to the list
-	  are in the exceptions list.&nbsp;  For example, 2672 is for VFD electrical 
-	  components.</p>
+	<p>If you go to File > Settings, you will find the settings menu shown above.
+	
+	<ol>
+      <li> <b>For pns check if 'Type'≠'Material':</b>&nbsp; In a SyteLine BOM there is a column
+	      named "Type".&nbsp;  For a part the value there should be Material.&nbsp;  If it is not, then this part
+          does not get ordered.&nbsp;  On occasion on subassemblies that were created many years back
+	      a part may have this value set incorrectly.&nbsp;  This is a bug in SyteLine.&nbsp;  When the button
+          is checked, bomcheck will look for this bug.&nbsp;  If bomcheck reports this bug then 
+          correct the subassembly by entering <i>Material</i> as the type.
+      <li><b>Round SW converted lengths to X decimal places:</b>.&nbsp;  SW length values are
+          rounded to this many decimal places before they are compared to lengths in a SL BOM.&nbsp;
+          Higher values mean that SL length values are expected to have values with equal
+          or better accuracy than the SW value.&nbsp;  Otherwise bomcheck will mark the values as nonmatching.	</li>
+      <li><b>SolidWorks U/M:</b>&nbsp; Length values at Dekker should be set to inches.&nbsp;  This value is used
+	      only when using the bomcheck run fuction.</li>
+	  <li><b>SyteLine U/M:</b>&nbsp; Length values at Dekker should be set to feet.&nbsp;  This value is used
+	      only when using the bomcheck run fuction.</li>
+	  <li><b>drop list:</b>&nbsp; When the sm run function is activated, any items in this list are
+          ignored.  &nbsp;Items should be separeated by commas. &nbsp; A star character, *, is a wildcard
+          that represents 0 or more of any character.</li>
+      <li><b>exceptions list:</b> &nbsp;Exceptions to the drop list.&nbsp;   That is, these part numbers will be
+	      included in results.</li>
+      <li><b>Projects folders:</b> &nbsp; From the teams folders (<i>VIN UWF US - PCI Sys Fldrs > Documents</i>)
+          create links to various folders onto your desktop via <i>Add shortcut to My files</i>.&nbsp;  Enter these
+	      folders in this field with each folder separated by commas.&nbsp;  With these
+          folders entered (along with the location of the "Engineering Planner.xlsm") when results are exported
+	      to Excel, the default folder that appears to the user will be that of the Engineering subfolder of 
+	      the system folder.&nbsp; (If the Engineering subfolder is not already created, it will be created.)</li>
+	  <li><b>Location of file "Engineering Plannter.xlsm":</b>&nbsp;  Add a link to the time sheets folder EP2
+	      onto your computer.&nbsp;  That is, create a link to <i>VIN UWF US - IPC Engineering Group > Documents >
+		  General > EP2</i>.  &nbsp; In the field place the location of the file named <i>Engineering Planner.xlsm</i>.
+		  &nbsp; This is necessary because the bomcheck program needs to know the CO number associated with
+		  a system part number.&nbsp;  The Engineering Planner file contains this number.</li>
+	</ol>
+	  
 	  
 	<h2 id="output">Sample output</h2>
 	   <div class="container" style="border: 20px solid transparent;">
 	   <img src="slowmoving_output.png" alt="sample of output pic" width=900></div>	  
 	   
-	<p>The first three columns, i.e. pn sw/sl, desrip sw/sl, and cost_ come from the
-	  SolidWorks and/or SyteLine data that you entered (i.e. _sw.csv and _sl_.xlsx files).&nbsp;
-	  The remainder of the columns are a result of the comparison of the sw/sl
-	  BOMs to the sm BOM.</p>
+	<p>The first three columns, i.e. PN, DESCRIPTION, and COST come from the
+	  SolidWorks and/or SyteLine data.&nbsp;
+	  The remainder of the columns are a result of the comparison of this data to
+      the sm BOM.</p>
 	  
 	<p>Blank cells in the first three columns means that the first non-blank
-	  cell above a blank cell has the same value as the non-blank cell.&nbsp;  That is,
-	  the cells that are blank were made that way in order to remove clutter.</p>   
+	  cell above a blank cell has the same value as the non-blank cell.</p>  
+
+    <p>The primary column to consider above is the <i>"on shelf"</i> column.&nbsp;  This is the time elapsed 
+	  since parts were last delivered and thus they have been on the shelf this number of days.</p>	  
 	  
-	<h2 id="record">Recording substituted parts</h2>  
-	    <ol>
-	      <li> If necessary, especially if the alternate part is a higher cost,
-	           verify with management that the subsitution is OK.&nbsp;  Add those
-	           part numbers to the assembly BOM in SyteLine.</li> 
-	      <li> For the part numbers that are being substituted, in SyteLine make the "Effective date" 
-	           for those parts later than the date that the system is to be built.&nbsp; For the
-	           alternate parts that you just added set the "Obsolete date" to be
-	           that same date.</li>
-          <li> The last column in the slow moving comparisons table is titled
-               <i>alt qty</i>.&nbsp;  Enter there the quantity of alternate part numbers
-               that will be substituted for the original part.&nbsp;  Export that table
-               to an Excel file.&nbsp;  Place it in the Engineering folder under the
-               CO for that order.&nbsp;  The file name should end with _alts.xlsx.
-        </ol>
-	  
+
+	<h2 id="record">Implementing sm parts substitutions</h2> 
+
+    <p> Once suitable alternate parts from the sm are found, replace the parts in your assembly 
+	    and drawing with these substituted parts.&nbsp;  If the substituted parts are significantly 
+		higher in cost, verify with a supervisor that the substitution is acceptable.</p>
+
+    <p> In the output from the Slow Moving parts comparison there is a column named <i>alt qty used</i>.
+    	&nbsp; There, for the parts you are using as substitutes, enter the number of items you are
+		substituting. 
+        <ol>
+            <li> Export the results to Excel.&nbsp;  Place this sheet in the system folder
+        		 under the Engineering subfolder.&nbsp;  (Filename will automatically end with _alts.xlsx)</li>
+            <li> If substitute parts were found, to the same folder also export a "short list";
+			     &nbsp; i.e. the same report, but only showing rows that have a value in the
+				 <i>alt qty used</i> column.
+            <li> Copy the short list to the IDEM (Doc-track) folder.</li>
+		</ol></p>
+
+    <p> In SyteLine's User Defined section, once the job is complete:
+        <ol> 
+		    <li> DO NOT populate the "Engineering Reviewed Date" field. </li>
+            <li> In the field <i>"Character Field 3"</i> put <i>"Alt Item Check IDM"</i>. 
+		</ol></p>
+		
 	
 
 	  

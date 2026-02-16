@@ -10,7 +10,7 @@ This allows possible substitution of slow_moving parts in systems
 currently being built so that slow_moving parts can be used up.
 """
 
-# import pdb # use with pdb.set_trace()
+import pdb # use with pdb.set_trace()
 import pandas as pd
 from difflib import SequenceMatcher
 import fnmatch
@@ -133,7 +133,7 @@ def check_sm_parts(files_list, sm_files, cfg):
     if not cfg.get('on_hand', False):    
         dfinv = dfinv[dfinv['On\nHand'] != 0.0]
         
-    # match sure only number, e.g. "100, extracted from 'Last Used\n(Days)'
+    # match sure only number, e.g. "100, extracted from 'Last Used\n(Days)' 
     # and not "100 days", that a user could enter. 
     try:
         match = re.search(r'\d+', cfg['filter_age'].text())
@@ -143,7 +143,7 @@ def check_sm_parts(files_list, sm_files, cfg):
         min_age = float(match.group())
     else:
         min_age = 0  
-    dfinv = dfinv[dfinv['Last Used\n(Days)'] > min_age]
+    dfinv = dfinv[dfinv['on\nshelf\n(days)'] > min_age]  
     dfinv['common_pn'] = dfinv['Item'].str.extract('(' + pn_fltr +')')
     dfinv = dfinv.drop(dfinv.index[-1])
     dfinv['Description'] = dfinv['Description'].fillna('')
@@ -230,17 +230,16 @@ def check_sm_parts(files_list, sm_files, cfg):
     
     if 'De-\nmand?' in df.columns:
         new_column_order = ['Description',
-                            'descr\nsimi-\nlarity', 'On\nHand', 'Unit Cost', 'Yr n-1\nUsage', 'Yr n-2\nUsage',
-                            'Last Used\n(Days)', 'De-\nmand?', 'alt\nqty\nused']
+                            'descr\nsimi-\nlarity', 'On\nHand', 'Unit Cost', 'Yr n-1\nUsage', 'Yr n-2\nUsage', 
+                            'Last Used\n(Days)', 'on\nshelf\n(days)', 'De-\nmand?', 'alt\nqty\nused']                                
     else:
         new_column_order = ['Description',
                             'descr\nsimi-\nlarity', 'On\nHand', 'Unit Cost', 'Yr n-1\nUsage', 'Yr n-2\nUsage',
-                            'Last Used\n(Days)', 'alt\nqty\nused']    
+                            'Last Used\n(Days)', 'on\nshelf\n(days)', 'alt\nqty\nused']     
     df = df[new_column_order]
     df = df.rename(columns={'Description': 'alt description', 'Unit Cost':'cost', 'On\nHand': 'on\nhand',
                             'Yr n-1\nUsage': 'yr\nn-1\nusage', 'Yr n-2\nUsage': 'yr\nn-2\nusage',
-                            'Last Used\n(Days)': 'last\nused\n(days)'})
-        
+                            'Last Used\n(Days)' : 'last\nused\n(days)'})   
     return df
     
 

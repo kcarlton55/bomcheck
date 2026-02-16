@@ -31,7 +31,7 @@ For more information, see the help files for this program.
 __version__ = '2.5'
 __author__ = 'Kenneth E. Carlton'
 
-#import pdb # use with pdb.set_trace()
+import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -43,6 +43,7 @@ import re
 import check_sm_parts
 from pathlib import Path
 from check_sm_parts import is_in
+from datetime import date
 try:
     from python_calamine.pandas import pandas_monkeypatch
 except:
@@ -64,6 +65,7 @@ pd.set_option('display.max_rows', None)  # was pd.set_option('display.max_rows',
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_colwidth', 100)
 pd.set_option('display.width', 250)
+#sys.path.insert(0, 'C:\\Users\\a90003183\\OneDrive - ONEVIRTUALOFFICE\\python\\_projects\\bomcheck\\src')
 
 # 
 # Set a limit on the number of columns displayed (e.g., 5 columns total)
@@ -487,7 +489,7 @@ def bomcheck(fn, dic={}, **kwargs):
             cfg['run_bomcheck'] = False
             
     cfg['similar'] = '0'
-            
+         
     ####################################################################
     # kwargs are present when the bomcheck() function is run directly by the user
     if kwargs.get('drop'):
@@ -539,30 +541,29 @@ def bomcheck(fn, dic={}, **kwargs):
     else:
         cfg['overwrite'] = False
         
-        
     ####################################################################
 
     if isinstance(fn, str) and fn.startswith('[') and fn.endswith(']'):
         fn = ast.literal_eval(fn)  # change a string to a list
     elif isinstance(fn, str):
-        fn = [fn]        
+        fn = [fn]    
     pd.set_option('display.max_rows', m)
     fn = get_fnames(fn, followlinks=f)  # get filenames with any extension.
     dirname, swfiles, slfiles, smfiles = gatherBOMs_from_fnames(fn)
-        
     if smfiles and cfg['run_bomcheck'] == False:
         try:
-            sm_pts_comparison = check_sm_parts.check_sm_parts([slfiles, swfiles], smfiles, cfg)
+            sm_pts_comparison = check_sm_parts.check_sm_parts([swfiles, slfiles], smfiles, cfg)
         except Exception as e:
             printStr = ('\nError 206. ' +
                         'Unknown error occured in function sm_pts_comparison.\n' +
+                        'One possible reason: "on shelf" value set too high.\n' +
                         str(e) + '\n\n')
             printStrs.append(printStr)
             print(printStr)
             sm_pts_comparison = None  
     else:
-        sm_pts_comparison = None     
-        
+        sm_pts_comparison = None  
+    
     if cfg['run_bomcheck']:    
         if ('mtltest' in cfg) and cfg['mtltest']:
             typeNotMtl(slfiles) # report on corrupt data within SyteLine.  See function typeNotMtl
@@ -597,7 +598,6 @@ def bomcheck(fn, dic={}, **kwargs):
         print('\n', sm_pts_comparison)
         print('\n', printStrs)
 
-        
     if cfg.get('export') and not cfg['run_bomcheck'] and not sm_pts_comparison.empty: 
         cfg['export'] = cfg['export'].replace('_alts', '')
         export2xlsx(cfg['export'], sm_pts_comparison, False) 
@@ -605,18 +605,6 @@ def bomcheck(fn, dic={}, **kwargs):
         export2xlsx(cfg['export'], getresults(1), True) 
     if cfg.get('export') and cfg['run_bomcheck'] and not getresults(0).empty:
         export2xlsx(cfg['export'], getresults(0), True) 
-        
-        
-# =============================================================================
-#         
-#     if cfg.get('export') and not '_alts' in cfg['export'] and not getresults(0).empty: 
-#         export2xlsx(cfg['export']+'_lone_sw_boms', sm_pts_comparison, True)
-#     if cfg.get('export') and '_alts' in cfg['export'] and not getresults(1).empty: 
-#         cfg['export'] = cfg['export'].replace('_alts', '')
-#         export2xlsx(cfg['export'], getresults(1), False) 
-#     elif cfg.get('export') and not getresults(1).empty: 
-#         export2xlsx(cfg['export'], getresults(1), True) 
-# =============================================================================
 
     return getresults(0), getresults(1), sm_pts_comparison, printStrs
 
@@ -849,6 +837,14 @@ def gatherBOMs_from_fnames(filename):
                                     'Year n-1 Usage': 'Yr n-1\nUsage',
                                     'Year n-2 Usage': 'Yr n-2\nUsage',
                                     'Last Movement (Days)': 'Last Used\n(Days)'} )
+            today = date.today()
+            formatted_date = today.strftime("%m/%d/%Y")
+            df['Last Receipt'] = df['Last Receipt'].fillna(formatted_date)
+            df['today'] = formatted_date                 # add new column
+            df['today'] = pd.to_datetime(df['today'])    # convert object so that subtraction is possible
+            df['on\nshelf\n(days)'] = (df['today'] - df['Last Receipt']).astype('int64')  # today - 'Last Receipt'
+            df['on\nshelf\n(days)'] = df['on\nshelf\n(days)'] / 10**9              # convert to seconds
+            df['on\nshelf\n(days)'] = (df['on\nshelf\n(days)'] / 86400).astype('int')  # convert to days
             return df
         
     smdfsdic = {}
@@ -859,7 +855,7 @@ def gatherBOMs_from_fnames(filename):
             if file_extension.lower() == '.xlsx' or  file_extension.lower() == '.xls':
                 count_sm += 1
                 df = pd.read_excel(v, engine='calamine', usecols=['Item', 'Description', 'Unit Cost',
-                                               'Movement?', 'Qty On Hand', 'Year n-1 Usage',
+                                               'Movement?', 'Qty On Hand', 'Year n-1 Usage', 'Last Receipt',
                                                'Year n-2 Usage', 'Last Movement (Days)'])                             
                 df = alter_sm_df(df)
                 dfsm_found = True
@@ -881,10 +877,9 @@ def gatherBOMs_from_fnames(filename):
             print(printStr)
         if dfsm_found:
             smdfsdic.update({k: df})
-            
+                
     try:
         df = pd.read_clipboard(engine='python')
-        print('Year n-1 Usage' in df.columns)
         if 'Year n-1 Usage' in df.columns:
             count_sm += 1
             df = alter_sm_df(df)
@@ -1664,7 +1659,7 @@ def export2xlsx(filename, df, run_bomcheck):
 
     out: None
     
-    '''
+    '''  
     def len2(s):
         ''' Extract from within a string either a decimal number truncated to two
         decimal places, or an int value; then return the length of that substring.
@@ -1729,9 +1724,6 @@ def export2xlsx(filename, df, run_bomcheck):
             'fg_color': '#D7E4BC',
             'border': 1})
     
-    
-
-        
         autosize_excel_columns(worksheet, df)           
         headers = list(df.index.names) + list(df.columns)
         # Write the column headers with the defined format.
@@ -1739,8 +1731,9 @@ def export2xlsx(filename, df, run_bomcheck):
             worksheet.write(0, col_num + 0, value, header_format)   
         worksheet.set_row(0, 50.001)
         writer.close()
-    print(f'Saved to: {fn}') 
-        
+        if len(str(fn))>10:
+            print(f'Saved to: {fn}') 
+            
 
 def view_help(help_type='bomcheck_help', version='master', dbdic=None):
     '''  Open a help webpage for bomcheck, bomcheckgui, troubleshoot, or the
