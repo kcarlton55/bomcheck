@@ -82,6 +82,7 @@ def check_sm_parts(files_list, sm_files, cfg):
     e.g. pt nos and desriptions, costs, usage, etc.
     '''
     
+    
     # extract from "cfg" args from the user.
     try:
         pn_fltr = cfg['filter_pn'].text()
@@ -93,21 +94,33 @@ def check_sm_parts(files_list, sm_files, cfg):
     ####################################################################################
     ##### create df and populate it.  df is a collection of BOMs from SW & SL      #####
     ####################################################################################
-    df = pd.DataFrame() # start with an empty DataFrame
-    for f in files_list:
-        for k, v in f.items():
-            dfi = v.copy()
-            values = dict.fromkeys(cfg['part_num'], 'PN')   # make sure pns headers are all the same: pn
-            values.update(dict.fromkeys(cfg['descrip'], 'DESCRIPTION'))  # make sure descrip headers all the same: descrip
-            dfi.rename(columns=values, inplace=True)   # rename appropriate column headers to "PN" and "descrip"
-            dfi = dfi[['PN', 'DESCRIPTION']]
-            df = pd.concat([df, dfi])
-    df = df.drop_duplicates(subset=['PN'], keep='first')
+    
+    
+    
+# =============================================================================
+#     df = pd.DataFrame() # start with an empty DataFrame
+#     for f in files_list:
+#         for k, v in f.items():
+#             dfi = v.copy()
+#             values = dict.fromkeys(cfg['part_num'], 'PN')   # make sure pns headers are all the same: pn
+#             values.update(dict.fromkeys(cfg['descrip'], 'DESCRIPTION'))  # make sure descrip headers all the same: descrip
+#             dfi.rename(columns=values, inplace=True)   # rename appropriate column headers to "PN" and "descrip"
+#             dfi = dfi[['PN', 'DESCRIPTION']]
+#             df = pd.concat([df, dfi])
+#     df = df.drop_duplicates(subset=['PN'], keep='first')
+# =============================================================================
+
+    df = merge_swtosl(files_list, cfg)
+
     df['common_pn'] = df['PN'].str.extract('(' + pn_fltr +')')  # apply the pn_fltr
-            
+              
     if cfg['drop_bool']==True and cfg['drop']:
         filtr3 = is_in(cfg['drop'], df['PN'], cfg['exceptions'])
-        df.drop(df[filtr3].index, inplace=True)        
+        df.drop(df[filtr3].index, inplace=True) 
+   
+
+
+        
       
     ####################################################################################
     ##### dfinv is the dataframe derived from the excel sheet of slow_moving parts #####
@@ -158,6 +171,8 @@ def check_sm_parts(files_list, sm_files, cfg):
     if descrip_filter and cfg['repeat']:
         for f in descrip_filter.split('&'):
             df = df[df['DESCRIPTION'].str.contains(f, case=False, regex=True)]
+  
+    
   
     
     ####################################################################################
@@ -226,10 +241,11 @@ def check_sm_parts(files_list, sm_files, cfg):
 #         df = df[~df['PN'].isin(list_of_those_pns)] # drop ALL rows containing these pns
 # =============================================================================
 
-   
-    df = df.set_index(['PN', 'DESCRIPTION','COST', 'alt pn']) #.sort_index(axis=0)
+
+  
+    df = df.set_index(['PN', 'DESCRIPTION', 'QTY\nSW/SL',  'COST', 'alt pn']) #.sort_index(axis=0)
     df['alt\nqty\nused'] = '' 
-    
+       
     if 'De-\nmand?' in df.columns:
         new_column_order = ['Description',
                             'descr\nsimi-\nlarity', 'On\nHand', 'Unit Cost', 'Yr n-1\nUsage', 'Yr n-2\nUsage', 
@@ -309,6 +325,95 @@ def is_in(find, series, xcept):
     else:
         filtr = pd.Series([False]*series.size)
     return filtr
+
+
+def merge_swtosl(files_list, cfg):
+    '''
+    Extract part nos. from SolidWorks BOMs and part nos. from SyteLine BOMs and
+    combine the two BOMs (discard any known assembly part numbers).  Eliminate 
+    duplicate part numbers, but keep track of the quantities of parts that came
+    from SolidWorks and the quantities of parts that came from SyteLine.  If
+    a part has a length valve, i.e. a pipe, then convert the length to feet
+    and muliply that length by the quantity of that length of pipe.  Convert
+    lengths to an int, but rounded up to the nearest whole value.
+    
+    Parameters
+    ----------
+    files_list : list
+        list contains two itmes: first item is a dictionary containing 
+        SolidWorks BOMs.  The second is a dictionary containing SyteLine BOMs. 
+        Each dictionary has the form: {assemblyPN1: df1, assemblyPN2: df2,
+        assemblyPN3: df3, ...}; where assemblyPN1 is a sting looking like 
+        'ACV01536', 'DVD44467', etc.; and df1 is a dataframe object contains
+        the BOM for assemblyPN1.
+
+    Returns
+    -------
+    Pandas dataframe
+        A Pandas dataframe of the combined SolidWorks and SyteLine BOMs.  
+        Dataframe contains column headings PN, DESCRIPTION, and QTY SW / SL.
+        If only SolidWorks BOMs are provided, only show quatities for those 
+        parts, e.g. 1, 1, 4, 4, 1.  If both SW and SL BOMs are provided, show 
+        quatities from both SolidWorks and SyteLine, e.g. 1/2, 1/0, 4/3, 4/0, 
+        1/0.  If for a particular part both SW and SL quatities are the same,
+        then show only one number, e.g. 1/2, 1/0, 4/3, 4/0, 1/0, 5, 7, 4/3.
+    '''  
+    if not files_list[0]:  # create and empty dataframe
+        files_list[0] = {'assembly_sw1':  pd.DataFrame({'Part Number': [], 'QTY': [], 'Description': []})}
+    if not files_list[1]:  # create and empty dataframe
+        files_list[0] = {'assembly_sl1':  pd.DataFrame({'Part Number': [], 'QTY': [], 'Description': []})}
+
+    dfsw = pd.DataFrame() # start with an empty DataFrame    
+    if files_list[0]:
+        for k, v in files_list[0].items():
+            dfi = v.copy()
+            values = dict.fromkeys(cfg['part_num'], 'PN') 
+            values.update(dict.fromkeys(cfg['descrip'], 'DESCRIPTION'))  # make sure descrip headers all the same: descrip
+            values.update(dict.fromkeys(cfg['qty'], 'Q\nsw'))
+            dfi.rename(columns=values, inplace=True)   # rename appropriate column headers to "PN" and "descrip"
+            #dfi = dfi[['PN', 'DESCRIPTION', 'Q\nsw']]
+            
+            if 'LENGTH' in dfi.columns:
+                dfi['l2'] = dfi['LENGTH'].astype(float)/12.0    # convert inch lengths to feet
+                dfi.loc[dfi['PN'].str.contains('3086-'), 'l2'] = 1  # if pn is 3086-, set l2 = 1
+                dfi['l2'] = dfi['l2'].fillna(1)
+                dfi['Q\nsw'] = dfi['Q\nsw'].astype(float) * dfi['l2']   # it, qty to qty * l2 (where l2 is the number for feet)
+                dfi['Q\nsw'] = (dfi['Q\nsw'] + .5).astype(float).round().astype(int) # round up to nearest foot and make value be an int
+            dfi = dfi[['PN', 'DESCRIPTION', 'Q\nsw']]
+            dfsw = pd.concat([dfsw, dfi])
+            
+        dfsw = dfsw.groupby(['PN', 'DESCRIPTION'], as_index=False)['Q\nsw'].sum()
+
+    dfsl = pd.DataFrame() # start with an empty DataFrame        
+    if files_list[1]:
+        for k, v in files_list[1].items():
+            dfi = v.copy()
+            values = dict.fromkeys(cfg['part_num'], 'PN') 
+            values.update(dict.fromkeys(cfg['descrip'], 'DESCRIPTION'))  # make sure descrip headers all the same: descrip
+            values.update(dict.fromkeys(cfg['qty'], 'Q\nsl'))
+            dfi.rename(columns=values, inplace=True)   # rename appropriate column headers to "PN" and "descrip"
+            dfi = dfi[['PN', 'DESCRIPTION', 'Q\nsl']]
+            dfsl = pd.concat([dfsl, dfi])
+        dfsl = dfsl.groupby(['PN', 'DESCRIPTION'], as_index=False)['Q\nsl'].sum()
+        
+    df = dfsw.merge(dfsl, on='PN', how='outer')   
+    
+    df['DESCRIPTION'] = df['DESCRIPTION_x'].combine_first(df['DESCRIPTION_y'])
+    df = df.fillna(0)
+    df['Q\nsw'] = df['Q\nsw'].astype(int)
+    df['Q\nsl'] = df['Q\nsl'].astype(int)
+    
+    df['QTY\nSW/SL'] = df['Q\nsw'].astype(str) + ' / ' +  df['Q\nsl'].astype(str)
+    df.loc[df['Q\nsw'] == df['Q\nsl'], 'QTY\nSW/SL' ] = df['Q\nsw'].astype(str) + '  '
+    
+    if (df['Q\nsw'] == 0).all():
+        df['QTY\nSW/SL'] = df['Q\nsl'].astype(str) + '  '
+    elif (df['Q\nsl'] == 0).all():
+        df['QTY\nSW/SL'] = df['Q\nsw'].astype(str) + '  '
+                                             
+    df = df.drop(columns=['DESCRIPTION_x', 'DESCRIPTION_y', 'Q\nsw', 'Q\nsl' ])
+    
+    return df
 
 
 
