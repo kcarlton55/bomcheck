@@ -555,23 +555,7 @@ def bomcheck(fn, dic={}, **kwargs):
             sm_pts_comparison = check_sm_parts.check_sm_parts([swfiles, slfiles], smfiles, cfg)
         except Exception as e:
             printStr = ('\nError 206. \n' +
-                        'An unknown error occured in the sm function.  The most \n' +
-                        'likely reason for this failure is that the function failed to \n' +
-                        'find any part no. matches in the sm BOM.  This might  \n' +
-                        'happen if too many filters are active simultaneously.  Try \n' +
-                        'adjusting the filters that you have set.  For example: \n\n' +
-                            
-                        '1.  The "on shelf" value may be set too high.  This can \n' +
-                        '     filter out too many items and thus result in zero output. \n' +
-                        '2.  The "% similarity" is set too high. \n' +
-                        '3.  You may have many items in your Settings drop list; \n' +
-                        '     and especially if you are are dealing with a small sw/sl \n' +
-                        '     BOM you may end up with zero matches.  Try clicking \n' +
-                        '     the "Ignore drop list settings" button that is located in \n' +
-                        '     the menu bar. \n' +
-                        "4.  Adjust other switches to show 'demand parts' and all \n" +
-                        "     'on hand' parts. \n\n" +
-
+                        "An unknown error occured in the sm_pts_comparison function. \n\n" +
                         str(e) + '\n\n')
             printStrs.append(printStr)
             print(printStr)

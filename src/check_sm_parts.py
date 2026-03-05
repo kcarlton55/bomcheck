@@ -15,6 +15,7 @@ import pandas as pd
 from difflib import SequenceMatcher
 import fnmatch
 import re
+import numpy as np
 
 
 def check_sm_parts(files_list, sm_files, cfg):
@@ -94,21 +95,6 @@ def check_sm_parts(files_list, sm_files, cfg):
     ####################################################################################
     ##### create df and populate it.  df is a collection of BOMs from SW & SL      #####
     ####################################################################################
-    
-    
-    
-# =============================================================================
-#     df = pd.DataFrame() # start with an empty DataFrame
-#     for f in files_list:
-#         for k, v in f.items():
-#             dfi = v.copy()
-#             values = dict.fromkeys(cfg['part_num'], 'PN')   # make sure pns headers are all the same: pn
-#             values.update(dict.fromkeys(cfg['descrip'], 'DESCRIPTION'))  # make sure descrip headers all the same: descrip
-#             dfi.rename(columns=values, inplace=True)   # rename appropriate column headers to "PN" and "descrip"
-#             dfi = dfi[['PN', 'DESCRIPTION']]
-#             df = pd.concat([df, dfi])
-#     df = df.drop_duplicates(subset=['PN'], keep='first')
-# =============================================================================
 
     df = merge_swtosl(files_list, cfg)
 
@@ -117,10 +103,6 @@ def check_sm_parts(files_list, sm_files, cfg):
     if cfg['drop_bool']==True and cfg['drop']:
         filtr3 = is_in(cfg['drop'], df['PN'], cfg['exceptions'])
         df.drop(df[filtr3].index, inplace=True) 
-   
-
-
-        
       
     ####################################################################################
     ##### dfinv is the dataframe derived from the excel sheet of slow_moving parts #####
@@ -131,12 +113,12 @@ def check_sm_parts(files_list, sm_files, cfg):
 
     df = df.dropna(subset=['common_pn'])  # drop rows that have NaN in column 'common_pn'
     df.reset_index(drop=True, inplace=True)
-  
+
     # df doesn't haves cost of parts.  Get them from dfinv and put them into df.  
     df2 = df.merge(dfinv, left_on='PN', right_on='Item', how='left')
     df['COST'] = df2['Unit Cost'].fillna(0)
     df['COST'] = '$' + df['COST'].round(2).astype('string')  # Now a COST column is in df
-    
+        
     dfinv['De-\nmand?']= dfinv['De-\nmand?'].replace('No Demand', 'No')
     dfinv['De-\nmand?']= dfinv['De-\nmand?'].replace('Demand', 'Yes')
     
@@ -156,9 +138,11 @@ def check_sm_parts(files_list, sm_files, cfg):
         min_age = float(match.group())
     else:
         min_age = 0  
+        
     dfinv = dfinv[dfinv['on\nshelf\n(days)'] > min_age]  
     dfinv['common_pn'] = dfinv['Item'].str.extract('(' + pn_fltr +')')
-    dfinv = dfinv.drop(dfinv.index[-1])
+    if len(dfinv.index) > 0:
+        dfinv = dfinv.drop(dfinv.index[-1])
     dfinv['Description'] = dfinv['Description'].fillna('')
     dfinv = dfinv.dropna(subset=['common_pn'])
     dfinv['Unit Cost'] = '$' + dfinv['Unit Cost'].round(2).astype('string')
@@ -170,11 +154,7 @@ def check_sm_parts(files_list, sm_files, cfg):
             dfinv = dfinv[dfinv['Description'].str.contains(f, case=False, regex=True)]
     if descrip_filter and cfg['repeat']:
         for f in descrip_filter.split('&'):
-            df = df[df['DESCRIPTION'].str.contains(f, case=False, regex=True)]
-  
-    
-  
-    
+            df = df[df['DESCRIPTION'].str.contains(f, case=False, regex=True)]   
     ####################################################################################
     ##### merge df & dfinv                                                         #####
     ####################################################################################    
@@ -183,8 +163,7 @@ def check_sm_parts(files_list, sm_files, cfg):
     
     alter_score = [(r'S/S|[^A-Z]SS[^A-Z]|304|316|STAINLESS|LSS|SST', .2),
                               (r'NEMA 7|N7', .2), (r'24V', .2), (r'125V|120V|115V|110V|100V', .2)]
-    
-    
+      
     ####################################################################################
     ##### Finish up                                                                #####
     ####################################################################################
@@ -198,15 +177,18 @@ def check_sm_parts(files_list, sm_files, cfg):
                               (r'230/460\s*V|230\s*V|460\s*V', .2), (r'575\s*V', .2), (r'200\s*V', .2)] 
     
     df['DESCRIPTION'] = df['DESCRIPTION'].replace(0, 'missing description')
-        
+    
     similarity_score = df.apply(lambda row: SequenceMatcher(None, row['DESCRIPTION'], row['Description']).ratio(), axis=1) 
-    for alter in alter_score:
-        similarity_score = similarity_score.where(~(df['DESCRIPTION'].str.contains(alter[0],case=False, regex=True) &
-                                      ~df['Description'].str.contains(alter[0], case=False, regex=True)),
-										  similarity_score*alter[1])
+
+    if len(similarity_score.index) > 0:
+        for alter in alter_score:
+            similarity_score = similarity_score.where(~(df['DESCRIPTION'].str.contains(alter[0],case=False, regex=True) &
+                                          ~df['Description'].str.contains(alter[0], case=False, regex=True)),
+    										  similarity_score*alter[1])
     # If someone enters a percent character, %, when indicating the min similarity he wishes
     # to see, for example 86%, the % chacter will crash the program.  So this program will
     # fix the problem by extracting the number, i.e. 86, from the text, i.e. 86%
+
     try:
         match = re.search(r'\d+', cfg['similar'].text())
     except:
@@ -215,11 +197,14 @@ def check_sm_parts(files_list, sm_files, cfg):
         min_similarity = float(match.group())
     else:
         min_similarity = 0    
-                
-    similarity_bool = similarity_score*100 > min_similarity
-    df['descr\nsimi-\nlarity'] = (similarity_score*100).round().astype(int)
-    df = df[similarity_bool]
-            
+        
+    if len(similarity_score.index) > 0:
+        similarity_bool = similarity_score*100 > min_similarity
+        df['descr\nsimi-\nlarity'] = (similarity_score*100).round().astype(int)
+        df = df[similarity_bool]
+    else:
+        df['descr\nsimi-\nlarity'] = 0
+        
     # if leading or trailing spaces differ, for example, between a text
     # in one descrip and another, then the df.drop_duplicates() won't work
     # to catch the duplicate line.
@@ -233,16 +218,6 @@ def check_sm_parts(files_list, sm_files, cfg):
       
     df = df.rename(columns={'Item': 'alt pn'})
     
-# =============================================================================
-#     # Do not report pns where a match was found in sm parts, & when no demand for these parts.
-#     if not cfg.get('show_demand', False):      
-#         rows_showing_pns_to_drop = df[df['PN'] == df['alt pn']]
-#         list_of_those_pns = rows_showing_pns_to_drop['PN'].tolist()
-#         df = df[~df['PN'].isin(list_of_those_pns)] # drop ALL rows containing these pns
-# =============================================================================
-
-
-  
     df = df.set_index(['PN', 'DESCRIPTION', 'QTY\nSW/SL',  'COST', 'alt pn']) #.sort_index(axis=0)
     df['alt\nqty\nused'] = '' 
        
@@ -377,11 +352,18 @@ def merge_swtosl(files_list, cfg):
                 dfi['l2'] = dfi['LENGTH'].astype(float)/12.0    # convert inch lengths to feet
                 dfi.loc[dfi['PN'].str.contains('3086-'), 'l2'] = 1  # if pn is 3086-, set l2 = 1
                 dfi['l2'] = dfi['l2'].fillna(1)
-                dfi['Q\nsw'] = dfi['Q\nsw'].astype(float) * dfi['l2']   # it, qty to qty * l2 (where l2 is the number for feet)
-                dfi['Q\nsw'] = (dfi['Q\nsw'] + .5).astype(float).round().astype(int) # round up to nearest foot and make value be an int
+                #dfi['Q\nsw'] = dfi['Q\nsw'].astype(float) * dfi['l2']   # it, qty to qty * l2 (where l2 is the number for feet)
+                dfi['Q\nsw'] = dfi['Q\nsw'].astype(float) 
+                dfi['Q\nsw'] = np.where(dfi['l2']!=0,
+                                        ((dfi['Q\nsw'] + .5).round())  * dfi['l2'],
+                                        dfi['Q\nsw']) 
+                
+ 
+                #dfi['Q\nsw'][dfi['Q\nsw']!=0]    = dfi['Q\nsw'][dfi['l2']!=0] * dfi['l2'][dfi['l2']!=0]
+                
+                #dfi['Q\nsw'] = (dfi['Q\nsw'].astype(float) + .5).round().astype(int) # round up to nearest foot and make value be an int
             dfi = dfi[['PN', 'DESCRIPTION', 'Q\nsw']]
             dfsw = pd.concat([dfsw, dfi])
-            
         dfsw = dfsw.groupby(['PN', 'DESCRIPTION'], as_index=False)['Q\nsw'].sum()
 
     dfsl = pd.DataFrame() # start with an empty DataFrame        
