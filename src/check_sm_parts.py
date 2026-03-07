@@ -349,13 +349,22 @@ def merge_swtosl(files_list, cfg):
             #dfi = dfi[['PN', 'DESCRIPTION', 'Q\nsw']]
             
             if 'LENGTH' in dfi.columns:
-                dfi['l2'] = dfi['LENGTH'].astype(float)/12.0    # convert inch lengths to feet
+                #pdb.set_trace()
+                dfi['l2'] = dfi['LENGTH'].str.extract(r'(\d+\.?\d*)').astype(float)/12
+                dfi['l2'] = dfi['l2'].fillna(0)
+                #dfi['LENGTH'] = dfi['LENGTH'].str.extract(r'([-+]?\d*\.?\d+)')
+                #dfi['l2'] = dfi['LENGTH'].astype(float)/12.0    # convert inch lengths to feet
                 dfi.loc[dfi['PN'].str.contains('3086-'), 'l2'] = 1  # if pn is 3086-, set l2 = 1
                 dfi['l2'] = dfi['l2'].fillna(1)
                 #dfi['Q\nsw'] = dfi['Q\nsw'].astype(float) * dfi['l2']   # it, qty to qty * l2 (where l2 is the number for feet)
                 dfi['Q\nsw'] = dfi['Q\nsw'].astype(float) 
+# =============================================================================
+#                 dfi['Q\nsw'] = np.where(dfi['l2']!=0,
+#                                         ((dfi['Q\nsw'] + .5).round())  * dfi['l2'],
+#                                         dfi['Q\nsw']) 
+# =============================================================================
                 dfi['Q\nsw'] = np.where(dfi['l2']!=0,
-                                        ((dfi['Q\nsw'] + .5).round())  * dfi['l2'],
+                                        dfi['Q\nsw']  * dfi['l2'].round(1),
                                         dfi['Q\nsw']) 
                 
  
