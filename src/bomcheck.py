@@ -550,23 +550,36 @@ def bomcheck(fn, dic={}, **kwargs):
     pd.set_option('display.max_rows', m)
     fn = get_fnames(fn, followlinks=f)  # get filenames with any extension.
     dirname, swfiles, slfiles, smfiles = gatherBOMs_from_fnames(fn)
+# =============================================================================
+#     if smfiles and cfg['run_bomcheck'] == False:
+#         try:
+#             sm_pts_comparison = check_sm_parts.check_sm_parts([swfiles, slfiles], smfiles, cfg)
+#         except Exception as e:
+#             printStr = ('\nError 206. \n' +
+#                         "An unknown error occured in the sm_pts_comparison function. \n\n" +
+#                         str(e) + '\n\n')
+#             printStrs.append(printStr)
+#             print(printStr)
+#             sm_pts_comparison = None  
+#     else:
+#         sm_pts_comparison = None  
+#     
+#     if cfg['run_bomcheck']:    
+#         if ('mtltest' in cfg) and cfg['mtltest']:
+#             typeNotMtl(slfiles) # report on corrupt data within SyteLine.  See function typeNotMtl
+#             
+# =============================================================================
+
     if smfiles and cfg['run_bomcheck'] == False:
-        try:
-            sm_pts_comparison = check_sm_parts.check_sm_parts([swfiles, slfiles], smfiles, cfg)
-        except Exception as e:
-            printStr = ('\nError 206. \n' +
-                        "An unknown error occured in the sm_pts_comparison function. \n\n" +
-                        str(e) + '\n\n')
-            printStrs.append(printStr)
-            print(printStr)
-            sm_pts_comparison = None  
+        sm_pts_comparison = check_sm_parts.check_sm_parts([swfiles, slfiles], smfiles, cfg)
     else:
         sm_pts_comparison = None  
-    
+            
     if cfg['run_bomcheck']:    
         if ('mtltest' in cfg) and cfg['mtltest']:
             typeNotMtl(slfiles) # report on corrupt data within SyteLine.  See function typeNotMtl
-            
+
+
         # lone_sw is a dic; Keys are assy nos; Values are DataFrame objects (SW
         # BOMs only).  merged_sw2sl is a dic; Keys are assys nos; Values are
         # Dataframe objects (merged SW and SL BOMs).
@@ -608,6 +621,33 @@ def bomcheck(fn, dic={}, **kwargs):
     return getresults(0), getresults(1), sm_pts_comparison, printStrs
 
 
+def get_sm_filename():
+    ''' Look in a users download directory for a file named
+    "Item Value by Month.xlsx", "Item Value by Month (1).xlsx", and/or
+    "Item Value by Month (2).xlsx", etc.  These are files that are generated
+    by Dekker's "Inventory Forcast - PC Indiana" webpage.  This function
+    returns the path name of the file that has most recent date.  Older found
+    files are deleted.
+
+    Returns
+    -------
+    string
+        filename
+    '''
+    home = os.path.expanduser("~")   # Get the user's home directory (e.g., C:\Users\Name)
+    downloads_path = os.path.join(home, "Downloads") # Join it with the "Downloads" folder name
+    sm_files = glob.glob(os.path.join(downloads_path, "Item Value by Month*.xlsx"))
+    if sm_files:
+        sm_files.sort(key=os.path.getmtime, reverse=True)  # sort by date.  newest first
+        sm_file = sm_files[0]
+        for f in sm_files:     # remove older files
+            if f != sm_file:
+                os.remove(f)
+        return sm_file
+    else:
+        return ''  
+
+
 def get_fnames(fn, followlinks=False):
     ''' Interpret fn to get a list of filenames based on
     fn's value.
@@ -643,6 +683,7 @@ def get_fnames(fn, followlinks=False):
     elif isinstance(fn, str):
         fn = [fn]   # fn a string like "fname1", convert to a list like [fname1]
 
+    
     _fn1 = []
     for f in fn:
         _fn1 += glob.glob(f)
@@ -656,7 +697,7 @@ def get_fnames(fn, followlinks=False):
                 for filename in files:
                   _fn2.append(os.path.join(root, filename))
         else:
-            _fn2.append(f)
+            _fn2.append(f)    
 
     return _fn2
 
@@ -714,7 +755,8 @@ def gatherBOMs_from_fnames(filename):
     global printStrs
     swfilesdic = {}
     slfilesdic = {}
-    smfilesdic = {}
+    smname = get_sm_filename()
+    smfilesdic = {'null': smname} if smname else {} 
     count_sw_csv = 0
     count_sw_xlsx = 0
     count_sl = 0
@@ -865,13 +907,13 @@ def gatherBOMs_from_fnames(filename):
                         'Some possible reasons error occured\n\n'
                         '1) Counld not read file. Is file present at the location \n'
                         '   that you indicated.  Has the add-on module named \n'
-                        '   calamine been installed properly?'
-                        '2) Perhaps you have it open in another application?\n\n'
+                        '   calamine been installed properly?\n'
+                        '2) Perhaps you have it open in another application?\n'
                         '3) At minimum, columns with these names are expected\n'
                         '   to be in the SM BOM: Item, Description, Unit Cost,\n' 
                         '   Movement?, Qty On Hand, Year n-1 Usage,\n' 
                         '   Year n-2 Usage,  Last Movement (Days).\n'
-                        '   (Names are case sensitive.)')
+                        '   (Names are case sensitive.)\n')
             printStrs.append(printStr)
             print(printStr)
         if dfsm_found:

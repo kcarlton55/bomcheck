@@ -26,54 +26,39 @@ def check_sm_parts(files_list, sm_files, cfg):
     Parameters
     ----------
     files_list : list
-        This list of two dictionaries that bomcheck.py supplies.
-        It has the form:
+        This list of two dictionaries that bomcheck.py supplies. It has the
+        form:
         [{assembly_pn1: df1, assembly_pn2: df2, ..., assembly_pnN: dfN},
          {assembly_pn1: df1, assembly_pn2: df2, ..., assembly_pnN: dfN}]
-        Where the first dictionary comes from SyteLine; the second from
-        SolidWorks.  The df1, df2, etc. are the BOMs in DataFrame form
-        that correspond to the assembly_pn.  The function discards the
-        assembly part numbers.
+        Where the first dictionary comes from SolidWorks; the second from
+        SyteLine.  The df1, df2, etc. are the BOMs in DataFrame form
+        that correspond to the assembly_pn.  This function, check_sm_parts,
+        discards the assembly part numbers.
 
     cfg : dictionary
         cfg is comes from bomcheck.py and is the exact same dictionary that
-        is in bomcheck.py.  cfg provides alternative header names that the
-        BOMs might have, such as "Material", "PARTNUMBER", "PART NUMBER",
+        bomcheck.py uses.  cfg provides alternative header names that the BOMs
+        might have, such as "Material", "PARTNUMBER", "PART NUMBER",
         "Part Number", "Item"; and "DESCRIPTION", "Material Description", and
-        "Description".  With these alternative names, this check_sm_parts
-        function figures out what the correct headers should be for the part
-        no. and descriptions fields.
+        "Description".  With these alternative names, check_sm_parts figures 
+        out what the correct headers should be for the part no. 
+        and description fields.
 
     pn_fltr : string
         Part no. filter.  Normally will be assigned a value like '....-....-'.
         With this, part numbers 4610-2008-203, 5500-0025-001, and 6220-0055-004
         will be reduced to 4610-2008-, 5500-0025-, and 6220-0055-.  This
-        reduction occurs in both the SW/SL BOMs and the slow_moving BOM.
-        The shortened part nos. will be used for matching between BOM.  This
-        will result in, for example 4610-2008-203 finding the closest matching
-        parts from the slow_moving BOM to be 4610-2008-198, 4610-2008-199,
+        reduction occurs in both the SW/SL BOMs and the slow_moving BOM.  The 
+        shortened part nos. will be used for matching between BOMs.  This will
+        result in, for example 4610-2008-203 finding the closest matching parts
+        from the slow_moving BOM to be 4610-2008-198, 4610-2008-199,
         4610-2008-200, etc..
 
-        The string is a regex string
-        (https://en.wikipedia.org/wiki/Regular_expression).  The dot, .,
+        The string is a regex string 
+        (ref: https://en.wikipedia.org/wiki/Regular_expression).  The dot, .,
         represents one character.  Other suitable values for pn_filtr could be
         '.{10}', '.+-.+-'.  (.{10} means ten characters.  The .+ means one or
         more characters)
-
-    descrip_filter : string, optional
-        This filters the 'Item Description' field of the slow moving BOM.
-        Only parts who's descriptions that are able to pass through this filter
-        will show up in the results of this check_sm_parts function.
-
-        The string is a regex string.  Furthermore the string allows for "or"
-        and "and" types of filtering.  For example if you want to reduce
-        the parts shown to only stainless steel parts that are Nema 7, you
-        could use the filter 'S/S|SS|316|304&N7|NEMA 7'  This means
-        '(SS or 316 or 304) and (N7 or NEMA 7)'.  The bar, !, represents "or".
-        The ampersand character, &, represents "and".  Note: spaces count.
-        Thus 'SS|316|304&N7|NEMA 7' is different from 'SS|316|304& N7 | NEMA 7'
-
-        The default is ''.
 
     Returns
     -------
@@ -82,8 +67,7 @@ def check_sm_parts(files_list, sm_files, cfg):
     Only the union of the SW/SL BOMs and the slow_moving BOM is output; 
     e.g. pt nos and desriptions, costs, usage, etc.
     '''
-    
-    
+   
     # extract from "cfg" args from the user.
     try:
         pn_fltr = cfg['filter_pn'].text()
@@ -96,7 +80,21 @@ def check_sm_parts(files_list, sm_files, cfg):
     ##### create df and populate it.  df is a collection of BOMs from SW & SL      #####
     ####################################################################################
 
-    df = merge_swtosl(files_list, cfg)
+    if files_list[0] and files_list[1]:
+        df = merge_swtosl(files_list, cfg)
+        qty_col_name ='QTY\nSW/SL' 
+    else:
+        df = pd.DataFrame() # start with an empty DataFrame
+        qty_col_name ='QTY\nSW' if files_list[0] else 'QTY\nSL'   
+        for f in files_list:
+            for k, v in f.items():
+               dfi = v.copy()
+               values = dict.fromkeys(cfg['part_num'], 'PN')   # make sure pns headers are all the same: pn
+               values.update(dict.fromkeys(cfg['descrip'], 'DESCRIPTION'))  # make sure descrip headers all the same: descrip
+               values.update(dict.fromkeys(cfg['qty'], 'QTYnSW\SL'))
+               dfi.rename(columns=values, inplace=True)   # rename appropriate column headers to "PN" and "descrip"
+               dfi = dfi[['PN', 'DESCRIPTION', 'QTYnSW\SL']]
+               df = pd.concat([df, dfi])
 
     df['common_pn'] = df['PN'].str.extract('(' + pn_fltr +')')  # apply the pn_fltr
               
@@ -218,7 +216,10 @@ def check_sm_parts(files_list, sm_files, cfg):
       
     df = df.rename(columns={'Item': 'alt pn'})
     
-    df = df.set_index(['PN', 'DESCRIPTION', 'QTY\nSW/SL',  'COST', 'alt pn']) #.sort_index(axis=0)
+    
+    df.rename(columns={'QTYnSW\SL' : qty_col_name}, inplace=True)
+    df = df.set_index(['PN', 'DESCRIPTION', qty_col_name,  'COST', 'alt pn']) #.sort_index(axis=0)
+
     df['alt\nqty\nused'] = '' 
        
     if 'De-\nmand?' in df.columns:
@@ -332,11 +333,12 @@ def merge_swtosl(files_list, cfg):
         quatities from both SolidWorks and SyteLine, e.g. 1/2, 1/0, 4/3, 4/0, 
         1/0.  If for a particular part both SW and SL quatities are the same,
         then show only one number, e.g. 1/2, 1/0, 4/3, 4/0, 1/0, 5, 7, 4/3.
-    '''  
+    '''    
+    
     if not files_list[0]:  # create and empty dataframe
         files_list[0] = {'assembly_sw1':  pd.DataFrame({'Part Number': [], 'QTY': [], 'Description': []})}
     if not files_list[1]:  # create and empty dataframe
-        files_list[0] = {'assembly_sl1':  pd.DataFrame({'Part Number': [], 'QTY': [], 'Description': []})}
+        files_list[1] = {'assembly_sl1':  pd.DataFrame({'Part Number': [], 'QTY': [], 'Description': []})}
 
     dfsw = pd.DataFrame() # start with an empty DataFrame    
     if files_list[0]:
@@ -386,7 +388,7 @@ def merge_swtosl(files_list, cfg):
             dfi = dfi[['PN', 'DESCRIPTION', 'Q\nsl']]
             dfsl = pd.concat([dfsl, dfi])
         dfsl = dfsl.groupby(['PN', 'DESCRIPTION'], as_index=False)['Q\nsl'].sum()
-        
+    
     df = dfsw.merge(dfsl, on='PN', how='outer')   
     
     df['DESCRIPTION'] = df['DESCRIPTION_x'].combine_first(df['DESCRIPTION_y'])
@@ -394,13 +396,13 @@ def merge_swtosl(files_list, cfg):
     df['Q\nsw'] = df['Q\nsw'].astype(int)
     df['Q\nsl'] = df['Q\nsl'].astype(int)
     
-    df['QTY\nSW/SL'] = df['Q\nsw'].astype(str) + ' / ' +  df['Q\nsl'].astype(str)
-    df.loc[df['Q\nsw'] == df['Q\nsl'], 'QTY\nSW/SL' ] = df['Q\nsw'].astype(str) + '  '
+    df['QTYnSW\SL'] = df['Q\nsw'].astype(str) + ' / ' +  df['Q\nsl'].astype(str)
+    df.loc[df['Q\nsw'] == df['Q\nsl'], 'QTYnSW\SL' ] = df['Q\nsw'].astype(str) + '  '
     
     if (df['Q\nsw'] == 0).all():
-        df['QTY\nSW/SL'] = df['Q\nsl'].astype(str) + '  '
+        df['QTYnSW\SL'] = df['Q\nsl'].astype(str) + '  '
     elif (df['Q\nsl'] == 0).all():
-        df['QTY\nSW/SL'] = df['Q\nsw'].astype(str) + '  '
+        df['QTYnSW\SL'] = df['Q\nsw'].astype(str) + '  '
                                              
     df = df.drop(columns=['DESCRIPTION_x', 'DESCRIPTION_y', 'Q\nsw', 'Q\nsl' ])
     
