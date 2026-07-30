@@ -1,6 +1,9 @@
+# https://pip.pypa.io/en/latest/reference/requirements-file-format/  
+# https://pandas.pydata.org/docs/getting_started/install.html
+
 pandas >= 1.2
 tomli >= 1.1.0 ; python_version < "3.11"
 openpyxl >= 3.0
 requests >= 2.29
 xlsxwriter >= 3.2.9
-python-calamine >=0.4.0
+python-calamine >=0.4.0 

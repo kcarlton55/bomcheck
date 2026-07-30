@@ -26,6 +26,21 @@ the pars from SW and/or SL BOMs.  The filename of the
 slow moving parts BOM ends with _sm.xlsx. 
 
 For more information, see the help files for this program.
+
+Change log:
+    Version 2.6: 
+        1) Added new column to the slow_moving bom report: "Qty SW/SL".  It 
+           shows part quantities that are shown on SolidWorks and SyteLine BOMs.
+        2) Bomcheck was originally designed to work with python version 3.8.
+           Under python 3.14 a number of bugs appeared that caused crashes.
+           These bugs fixed.
+        3) When a slowmoving bom pulled from Teams, it automatically downloads
+           to a user's download folder.  If left there, and the file name is 
+           not changed, bomcheck will automatically find the file.  There is
+           on need to add a _sm.xlsx suffix.  (older slow moving boms that are
+           found will be automatically deleted.)
+        4  Bug fix: If no slow moving parts were found to report on, the
+           program would crash.    
 """
 
 __version__ = '2.6'
@@ -142,7 +157,7 @@ def get_bomcheckcfg(filename):
     adjust how the bomcheck program behaves.
 
     (Note: backslash characters have a special function in
-    Python known as excape characters. Don't use them in
+    Python known as escape characters. Don't use them in
     filename.  Instead replace backslash characters with
     forwardslash characters.  Python accepts this.
     Reference:
@@ -579,7 +594,6 @@ def bomcheck(fn, dic={}, **kwargs):
         if ('mtltest' in cfg) and cfg['mtltest']:
             typeNotMtl(slfiles) # report on corrupt data within SyteLine.  See function typeNotMtl
 
-
         # lone_sw is a dic; Keys are assy nos; Values are DataFrame objects (SW
         # BOMs only).  merged_sw2sl is a dic; Keys are assys nos; Values are
         # Dataframe objects (merged SW and SL BOMs).
@@ -918,17 +932,7 @@ def gatherBOMs_from_fnames(filename):
             print(printStr)
         if dfsm_found:
             smdfsdic.update({k: df})
-                
-    try:
-        df = pd.read_clipboard(engine='python')
-        if 'Year n-1 Usage' in df.columns:
-            count_sm += 1
-            df = alter_sm_df(df)
-            smdfsdic.update({'BOMfromClipboard': df})
-
-    except Exception as e:
-        print('Error reading clipbard: ' + str(e))   
-            
+                            
     if count_sl > 0 and (count_sw_csv + count_sw_xlsx) ==  0 and count_sm == 0:
         printStr = ('_sl.xlsx file(s) submitted, but no _sw.csv/_sw.xlsx or _sm.xlsx '
                     'to match against.  Therefore no results to show.  ')
@@ -1356,21 +1360,12 @@ def convert_sw_bom_to_sl_format(df):
     checkforbaddata(df)
     df[cfg['Item']] = df[cfg['Item']].str.upper()
     __len = get_col_name(df, cfg['length_sw'])
-
+    
     if __len:  # convert lengths to other unit of measure, i.e. to_um
         ser = df[__len].apply(str)
 
-        # SW, with a model not set up properly, can have "trash" in the LENGTH
-        # column, something looking like:  .
-        # If not accounted for, can cause program to crash.
-        trash_filter = ser.str.contains('@')  # Something to filter the trash with.
-        ser = ser * ~trash_filter             # Replace trash with empty string, i.e. "".
-        ser = ser.combine('-9999999', max, fill_value='-1111111')  # Replace empty strings with '-9999999'
-        if not (trash_filter == False).all():
-            explainNegativeLengths()
-
-        df_extract = ser.str.extract(r'(\W*)([\d.]*)\s*([\w\^]*)') # e.g. '34.4 ft^2' > '' '34.4' 'ft^2', or '$34.4' > '$' '34.4' ''
-        value = df_extract[1].astype(float)
+        df_extract = ser.str.extract(r'(\W*)([\d.]*)\s*([\w\^]*)') # e.g. '34.4 ft^2' > '' '34.4' 'ft^2', or '$34.4' > '$' '34.4' ''    
+        value = pd.to_numeric(df_extract[1], errors='coerce').fillna(0)
 
         from_um = df_extract[0].str.lower().fillna('') + df_extract[2].str.lower().fillna('') # e.g. '$ft^2; actually '$' or 'ft^2'
         from_um.replace('', cfg['from_um'].lower(), inplace=True)  # e.g. "" -> "ft"
@@ -1394,7 +1389,11 @@ def convert_sw_bom_to_sl_format(df):
     dd = {cfg['Q']: 'sum', cfg['Description']: 'first', cfg['U']: 'first'}   # funtions to apply to next line
     df = df.groupby(cfg['Item'], as_index=False).aggregate(dd).reindex(columns=df.columns)
 
-    df = df.applymap(lambda x: x.strip() if type(x)==str else x)  # " BASEPLATE 095000  " -> "BASEPLATE 095000"
+    try: 
+        df = df.applymap(lambda x: x.strip() if type(x)==str else x)  # " BASEPLATE 095000  " -> "BASEPLATE 095000"
+    except AttributeError:
+        df = df.map(lambda x: x.strip() if type(x)==str else x)  # applymap was removed in Pandas 3.0
+    
     if cfg['del_whitespace']:
         df[cfg['Item']] = df[cfg['Item']].str.replace(' ', '')
 
@@ -1424,18 +1423,6 @@ def checkforbaddata(df):
         if printStr not in printStrs:
             printStrs.append(printStr)
             print(printStr)
-
-
-def explainNegativeLengths():
-    printStr = ('\n\n"Trash" was found entered for a length value.\n'
-                'Something like LENGTH@7200-0075-003...\n'
-                "So then, some sort of value did't make sense.\n"
-                'Please search CAD BOMs, find this value, and fix. \n'
-                'In your results, this trash may have been replaced \n'
-                'with a large negative number.\n')
-    if printStr not in printStrs:
-        printStrs.append(printStr)
-        print(printStr)
 
 
 def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
@@ -1501,7 +1488,7 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
         filtrT = ((dfsl['Type'] != 'Material') & (dfsl[cfg['Item']].str.slice(-3) != '-OP'))
         dfsl[cfg['Description']]=dfsl[cfg['Description']].where(~filtrT, "Note: 'Type'≠'Material'")
 
-    dfmerged = pd.merge(dfsw, dfsl, on=cfg['Item'], how='outer', suffixes=('_sw', '_sl') ,indicator=True)
+    dfmerged = pd.merge(dfsw, dfsl, on=cfg['Item'], how='outer', suffixes=('_sw', '_sl') ,indicator=True)    
     dfmerged[cfg['Q'] + '_sw'].fillna(0, inplace=True)
     dfmerged[cfg['U'] + '_sl'].fillna('', inplace=True)
 
@@ -1540,19 +1527,23 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     q = filtrQ.apply(lambda x: _pass if x else _fail)     # _fail = Qty differs btwn SW and SL
     d = filtrD.apply(lambda x: _pass if x else _fail)     # _fail = Mtl differs btwn SW & SL
     u = filtrU.apply(lambda x: _pass if x else _fail)     # _fail = U differs btwn SW & SL
-    i = ~dfmerged[cfg['Item']].duplicated(keep=False) * i # duplicate in SL? i-> blank
-    q = ~dfmerged[cfg['Item']].duplicated(keep=False) * q # duplicate in SL? q-> blank
-    d = ~dfmerged[cfg['Item']].duplicated(keep=False) * d # duplicate in SL? d-> blank
-    u = ~dfmerged[cfg['Item']].duplicated(keep=False) * u # duplicate in SL? u-> blank
+    i = i.mask(dfmerged[cfg['Item']].duplicated(keep=False)).fillna('?') # duplicate in SL? i-> ?
+    q = i.mask(dfmerged[cfg['Item']].duplicated(keep=False)).fillna('?') # duplicate in SL? q-> ?
+    d = i.mask(dfmerged[cfg['Item']].duplicated(keep=False)).fillna('?') # duplicate in SL? d-> ?
+    u = i.mask(dfmerged[cfg['Item']].duplicated(keep=False)).fillna('?') # duplicate in SL? u-> ?
+
     dfmerged[cfg['iqdu']] = i + q + d + u
 
     dfmerged = dfmerged[[cfg['Item'], cfg['iqdu'], (cfg['Q'] + '_sw'), (cfg['Q'] + '_sl'),
-                         cfg['Description'] + '_sw', cfg['Description'] + '_sl', (cfg['U'] + '_sw'), (cfg['U'] + '_sl')]]
+                         cfg['Description'] + '_sw', cfg['Description'] + '_sl', (cfg['U'] + '_sw'), (cfg['U'] + '_sl')]] 
+    dfmerged[cfg['Q'] + '_sw'] = dfmerged[cfg['Q'] + '_sw'].fillna(0)
+    dfmerged.fillna({'Q_sw':0, 'Q_sl':0}, inplace=True)
     dfmerged.fillna('', inplace=True)
     dfmerged.set_index(cfg['Item'], inplace=True)
-    dfmerged[cfg['Q'] + '_sw'].replace(0, '', inplace=True)
-
-    return dfmerged.applymap(lambda x: x.strip() if type(x)==str else x)
+    try:
+        return dfmerged.applymap(lambda x: x.strip() if type(x)==str else x)
+    except AttributeError:
+        return dfmerged.map(lambda x: x.strip() if type(x)==str else x)    # applymap was removed in Pandas 3
 
 
 def collect_checked_boms(swdic, sldic):
