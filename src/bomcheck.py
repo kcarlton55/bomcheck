@@ -43,10 +43,10 @@ Change log:
            program would crash.    
 """
 
-__version__ = '2.6'
+__version__ = '2.7'
 __author__ = 'Kenneth E. Carlton'
 
-#import pdb # use with pdb.set_trace()
+import pdb # use with pdb.set_trace()
 import glob, argparse, sys, warnings
 import pandas as pd
 import os.path
@@ -1471,6 +1471,8 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
         if 'Description' in dfsl.columns:
             dfsl.drop('Description', axis=1, inplace=True)
 
+
+
     values = dict.fromkeys(cfg['part_num'], cfg['Item'])  # type(cfg['Item']) is a str
     values.update(dict.fromkeys(cfg['um_sl'], cfg['U']))  # type(cfg['U']) also a str
     values.update(dict.fromkeys(cfg['descrip'], cfg['Description']))
@@ -1479,6 +1481,9 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     dfsl.rename(columns=values, inplace=True) # rename columns so proper comparison can be made
         
     dfsl[cfg['Item']] = dfsl[cfg['Item']].str.upper()
+    
+        
+    
 
     if 'Obsolete' in dfsl.columns:  # Don't use any obsolete pns (even though shown in the SL BOM)
         filtr4 = dfsl['Obsolete'].notnull()
@@ -1491,7 +1496,7 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     dfmerged = pd.merge(dfsw, dfsl, on=cfg['Item'], how='outer', suffixes=('_sw', '_sl') ,indicator=True)    
     dfmerged[cfg['Q'] + '_sw'].fillna(0, inplace=True)
     dfmerged[cfg['U'] + '_sl'].fillna('', inplace=True)
-
+    
     ######################################################################################
     # If U/M in SW isn't the same as that in SL, adjust SW's length values               #
     # so that lengths are per SL's U/M.  Then replace the U/M in the column              #
@@ -1509,9 +1514,7 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     filtrI = dfmerged['_merge'].str.contains('both')  # this filter determines if pn in both SW and SL
     maxdiff = .51 / (10**cfg['accuracy'])
     filtrQ = abs(dfmerged[cfg['Q'] + '_sw'].astype(float) - dfmerged[cfg['Q'] + '_sl']) < maxdiff  # If diff in qty greater than this value, show X
-   
-
-    
+       
     c1 = dfmerged[cfg['Description'] + '_sw'].astype('string').fillna('').str.upper().str.strip()#.str.upper().str.strip()
     c2 = dfmerged[cfg['Description'] + '_sl'].astype('string').fillna('').str.upper().str.strip()#.str.upper().str.strip()
     filtrD = c1==c2
@@ -1528,9 +1531,9 @@ def compare_a_sw_bom_to_a_sl_bom(dfsw, dfsl):
     d = filtrD.apply(lambda x: _pass if x else _fail)     # _fail = Mtl differs btwn SW & SL
     u = filtrU.apply(lambda x: _pass if x else _fail)     # _fail = U differs btwn SW & SL
     i = i.mask(dfmerged[cfg['Item']].duplicated(keep=False)).fillna('?') # duplicate in SL? i-> ?
-    q = i.mask(dfmerged[cfg['Item']].duplicated(keep=False)).fillna('?') # duplicate in SL? q-> ?
-    d = i.mask(dfmerged[cfg['Item']].duplicated(keep=False)).fillna('?') # duplicate in SL? d-> ?
-    u = i.mask(dfmerged[cfg['Item']].duplicated(keep=False)).fillna('?') # duplicate in SL? u-> ?
+    q = q.mask(dfmerged[cfg['Item']].duplicated(keep=False)).fillna('?') # duplicate in SL? q-> ?
+    d = d.mask(dfmerged[cfg['Item']].duplicated(keep=False)).fillna('?') # duplicate in SL? d-> ?
+    u = u.mask(dfmerged[cfg['Item']].duplicated(keep=False)).fillna('?') # duplicate in SL? u-> ?
 
     dfmerged[cfg['iqdu']] = i + q + d + u
 

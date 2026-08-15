@@ -204,7 +204,7 @@ def check_sm_parts(files_list, sm_files, cfg):
     df = df.rename(columns={'Item': 'alt pn'})
     
     
-    df.rename(columns={'QTYnSW\SL' : qty_col_name}, inplace=True)
+    df.rename(columns={'QTYnSW/SL' : qty_col_name}, inplace=True)
     df = df.set_index(['PN', 'DESCRIPTION', qty_col_name,  'COST', 'alt pn']) #.sort_index(axis=0)
 
     df['alt\nqty\nused'] = '' 
