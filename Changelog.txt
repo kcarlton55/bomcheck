@@ -1,0 +1,49 @@
+Change log:
+
+Version 2.6: 
+	1) Added new column to the slow_moving bom report: "Qty SW/SL".  It 
+	   shows part quantities that are shown on SolidWorks and SyteLine BOMs.
+	2) Bomcheck was originally designed to work with python version 3.8.
+	   Under python 3.14 a number of bugs appeared that caused crashes.
+	   These bugs fixed.
+	3) When a slowmoving bom pulled from Teams, it automatically downloads 
+           to a user's download folder.  If left there, and the file name is left 
+           unchanged, bomcheck will automatically find the file.  There is no 
+           need to add a _sm.xlsx suffix.  (older slow moving boms that are found
+	   will be automatically deleted.)
+	4  Bug fix: If no slow moving parts were found to report on, the
+	   program would crash. 
+	   
+Version 2.7
+	Bug fix.  Due to a programming error, bomcheck stop indicating errors in
+        the iqdu column.  That is, the column would have a value looking like 
+        ---- instead of --X- (which indicates a description error).  Problem was
+        caused by lines within the compare_a_sw_bom_to_a_sl_bom() function:
+	
+	 i = i.mask(dfmerged[cfg['Item']].duplicated(keep=False)).fillna('?')
+	 q = i.mask(dfmerged[cfg['Item']].duplicated(keep=False)).fillna('?')
+	 d = i.mask(dfmerged[cfg['Item']].duplicated(keep=False)).fillna('?')
+	 u = i.mask(dfmerged[cfg['Item']].duplicated(keep=False)).fillna('?')
+	 
+	 Changed lines to:
+	 
+	 i = i.mask(dfmerged[cfg['Item']].duplicated(keep=False)).fillna('?')
+	 q = q.mask(dfmerged[cfg['Item']].duplicated(keep=False)).fillna('?')
+	 d = d.mask(dfmerged[cfg['Item']].duplicated(keep=False)).fillna('?')
+	 u = u.mask(dfmerged[cfg['Item']].duplicated(keep=False)).fillna('?')
+
+Version 2.8
+        1) Bug fix.  When doing a check of slow moving parts (via button 
+           "Compare SW/SL BOM to SL BOM"), if a SW BOM was not present, then
+           results couldn't be exported to Excel.  Program crashed.
+        2) Bug fix.  When doing a BOM check via the Run bomcheck button, if a
+           description field within SW BOM of a drawing contained multiple 
+           lines due to a narrow cell, then even if the SW and SL descriptions
+           matched, the bomcheck program would still show an X to indicate that
+           the descriptions didn't match.  The reason for the error was because
+           when multiple lines are present, and invisible "new line" character 
+           was also present.  With the new line character present, the 
+           description didn't match.
+        3) Program improvement: If a newer version is found on the web, the 
+           program will update the program if the user answers Yes the to a Yes
+           or No question to update.

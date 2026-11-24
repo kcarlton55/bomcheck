@@ -43,7 +43,7 @@ Change log:
            program would crash.    
 """
 
-__version__ = '2.7'
+__version__ = '2.8'
 __author__ = 'Kenneth E. Carlton'
 
 import pdb # use with pdb.set_trace()
@@ -565,28 +565,15 @@ def bomcheck(fn, dic={}, **kwargs):
     pd.set_option('display.max_rows', m)
     fn = get_fnames(fn, followlinks=f)  # get filenames with any extension.
     dirname, swfiles, slfiles, smfiles = gatherBOMs_from_fnames(fn)
-# =============================================================================
-#     if smfiles and cfg['run_bomcheck'] == False:
-#         try:
-#             sm_pts_comparison = check_sm_parts.check_sm_parts([swfiles, slfiles], smfiles, cfg)
-#         except Exception as e:
-#             printStr = ('\nError 206. \n' +
-#                         "An unknown error occured in the sm_pts_comparison function. \n\n" +
-#                         str(e) + '\n\n')
-#             printStrs.append(printStr)
-#             print(printStr)
-#             sm_pts_comparison = None  
-#     else:
-#         sm_pts_comparison = None  
-#     
-#     if cfg['run_bomcheck']:    
-#         if ('mtltest' in cfg) and cfg['mtltest']:
-#             typeNotMtl(slfiles) # report on corrupt data within SyteLine.  See function typeNotMtl
-#             
-# =============================================================================
-
     if smfiles and cfg['run_bomcheck'] == False:
-        sm_pts_comparison = check_sm_parts.check_sm_parts([swfiles, slfiles], smfiles, cfg)
+        try:
+            sm_pts_comparison = check_sm_parts.check_sm_parts([swfiles, slfiles], smfiles, cfg)
+        except:
+            sm_pts_comparison = pd.DataFrame({'Description': ['None'],
+              'descr\nsimi-\nlarity' : ['None'], 'On\nHand' : ['None'], 
+              'Unit Cost': ['None'], 'Yr n-1\nUsage' : ['None'], 
+              'Yr n-2\nUsage' : ['None'], 'Last Used\n(Days)' : ['None'], 
+              'on\nshelf\n(days)' : ['None'], 'alt\nqty\nused': ['None']}) 
     else:
         sm_pts_comparison = None  
             
@@ -995,12 +982,10 @@ def typeNotMtl(sldic):
             value_filtered = value[(value.Type != 'Material') & (value[cfg['Item']].str.slice(-3) != '-OP')]
             corrupt_pns = list(value_filtered[cfg['Item']])
             if corrupt_pns and not flag:
-                printStr = ('\nCorrupt subassemblies found from SyteLine.  Though the "Source" ' 
-                            'of various items is "Material", in the subassembly BOM however '
-                            'they are shown otherwise.  That is, when "Type" is not "Material" '
-                            'in the subassembly BOM, the items will not be placed on order.  '
-                            'To correct, open up the subassembly, and for the problematic item '
-                            'change "Type" to "Material".')
+                printStr = ('\nSome subassemblies in SyteLine have a problem.  If not corrected'
+                            'some parts will not be put on order.  For the subassemblies listed'
+                            'below, in SyteLine go to "Current Materials" and in the "Type"'
+                            'column, change "Other" to "Material".')
                 flag = True
             if corrupt_pns:
                 printStr = printStr + f'\n\nSubassembly {key}.  Problematic parts are:\n'
@@ -1401,6 +1386,8 @@ def convert_sw_bom_to_sl_format(df):
     df[cfg['Op']] = cfg['OpValue']   # Op is a standard column shown in a SL BOM, usually set to 10
 
     df.set_index(cfg['Op'], inplace=True)
+    df = df.replace(r'\n', '', regex=True)  # 11/19/2026.  This line and next line eliminates an
+    df = df.replace(r'  ', ' ', regex=True) # X error mark showing in the bomcheck for Description
 
     return df
 
